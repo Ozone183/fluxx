@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { collection, onSnapshot, addDoc, doc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
-import Icon from 'react-native-vector-icons/Feather';
+import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
@@ -159,7 +159,7 @@ const CommentsScreen = ({ route, navigation }: any) => {
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Icon name="message-circle" size={48} color={COLORS.slate600} />
+           <Icon name="chatbubble-outline" size={48} color={COLORS.slate600} />
             <Text style={styles.emptyText}>No comments yet</Text>
             <Text style={styles.emptySubtext}>Be the first to share your thoughts!</Text>
           </View>

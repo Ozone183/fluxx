@@ -7,7 +7,7 @@ import {
   Dimensions,
   Image,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../theme/colors';
 
@@ -72,7 +72,7 @@ const PostCard: React.FC<PostCardProps> = ({
           <Image
             source={{ uri: profilePicUrl }}
             style={styles.profilePic}
-            resizeMode={Image.resizeMode.cover}
+            resizeMode={'cover'}
           />
         ) : (
           <LinearGradient
@@ -96,7 +96,7 @@ const PostCard: React.FC<PostCardProps> = ({
         <Image
           source={{ uri: post.image }}
           style={styles.postImage}
-          resizeMode={Image.resizeMode.cover}
+          resizeMode={'cover'}
         />
       )}
 
@@ -125,14 +125,14 @@ const PostCard: React.FC<PostCardProps> = ({
           onPress={() => onComment(post)}
           activeOpacity={0.7}
         >
-          <Icon name="message-circle" size={20} color={COLORS.slate400} />
+          <Icon name="chatbubble-outline" size={20} color={COLORS.slate400} />
           <Text style={styles.actionText}>{commentsCount}</Text>
         </TouchableOpacity>
 
         <View style={styles.spacer} />
 
         <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
-          <Icon name="share-2" size={20} color={COLORS.slate400} />
+          <Icon name="share-outline" size={20} color={COLORS.slate400} />
         </TouchableOpacity>
       </View>
     </View>
@@ -158,16 +158,13 @@ const getInitials = (channel: string): string => {
   return channel.replace('@', '').substring(0, 2).toUpperCase();
 };
 
-const getGradientForChannel = (channel: string): string[] => {
+const getGradientForChannel = (channel: string): readonly [string, string] => {
   const colors = [
-    [COLORS.indigo600, COLORS.pink600],
-    [COLORS.cyan500, COLORS.indigo600],
-    [COLORS.teal500, COLORS.green600],
-    [COLORS.pink600, COLORS.red500],
-    [COLORS.yellow600, COLORS.red500],
+    [COLORS.indigo600, COLORS.pink600] as const,
+    [COLORS.cyan500, COLORS.indigo600] as const,
+    [COLORS.teal500, COLORS.green600] as const,
   ];
-  const index = (channel?.length || 0) % colors.length;
-  return colors[index];
+  return colors[(channel?.length || 0) % colors.length];
 };
 
 const styles = StyleSheet.create({

@@ -1,15 +1,18 @@
 import 'react-native-gesture-handler';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ProfileProvider } from './src/context/ProfileContext';
 
+import AnimatedSplash from './src/screens/AnimatedSplash';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 import AuthLoadingScreen from './src/screens/AuthLoadingScreen';
 import ChannelSetupScreen from './src/screens/ChannelSetupScreen';
 import FeedScreen from './src/screens/FeedScreen';
@@ -31,15 +34,16 @@ const MainTabs = () => (
       tabBarStyle: { 
         backgroundColor: COLORS.slate900, 
         borderTopColor: COLORS.slate800,
-        height: 65,
-        paddingBottom: 10,
-        paddingTop: 5,
+        height: 85,
+        paddingBottom: 25,
+        paddingTop: 10,
       },
       tabBarActiveTintColor: COLORS.cyan400,
       tabBarInactiveTintColor: COLORS.slate500,
       tabBarLabelStyle: {
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: '600',
+        marginBottom: 5,
       },
       tabBarIconStyle: {
         marginTop: 5,
@@ -104,17 +108,59 @@ const AppNavigator = () => {
   );
 };
 
-const App = () => (
-  <GestureHandlerRootView style={{ flex: 1 }}>
-    <AuthProvider>
-      <ProfileProvider>
-        <NavigationContainer>
-          <StatusBar barStyle="light-content" backgroundColor={COLORS.slate900} />
-          <AppNavigator />
-        </NavigationContainer>
-      </ProfileProvider>
-    </AuthProvider>
-  </GestureHandlerRootView>
-);
+const App = () => {
+  const [showSplash, setShowSplash] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
+
+  useEffect(() => {
+    checkOnboardingStatus();
+  }, []);
+
+  const checkOnboardingStatus = async () => {
+    try {
+      const hasSeenOnboarding = await AsyncStorage.getItem('hasSeenOnboarding');
+      setShowOnboarding(hasSeenOnboarding !== 'true');
+    } catch (error) {
+      console.error('Error checking onboarding status:', error);
+      setShowOnboarding(true);
+    } finally {
+      setIsCheckingOnboarding(false);
+    }
+  };
+
+  const handleSplashFinish = () => {
+    setShowSplash(false);
+  };
+
+  const handleOnboardingFinish = () => {
+    setShowOnboarding(false);
+  };
+
+  if (isCheckingOnboarding) {
+    return null;
+  }
+
+  if (showSplash) {
+    return <AnimatedSplash onFinish={handleSplashFinish} />;
+  }
+
+  if (showOnboarding) {
+    return <OnboardingScreen onFinish={handleOnboardingFinish} />;
+  }
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <ProfileProvider>
+          <NavigationContainer>
+            <StatusBar barStyle="light-content" backgroundColor={COLORS.slate900} />
+            <AppNavigator />
+          </NavigationContainer>
+        </ProfileProvider>
+      </AuthProvider>
+    </GestureHandlerRootView>
+  );
+};
 
 export default App;

@@ -20,8 +20,6 @@ import { COLORS, GRADIENTS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
 import { useProfiles } from '../context/ProfileContext';
 
-
-
 interface Comment {
   id: string;
   userId: string;
@@ -151,27 +149,30 @@ const CommentsScreen = ({ route, navigation }: any) => {
         <View style={styles.headerSpacer} />
       </LinearGradient>
 
-      {/* Comments List */}
-      <FlatList
-        data={comments}
-        renderItem={renderComment}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-           <Icon name="chatbubble-outline" size={48} color={COLORS.slate600} />
-            <Text style={styles.emptyText}>No comments yet</Text>
-            <Text style={styles.emptySubtext}>Be the first to share your thoughts!</Text>
-          </View>
-        }
-        showsVerticalScrollIndicator={false}
-      />
-
-      {/* Input */}
+      {/* KeyboardAvoidingView wraps BOTH list and input */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        style={styles.keyboardView}
+        keyboardVerticalOffset={0}
       >
+        {/* Comments List */}
+        <FlatList
+          data={comments}
+          renderItem={renderComment}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Icon name="chatbubble-outline" size={48} color={COLORS.slate600} />
+              <Text style={styles.emptyText}>No comments yet</Text>
+              <Text style={styles.emptySubtext}>Be the first to share your thoughts!</Text>
+            </View>
+          }
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        />
+
+        {/* Input Container */}
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
@@ -192,7 +193,7 @@ const CommentsScreen = ({ route, navigation }: any) => {
             activeOpacity={0.7}
           >
             <LinearGradient
-              colors={newComment.trim() && !isSubmitting ? GRADIENTS.primary : [COLORS.slate700, COLORS.slate700]}
+              colors={newComment.trim() && !isSubmitting ? GRADIENTS.primary : [COLORS.slate700, COLORS.slate700] as const}
               style={styles.sendGradient}
             >
               <Icon name="send" size={20} color={COLORS.white} />
@@ -241,6 +242,9 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 40,
+  },
+  keyboardView: {
+    flex: 1,
   },
   listContent: {
     paddingTop: 12,
@@ -312,6 +316,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     padding: 16,
+    paddingBottom: 20,
     backgroundColor: COLORS.slate800,
     borderTopWidth: 1,
     borderTopColor: COLORS.slate700,

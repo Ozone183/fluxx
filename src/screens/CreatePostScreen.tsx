@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../config/firebase';
 import {
   View,
   Text,
@@ -38,16 +40,28 @@ const CreatePostScreen = () => {
   const [isCritiquing, setIsCritiquing] = useState(false);
   const [isGeneratingCaption, setIsGeneratingCaption] = useState(false);
 
+  // Caption options state
+  const [captionOptions, setCaptionOptions] = useState<string[]>([]);
+  const [showCaptionOptions, setShowCaptionOptions] = useState(false);
+
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      quality: 0.8,
+      aspect: [4, 3],
+      quality: 0.7, // Reduced for faster upload
     });
 
     if (!result.canceled && result.assets[0].uri) {
       setImageUri(result.assets[0].uri);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      // Warn user about image visibility
+      Alert.alert(
+        '⚠️ Image Note',
+        'Images are saved locally and will only be visible to you right now. Full image sharing coming soon!',
+        [{ text: 'Got it' }]
+      );
     }
   };
 
@@ -66,7 +80,7 @@ const CreatePostScreen = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      const systemPrompt = 'You are a creative social media caption writer. Generate 3 catchy, engaging caption options for a social media post. Keep them short (max 2 sentences each), fun, and Instagram-worthy. Use emojis where appropriate. Format as: \n\n1) [caption]\n2) [caption]\n3) [caption]';
+      const systemPrompt = 'You are a creative social media caption writer. Generate exactly 3 catchy, engaging caption options for a social media post. Keep each one short (max 2 sentences), fun, and Instagram-worthy. Use emojis where appropriate. Format EXACTLY as:\n\n1) [caption text here]\n2) [caption text here]\n3) [caption text here]';
 
       const payload = {
         contents: [{ parts: [{ text: 'Generate 3 creative caption options for a social media post with an image' }] }],
@@ -78,15 +92,34 @@ const CreatePostScreen = () => {
         payload,
       );
 
-      const captions = response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'Failed to generate captions';
-      setContent(captions);
-      Alert.alert('AI Captions Generated! ✨', 'Pick one and edit as you like!');
+      const rawCaptions = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+      // Parse captions into array
+      const captionsArray = rawCaptions
+        .split('\n')
+        .filter((line: string) => line.match(/^\d+\)/))
+        .map((line: string) => line.replace(/^\d+\)\s*/, '').trim());
+
+      if (captionsArray.length > 0) {
+        setCaptionOptions(captionsArray);
+        setShowCaptionOptions(true);
+        Alert.alert('AI Captions Ready! ✨', 'Tap to select your favorite caption below!');
+      } else {
+        Alert.alert('Error', 'Failed to generate captions properly');
+      }
     } catch (error) {
       console.error('Caption error:', error);
       Alert.alert('Error', 'Failed to generate captions');
     } finally {
       setIsGeneratingCaption(false);
     }
+  };
+
+  const selectCaption = (caption: string) => {
+    setContent(caption);
+    setShowCaptionOptions(false);
+    setCaptionOptions([]);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const generateCritique = async () => {
@@ -140,13 +173,39 @@ const CreatePostScreen = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
+      let imageUrl = null;
+
+      // Upload image to Firebase Storage if present
+      if (imageUri) {
+        try {
+          // Convert image URI to blob
+          const response = await fetch(imageUri);
+          const blob = await response.blob();
+
+          // Create unique filename
+          const filename = `posts/${userId}_${Date.now()}.jpg`;
+          const storageRef = ref(storage, filename);
+
+          // Upload image
+          await uploadBytes(storageRef, blob);
+
+          // Get download URL
+          imageUrl = await getDownloadURL(storageRef);
+          console.log('Image uploaded successfully:', imageUrl);
+        } catch (uploadError) {
+          console.error('Image upload error:', uploadError);
+          Alert.alert('Warning', 'Failed to upload image, posting without it');
+        }
+      }
+
+      // Create post with image URL
       const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
 
       await addDoc(postsRef, {
         userId,
         userChannel,
         content: content.trim(),
-        image: imageUri || null,
+        image: imageUrl,
         timestamp: serverTimestamp(),
         likedBy: [],
         commentsCount: 0,
@@ -156,6 +215,8 @@ const CreatePostScreen = () => {
       setImageUri(null);
       setCritique('');
       setShowCritique(false);
+      setCaptionOptions([]);
+      setShowCaptionOptions(false);
 
       Alert.alert('Success!', 'Your flux has been posted! 🎉', [
         { text: 'OK', onPress: () => (navigation as any).navigate('MainTabs', { screen: 'Feed' }) },
@@ -173,8 +234,12 @@ const CreatePostScreen = () => {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
+        keyboardVerticalOffset={0}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Create Flux</Text>
@@ -197,6 +262,39 @@ const CreatePostScreen = () => {
           />
 
           <Text style={styles.charCount}>{content.length}/1000</Text>
+
+          {/* Caption Options (Selectable) */}
+          {showCaptionOptions && captionOptions.length > 0 && (
+            <View style={styles.captionOptionsContainer}>
+              <Text style={styles.captionOptionsTitle}>✨ Select Your Caption:</Text>
+              {captionOptions.map((caption, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.captionOption}
+                  onPress={() => selectCaption(caption)}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient
+                    colors={[COLORS.slate700, COLORS.slate800] as const}
+                    style={styles.captionOptionGradient}
+                  >
+                    <Text style={styles.captionOptionNumber}>{index + 1}</Text>
+                    <Text style={styles.captionOptionText}>{caption}</Text>
+                    <Ionicons name="chevron-forward" size={20} color={COLORS.cyan400} />
+                  </LinearGradient>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                style={styles.cancelCaptionsButton}
+                onPress={() => {
+                  setShowCaptionOptions(false);
+                  setCaptionOptions([]);
+                }}
+              >
+                <Text style={styles.cancelCaptionsText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Image Preview */}
           {imageUri && (
@@ -225,7 +323,7 @@ const CreatePostScreen = () => {
           </TouchableOpacity>
 
           {/* AI Caption Button (only shows when image is added) */}
-          {imageUri && (
+          {imageUri && !showCaptionOptions && (
             <TouchableOpacity
               style={styles.captionButton}
               onPress={generateAICaption}
@@ -293,7 +391,7 @@ const CreatePostScreen = () => {
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={content.trim() && !isPosting ? GRADIENTS.primary : [COLORS.slate700, COLORS.slate700]}
+              colors={content.trim() && !isPosting ? GRADIENTS.primary : [COLORS.slate700, COLORS.slate700] as const}
               style={styles.postGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
@@ -324,6 +422,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingTop: 60,
+    paddingBottom: 120, // Extra padding for keyboard
   },
   header: {
     marginBottom: 24,
@@ -355,6 +454,53 @@ const styles = StyleSheet.create({
     color: COLORS.slate500,
     textAlign: 'right',
     marginBottom: 16,
+  },
+  captionOptionsContainer: {
+    marginBottom: 16,
+    padding: 16,
+    backgroundColor: COLORS.slate800,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: COLORS.cyan400,
+  },
+  captionOptionsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.cyan400,
+    marginBottom: 12,
+  },
+  captionOption: {
+    marginBottom: 12,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  captionOptionGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+  },
+  captionOptionNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.cyan400,
+    marginRight: 12,
+    width: 24,
+  },
+  captionOptionText: {
+    flex: 1,
+    fontSize: 15,
+    color: COLORS.white,
+    lineHeight: 22,
+  },
+  cancelCaptionsButton: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  cancelCaptionsText: {
+    fontSize: 14,
+    color: COLORS.slate400,
+    fontWeight: '600',
   },
   imagePreview: {
     position: 'relative',
@@ -455,6 +601,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+    marginBottom: 40,
   },
   postButtonDisabled: {
     opacity: 0.5,

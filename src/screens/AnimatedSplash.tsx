@@ -64,13 +64,13 @@ const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onFinish }) => {
         Animated.timing(glowPulse, {
           toValue: 1,
           duration: 1500,
-          easing: Easing.inOut(Easing.sine),
+          easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
         Animated.timing(glowPulse, {
           toValue: 0,
           duration: 1500,
-          easing: Easing.inOut(Easing.sine),
+          easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
       ])
@@ -94,13 +94,13 @@ const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onFinish }) => {
             Animated.timing(particle.y, {
               toValue: Math.random() * height,
               duration: 8000 + Math.random() * 4000,
-              easing: Easing.inOut(Easing.sine),
+              easing: Easing.inOut(Easing.sin),
               useNativeDriver: true,
             }),
             Animated.timing(particle.y, {
               toValue: Math.random() * height,
               duration: 8000 + Math.random() * 4000,
-              easing: Easing.inOut(Easing.sine),
+              easing: Easing.inOut(Easing.sin),
               useNativeDriver: true,
             }),
           ]),
@@ -108,13 +108,13 @@ const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onFinish }) => {
             Animated.timing(particle.x, {
               toValue: Math.random() * width,
               duration: 10000 + Math.random() * 5000,
-              easing: Easing.inOut(Easing.sine),
+              easing: Easing.inOut(Easing.sin),
               useNativeDriver: true,
             }),
             Animated.timing(particle.x, {
               toValue: Math.random() * width,
               duration: 10000 + Math.random() * 5000,
-              easing: Easing.inOut(Easing.sine),
+              easing: Easing.inOut(Easing.sin),
               useNativeDriver: true,
             }),
           ]),
@@ -122,13 +122,13 @@ const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onFinish }) => {
             Animated.timing(particle.opacity, {
               toValue: Math.random() * 0.3 + 0.2,
               duration: 3000,
-              easing: Easing.inOut(Easing.sine),
+              easing: Easing.inOut(Easing.sin),
               useNativeDriver: true,
             }),
             Animated.timing(particle.opacity, {
               toValue: Math.random() * 0.5 + 0.3,
               duration: 3000,
-              easing: Easing.inOut(Easing.sine),
+              easing: Easing.inOut(Easing.sin),
               useNativeDriver: true,
             }),
           ]),

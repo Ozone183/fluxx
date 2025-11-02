@@ -31,6 +31,10 @@ export const COLORS = {
   transparent: 'transparent',
   gradientStart: '#06b6d4',
   gradientEnd: '#4f46e5',
+  electricPurple: '#A855F7',  // Add if missing
+  deepIndigo: '#4F46E5',      // Add if missing
+  hotPink: '#EC4899',         // Add if missing
+  neonGreen: '#10B981',       // Add if missing
 };
 
 export const GRADIENTS = {

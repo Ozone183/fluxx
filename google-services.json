@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "150360579647",
+    "project_id": "fluxx-fe69f",
+    "storage_bucket": "fluxx-fe69f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:150360579647:android:e3dfa256e205fce2dc628a",
+        "android_client_info": {
+          "package_name": "com.fluxxstable"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2og-Zlqhkc15vqphHaVLW8E3k_wpfwJU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:150360579647:android:a8ba67f24fbab786dc628a",
+        "android_client_info": {
+          "package_name": "com.ozone183.fluxx"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2og-Zlqhkc15vqphHaVLW8E3k_wpfwJU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

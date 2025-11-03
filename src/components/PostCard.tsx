@@ -6,6 +6,8 @@ import {
   StyleSheet,
   Dimensions,
   Image,
+  Share,
+  Alert,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -60,6 +62,27 @@ const PostCard: React.FC<PostCardProps> = ({
   const profilePicUrl = profile?.profilePictureUrl;
   const initials = getInitials(displayChannel);
 
+  const handleShare = async () => {
+    try {
+      const result = await Share.share({
+        message: `Check out this post by ${displayChannel} on Fluxx:\n\n${post.content}`,
+        title: `Post by ${displayChannel}`,
+      });
+
+      if (result.action === Share.sharedAction) {
+        if (result.activityType) {
+          console.log('Shared with activity type:', result.activityType);
+        } else {
+          console.log('Post shared successfully');
+        }
+      } else if (result.action === Share.dismissedAction) {
+        console.log('Share dismissed');
+      }
+    } catch (error: any) {
+      Alert.alert('Share Error', error.message);
+    }
+  };
+
   return (
     <View style={styles.card}>
       {/* Header */}
@@ -91,13 +114,15 @@ const PostCard: React.FC<PostCardProps> = ({
       {/* Content */}
       <Text style={styles.content}>{post.content}</Text>
 
-      {/* Image */}
+      {/* Image - Fixed with container wrapper */}
       {post.image && (
-        <Image
-          source={{ uri: post.image }}
-          style={styles.postImage}
-          resizeMode={'cover'}
-        />
+        <View style={styles.imageContainer}>
+          <Image
+            source={{ uri: post.image }}
+            style={styles.postImage}
+            resizeMode={'cover'}
+          />
+        </View>
       )}
 
       {/* Actions */}
@@ -131,8 +156,12 @@ const PostCard: React.FC<PostCardProps> = ({
 
         <View style={styles.spacer} />
 
-        <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
-          <Icon name="share-outline" size={20} color={COLORS.slate400} />
+        <TouchableOpacity 
+          style={styles.actionButton} 
+          activeOpacity={0.7}
+          onPress={handleShare}
+        >
+          <Icon name="paper-plane" size={20} color={COLORS.slate400} />
         </TouchableOpacity>
       </View>
     </View>
@@ -221,12 +250,16 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 12,
   },
+  imageContainer: {
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
+    backgroundColor: COLORS.slate700,
+  },
   postImage: {
     width: '100%',
     height: 240,
-    borderRadius: 12,
-    marginBottom: 12,
-    backgroundColor: COLORS.slate700,
   },
   actions: {
     flexDirection: 'row',

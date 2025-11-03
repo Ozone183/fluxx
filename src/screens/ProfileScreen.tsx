@@ -7,11 +7,17 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  TextInput,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
-import { collection, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
-import { firestore } from '../config/firebase';
+import { collection, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, query, limit as firestoreLimit, startAfter, getDocs, orderBy } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { firestore, storage } from '../config/firebase';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 
 import { COLORS, GRADIENTS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
@@ -30,49 +36,107 @@ interface Post {
   commentsCount: number;
 }
 
+const POSTS_PER_PAGE = 20;
+
 const ProfileScreen = ({ route }: any) => {
-  const { userId: currentUserId, userChannel, signOut } = useAuth();
+  const { userId: currentUserId, userChannel, signOut, setUserProfile } = useAuth();
   const { allProfiles } = useProfiles();
   const profileUserId = route?.params?.userId || currentUserId;
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [lastDoc, setLastDoc] = useState<any>(null);
+  const [hasMore, setHasMore] = useState(true);
+  
+  // Edit Bio Modal State
+  const [showBioModal, setShowBioModal] = useState(false);
+  const [bio, setBio] = useState('');
+  const [editingBio, setEditingBio] = useState('');
+  const [savingBio, setSavingBio] = useState(false);
+  
+  // Profile Picture Upload State
+  const [uploadingPic, setUploadingPic] = useState(false);
 
   const profile = allProfiles[profileUserId || ''];
   const isOwnProfile = profileUserId === currentUserId;
 
+  // Load initial posts with pagination
   useEffect(() => {
     if (!profileUserId) return;
 
-    const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
-    
-    const unsubscribe = onSnapshot(
-      postsRef,
-      (snapshot) => {
+    const loadInitialPosts = async () => {
+      try {
+        const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
+        const q = query(
+          postsRef,
+          orderBy('timestamp', 'desc'),
+          firestoreLimit(POSTS_PER_PAGE)
+        );
+
+        const snapshot = await getDocs(q);
         const allPosts = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         })) as Post[];
 
-        const userPosts = allPosts
-          .filter(post => post.userId === profileUserId)
-          .sort(
-            (a, b) =>
-              (b.timestamp?.toMillis?.() || b.timestamp?.seconds * 1000 || 0) - 
-              (a.timestamp?.toMillis?.() || a.timestamp?.seconds * 1000 || 0),
-          );
-
+        const userPosts = allPosts.filter(post => post.userId === profileUserId);
         setPosts(userPosts);
+        
+        if (snapshot.docs.length > 0) {
+          setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+        }
+        
+        setHasMore(snapshot.docs.length === POSTS_PER_PAGE);
         setLoading(false);
-      },
-      (error) => {
+      } catch (error) {
         console.error('Profile posts error:', error);
         setLoading(false);
-      },
-    );
+      }
+    };
 
-    return () => unsubscribe();
-  }, [profileUserId]);
+    loadInitialPosts();
+
+    // Load bio if own profile
+    if (isOwnProfile && profile) {
+      setBio(profile.bio || '');
+    }
+  }, [profileUserId, isOwnProfile, profile]);
+
+  // Load more posts
+  const loadMorePosts = async () => {
+    if (!hasMore || loadingMore || !lastDoc) return;
+
+    setLoadingMore(true);
+    try {
+      const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
+      const q = query(
+        postsRef,
+        orderBy('timestamp', 'desc'),
+        startAfter(lastDoc),
+        firestoreLimit(POSTS_PER_PAGE)
+      );
+
+      const snapshot = await getDocs(q);
+      const morePosts = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Post[];
+
+      const userPosts = morePosts.filter(post => post.userId === profileUserId);
+      setPosts(prev => [...prev, ...userPosts]);
+      
+      if (snapshot.docs.length > 0) {
+        setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+      }
+      
+      setHasMore(snapshot.docs.length === POSTS_PER_PAGE);
+    } catch (error) {
+      console.error('Load more posts error:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const handleSignOut = () => {
     Alert.alert(
@@ -100,6 +164,81 @@ const ProfileScreen = ({ route }: any) => {
     }
   };
 
+  const handleProfilePictureUpload = async () => {
+    if (!isOwnProfile || !currentUserId) return;
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (result.canceled) return;
+
+      const imageUri = result.assets[0].uri;
+      setUploadingPic(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      // Convert image URI to blob
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+
+      // Upload to Firebase Storage
+      const filename = `profiles/${currentUserId}_${Date.now()}.jpg`;
+      const storageRef = ref(storage, filename);
+      await uploadBytes(storageRef, blob);
+
+      // Get download URL
+      const downloadURL = await getDownloadURL(storageRef);
+
+      // Update Firestore profile
+      const profileRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'profiles', currentUserId);
+      await updateDoc(profileRef, {
+        profilePictureUrl: downloadURL,
+      });
+
+      // Update AuthContext
+      setUserProfile(userChannel || '', downloadURL);
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Success!', 'Profile picture updated!');
+    } catch (error: any) {
+      console.error('Profile picture upload error:', error);
+      Alert.alert('Error', `Failed to upload picture: ${error.message}`);
+    } finally {
+      setUploadingPic(false);
+    }
+  };
+
+  const handleEditBio = () => {
+    setEditingBio(bio);
+    setShowBioModal(true);
+  };
+
+  const handleSaveBio = async () => {
+    if (!currentUserId) return;
+
+    setSavingBio(true);
+    try {
+      const profileRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'profiles', currentUserId);
+      await updateDoc(profileRef, {
+        bio: editingBio.trim(),
+      });
+
+      setBio(editingBio.trim());
+      setShowBioModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Success!', 'Bio updated!');
+    } catch (error: any) {
+      console.error('Bio update error:', error);
+      Alert.alert('Error', `Failed to update bio: ${error.message}`);
+    } finally {
+      setSavingBio(false);
+    }
+  };
+
   const renderPost = ({ item }: { item: Post }) => (
     <PostCard
       post={item}
@@ -119,20 +258,50 @@ const ProfileScreen = ({ route }: any) => {
   const renderHeader = () => (
     <View style={styles.profileHeader}>
       <LinearGradient colors={GRADIENTS.primary} style={styles.profileBanner}>
-        {profilePic ? (
-          <Image source={{ uri: profilePic }} style={styles.profilePic} />
-        ) : (
-          <LinearGradient
-            colors={getGradientForChannel(displayChannel)}
-            style={styles.profilePic}
-          >
-            <Text style={styles.profileInitials}>{initials}</Text>
-          </LinearGradient>
-        )}
+        <TouchableOpacity
+          onPress={isOwnProfile ? handleProfilePictureUpload : undefined}
+          disabled={uploadingPic}
+          activeOpacity={isOwnProfile ? 0.7 : 1}
+        >
+          {uploadingPic ? (
+            <View style={styles.profilePic}>
+              <ActivityIndicator size="large" color={COLORS.cyan400} />
+            </View>
+          ) : profilePic ? (
+            <Image source={{ uri: profilePic }} style={styles.profilePic} />
+          ) : (
+            <LinearGradient
+              colors={getGradientForChannel(displayChannel)}
+              style={styles.profilePic}
+            >
+              <Text style={styles.profileInitials}>{initials}</Text>
+            </LinearGradient>
+          )}
+          {isOwnProfile && !uploadingPic && (
+            <View style={styles.editIconContainer}>
+              <Icon name="camera" size={16} color={COLORS.white} />
+            </View>
+          )}
+        </TouchableOpacity>
       </LinearGradient>
 
       <View style={styles.profileInfo}>
         <Text style={styles.profileChannel}>{displayChannel}</Text>
+        
+        {/* Bio Section */}
+        {(bio || isOwnProfile) && (
+          <View style={styles.bioSection}>
+            <Text style={styles.bioText}>
+              {bio || (isOwnProfile ? 'Tap to add bio' : 'No bio yet')}
+            </Text>
+            {isOwnProfile && (
+              <TouchableOpacity onPress={handleEditBio} style={styles.editBioButton}>
+                <Icon name="create-outline" size={18} color={COLORS.cyan400} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         <View style={styles.statsContainer}>
           <View style={styles.stat}>
             <Text style={styles.statValue}>{postsCount}</Text>
@@ -157,6 +326,15 @@ const ProfileScreen = ({ route }: any) => {
     </View>
   );
 
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={COLORS.cyan400} />
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -173,6 +351,7 @@ const ProfileScreen = ({ route }: any) => {
         renderItem={renderPost}
         keyExtractor={item => item.id}
         ListHeaderComponent={renderHeader}
+        ListFooterComponent={renderFooter}
         ListEmptyComponent={
           <EmptyState
             icon="file-text"
@@ -184,8 +363,55 @@ const ProfileScreen = ({ route }: any) => {
             }
           />
         }
+        onEndReached={loadMorePosts}
+        onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
       />
+
+      {/* Edit Bio Modal */}
+      <Modal
+        visible={showBioModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowBioModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Bio</Text>
+            <TextInput
+              style={styles.bioInput}
+              value={editingBio}
+              onChangeText={setEditingBio}
+              placeholder="Tell us about yourself..."
+              placeholderTextColor={COLORS.slate500}
+              multiline
+              maxLength={160}
+              textAlignVertical="top"
+            />
+            <Text style={styles.charCount}>{editingBio.length}/160</Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowBioModal(false)}
+                disabled={savingBio}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleSaveBio}
+                disabled={savingBio}
+              >
+                {savingBio ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <Text style={styles.saveButtonText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -226,18 +452,31 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   profilePic: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     borderWidth: 4,
     borderColor: COLORS.slate900,
     justifyContent: 'center',
     alignItems: 'center',
   },
   profileInitials: {
-    fontSize: 40,
+    fontSize: 36,
     fontWeight: '900',
     color: COLORS.white,
+  },
+  editIconContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: COLORS.cyan500,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: COLORS.slate900,
   },
   profileInfo: {
     paddingHorizontal: 20,
@@ -248,7 +487,28 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '900',
     color: COLORS.white,
+    marginBottom: 12,
+  },
+  bioSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.slate800,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
     marginBottom: 16,
+    maxWidth: '100%',
+  },
+  bioText: {
+    flex: 1,
+    fontSize: 14,
+    color: COLORS.gray200,
+    lineHeight: 20,
+    fontStyle: 'italic',
+  },
+  editBioButton: {
+    marginLeft: 8,
+    padding: 4,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -297,6 +557,78 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     paddingHorizontal: 20,
     marginBottom: 12,
+  },
+  footerLoader: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: COLORS.slate800,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: COLORS.slate700,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: COLORS.white,
+    marginBottom: 16,
+  },
+  bioInput: {
+    backgroundColor: COLORS.slate900,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 16,
+    color: COLORS.white,
+    minHeight: 100,
+    borderWidth: 1,
+    borderColor: COLORS.slate700,
+    marginBottom: 8,
+  },
+  charCount: {
+    fontSize: 12,
+    color: COLORS.slate500,
+    textAlign: 'right',
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: COLORS.slate700,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  saveButton: {
+    flex: 1,
+    backgroundColor: COLORS.cyan500,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
 

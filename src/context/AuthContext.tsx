@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, firestore } from '../config/firebase';
 
 const APP_ID = 'fluxx-app-2025';
@@ -57,6 +58,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     await firebaseSignOut(auth);
+    // Reset onboarding flag to show splash screen again on next login
+    await AsyncStorage.removeItem('hasSeenOnboarding');
     setUserId(null);
     setUserChannel(null);
     setUserProfilePic(null);

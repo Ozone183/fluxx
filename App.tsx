@@ -36,8 +36,8 @@ const MainTabs = () => (
       tabBarStyle: { 
         backgroundColor: COLORS.slate900, 
         borderTopColor: COLORS.slate800,
-        height: 85,
-        paddingBottom: 25,
+        height: 70, // Fixed: reduced from 85
+        paddingBottom: 10, // Fixed: reduced from 25
         paddingTop: 10,
       },
       tabBarActiveTintColor: COLORS.cyan400,

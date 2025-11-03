@@ -47,8 +47,7 @@ const CreatePostScreen = () => {
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
+      allowsEditing: false, // Removed forced crop
       quality: 0.7,
     });
   
@@ -122,7 +121,7 @@ const CreatePostScreen = () => {
       if (captionsArray.length > 0) {
         setCaptionOptions(captionsArray);
         setShowCaptionOptions(true);
-        Alert.alert('AI Captions Ready! ✨', 'Tap to select your favorite caption below!');
+        Alert.alert('AI Captions Ready! ', 'Tap to select your favorite caption below!');
       } else {
         Alert.alert('Error', 'Failed to generate captions properly');
       }
@@ -237,7 +236,7 @@ const CreatePostScreen = () => {
       setCaptionOptions([]);
       setShowCaptionOptions(false);
 
-      Alert.alert('Success!', 'Your flux has been posted! 🎉', [
+      Alert.alert('Success!', 'Your flux has been posted! ', [
         { text: 'OK', onPress: () => (navigation as any).navigate('MainTabs', { screen: 'Feed' }) },
       ]);
     } catch (error: any) {
@@ -285,7 +284,7 @@ const CreatePostScreen = () => {
           {/* Caption Options (Selectable) */}
           {showCaptionOptions && captionOptions.length > 0 && (
             <View style={styles.captionOptionsContainer}>
-              <Text style={styles.captionOptionsTitle}>✨ Select Your Caption:</Text>
+              <Text style={styles.captionOptionsTitle}> Select Your Caption:</Text>
               {captionOptions.map((caption, index) => (
                 <TouchableOpacity
                   key={index}
@@ -361,7 +360,7 @@ const CreatePostScreen = () => {
                   color={COLORS.white}
                 />
                 <Text style={styles.captionButtonText}>
-                  {isGeneratingCaption ? 'Generating...' : 'AI Caption ✨'}
+                  {isGeneratingCaption ? 'Generating...' : 'AI Caption '}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -393,7 +392,7 @@ const CreatePostScreen = () => {
 
           {showCritique && (
             <View style={styles.critiquePanel}>
-              <Text style={styles.critiqueTitle}>📊 AI Feedback:</Text>
+              <Text style={styles.critiqueTitle}> AI Feedback:</Text>
               {isCritiquing ? (
                 <ActivityIndicator color={COLORS.cyan400} />
               ) : (

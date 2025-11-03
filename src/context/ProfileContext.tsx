@@ -7,6 +7,7 @@ interface Profile {
   userId: string;
   channel: string;
   profilePictureUrl: string | null;
+  bio?: string; // Added bio field (optional)
 }
 
 interface ProfileContextType {

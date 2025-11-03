@@ -49,19 +49,12 @@ const CreatePostScreen = () => {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 0.7, // Reduced for faster upload
+      quality: 0.7,
     });
-
+  
     if (!result.canceled && result.assets[0].uri) {
       setImageUri(result.assets[0].uri);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-      // Warn user about image visibility
-      Alert.alert(
-        '⚠️ Image Note',
-        'Images are saved locally and will only be visible to you right now. Full image sharing coming soon!',
-        [{ text: 'Got it' }]
-      );
     }
   };
 
@@ -75,31 +68,57 @@ const CreatePostScreen = () => {
       Alert.alert('No Image', 'Add an image first!');
       return;
     }
-
+  
     setIsGeneratingCaption(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
+  
     try {
-      const systemPrompt = 'You are a creative social media caption writer. Generate exactly 3 catchy, engaging caption options for a social media post. Keep each one short (max 2 sentences), fun, and Instagram-worthy. Use emojis where appropriate. Format EXACTLY as:\n\n1) [caption text here]\n2) [caption text here]\n3) [caption text here]';
-
+      // Convert image to base64
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+  
+      const base64Image = await base64Promise;
+  
+      const systemPrompt = 'You are a creative social media caption writer. Analyze the image and generate 3 diverse, engaging caption options that match the actual content. Make them varied: one witty, one inspirational, one casual. Keep each short (max 2 sentences). Use relevant emojis. Format EXACTLY as:\n\n1) [caption text here]\n2) [caption text here]\n3) [caption text here]';
+  
       const payload = {
-        contents: [{ parts: [{ text: 'Generate 3 creative caption options for a social media post with an image' }] }],
+        contents: [{
+          parts: [
+            { text: 'Analyze this image and generate 3 creative caption options based on what you see.' },
+            {
+              inline_data: {
+                mime_type: 'image/jpeg',
+                data: base64Image,
+              },
+            },
+          ],
+        }],
         systemInstruction: { parts: [{ text: systemPrompt }] },
       };
-
-      const response = await axios.post(
+  
+      const apiResponse = await axios.post(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
         payload,
       );
-
-      const rawCaptions = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
+  
+      const rawCaptions = apiResponse.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  
       // Parse captions into array
       const captionsArray = rawCaptions
         .split('\n')
         .filter((line: string) => line.match(/^\d+\)/))
         .map((line: string) => line.replace(/^\d+\)\s*/, '').trim());
-
+  
       if (captionsArray.length > 0) {
         setCaptionOptions(captionsArray);
         setShowCaptionOptions(true);
@@ -109,7 +128,7 @@ const CreatePostScreen = () => {
       }
     } catch (error) {
       console.error('Caption error:', error);
-      Alert.alert('Error', 'Failed to generate captions');
+      Alert.alert('Error', 'Failed to generate captions. The AI might be overloaded.');
     } finally {
       setIsGeneratingCaption(false);
     }

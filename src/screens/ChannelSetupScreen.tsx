@@ -114,12 +114,6 @@ const ChannelSetupScreen = () => {
             <Text style={styles.subtitle}>Secure Your Channel</Text>
           </View>
 
-          {/* User ID Display */}
-          <View style={styles.userIdContainer}>
-            <Text style={styles.label}>Your User ID</Text>
-            <Text style={styles.userId}>{userId?.substring(0, 12)}...</Text>
-          </View>
-
           {/* Profile Picture Picker */}
           <TouchableOpacity
             style={styles.pickerButton}

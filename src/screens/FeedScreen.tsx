@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   headerGradient: {
-    paddingTop: 48,
+    paddingTop: 60,  // ← Changed from 48
     paddingBottom: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,

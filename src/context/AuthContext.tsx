@@ -1,8 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { onAuthStateChanged, signInAnonymously as firebaseSignInAnonymously, signOut as firebaseSignOut } from 'firebase/auth';
-import { doc, getDoc, collection } from 'firebase/firestore';
+import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, firestore } from '../config/firebase';
-
 
 const APP_ID = 'fluxx-app-2025';
 
@@ -26,15 +25,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfilePic, setUserProfilePic] = useState<string | null>(null);
 
   useEffect(() => {
-    const initAuth = async () => {
-      if (!auth.currentUser) {
-        await firebaseSignInAnonymously(auth);
-        return;
-      }
-    };
-
-    initAuth();
-
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUserId(user.uid);
@@ -47,6 +37,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserProfilePic(data?.profilePictureUrl || null);
           setIsProfileSetup(true);
         }
+      } else {
+        setUserId(null);
+        setIsProfileSetup(false);
+        setUserChannel(null);
+        setUserProfilePic(null);
       }
       setIsAuthReady(true);
     });

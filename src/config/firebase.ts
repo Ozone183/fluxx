@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -13,7 +13,11 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
+// Export Firebase services
 export const auth = getAuth(app);
-export const firestore = getFirestore(app);
+export const db = getFirestore(app);          // ← Changed from 'firestore' to 'db'
+export const firestore = getFirestore(app);   // ← Keep this for backward compatibility
 export const storage = getStorage(app);
-export { signInAnonymously };
+
+export default app;

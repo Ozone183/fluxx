@@ -14,6 +14,8 @@ import { ProfileProvider } from './src/context/ProfileContext';
 import AnimatedSplash from './src/screens/AnimatedSplash';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import AuthLoadingScreen from './src/screens/AuthLoadingScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import SignupScreen from './src/screens/SignupScreen';
 import ChannelSetupScreen from './src/screens/ChannelSetupScreen';
 import FeedScreen from './src/screens/FeedScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
@@ -96,7 +98,12 @@ const AppNavigator = () => {
 
   return (
     <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
-      {!userId || !isProfileSetup ? (
+      {!userId ? (
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Signup" component={SignupScreen} />
+        </>
+      ) : !isProfileSetup ? (
         <Stack.Screen name="ChannelSetup" component={ChannelSetupScreen} />
       ) : (
         <>

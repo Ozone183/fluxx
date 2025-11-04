@@ -51,7 +51,6 @@ const ProfileScreen = ({ route }: any) => {
   
   // Edit Bio Modal State
   const [showBioModal, setShowBioModal] = useState(false);
-  const [bio, setBio] = useState('');
   const [editingBio, setEditingBio] = useState('');
   const [savingBio, setSavingBio] = useState(false);
   
@@ -97,10 +96,6 @@ const ProfileScreen = ({ route }: any) => {
 
     loadInitialPosts();
 
-    // Load bio if own profile
-    if (isOwnProfile && profile) {
-      setBio(profile.bio || '');
-    }
   }, [profileUserId, isOwnProfile, profile]);
 
   // Load more posts
@@ -213,7 +208,7 @@ const ProfileScreen = ({ route }: any) => {
   };
 
   const handleEditBio = () => {
-    setEditingBio(bio);
+    setEditingBio(profile?.bio || '');
     setShowBioModal(true);
   };
 
@@ -227,7 +222,6 @@ const ProfileScreen = ({ route }: any) => {
         bio: editingBio.trim(),
       });
 
-      setBio(editingBio.trim());
       setShowBioModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('Success!', 'Bio updated!');
@@ -289,10 +283,10 @@ const ProfileScreen = ({ route }: any) => {
         <Text style={styles.profileChannel}>{displayChannel}</Text>
         
         {/* Bio Section */}
-        {(bio || isOwnProfile) && (
+        {(profile?.bio || isOwnProfile) && (
           <View style={styles.bioSection}>
             <Text style={styles.bioText}>
-              {bio || (isOwnProfile ? 'Tap to add bio' : 'No bio yet')}
+              {profile?.bio || (isOwnProfile ? 'Tap to add bio' : 'No bio yet')}
             </Text>
             {isOwnProfile && (
               <TouchableOpacity onPress={handleEditBio} style={styles.editBioButton}>

@@ -18,6 +18,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 
 import { COLORS, GRADIENTS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
@@ -41,19 +42,22 @@ const POSTS_PER_PAGE = 20;
 const ProfileScreen = ({ route }: any) => {
   const { userId: currentUserId, userChannel, signOut, setUserProfile } = useAuth();
   const { allProfiles } = useProfiles();
-  const profileUserId = route?.params?.userId || currentUserId;
+  const navigation = useNavigation();
+  const isFocused = useIsFocused();
+  const isProfileTab = navigation.getState().routes[navigation.getState().index].name === 'Profile';
+  const profileUserId = (isFocused && isProfileTab) ? currentUserId : (route?.params?.userId || currentUserId);
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [lastDoc, setLastDoc] = useState<any>(null);
   const [hasMore, setHasMore] = useState(true);
-  
+
   // Edit Bio Modal State
   const [showBioModal, setShowBioModal] = useState(false);
   const [editingBio, setEditingBio] = useState('');
   const [savingBio, setSavingBio] = useState(false);
-  
+
   // Profile Picture Upload State
   const [uploadingPic, setUploadingPic] = useState(false);
 
@@ -81,11 +85,11 @@ const ProfileScreen = ({ route }: any) => {
 
         const userPosts = allPosts.filter(post => post.userId === profileUserId);
         setPosts(userPosts);
-        
+
         if (snapshot.docs.length > 0) {
           setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
         }
-        
+
         setHasMore(snapshot.docs.length === POSTS_PER_PAGE);
         setLoading(false);
       } catch (error) {
@@ -120,11 +124,11 @@ const ProfileScreen = ({ route }: any) => {
 
       const userPosts = morePosts.filter(post => post.userId === profileUserId);
       setPosts(prev => [...prev, ...userPosts]);
-      
+
       if (snapshot.docs.length > 0) {
         setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
       }
-      
+
       setHasMore(snapshot.docs.length === POSTS_PER_PAGE);
     } catch (error) {
       console.error('Load more posts error:', error);
@@ -239,8 +243,8 @@ const ProfileScreen = ({ route }: any) => {
       currentUserId={currentUserId}
       profile={profile}
       onLike={handleLike}
-      onComment={() => {}}
-      onViewProfile={() => {}}
+      onComment={() => { }}
+      onViewProfile={() => { }}
     />
   );
 
@@ -281,7 +285,7 @@ const ProfileScreen = ({ route }: any) => {
 
       <View style={styles.profileInfo}>
         <Text style={styles.profileChannel}>{displayChannel}</Text>
-        
+
         {/* Bio Section */}
         {(profile?.bio || isOwnProfile) && (
           <View style={styles.bioSection}>

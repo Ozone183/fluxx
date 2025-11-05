@@ -35,6 +35,8 @@ export const COLORS = {
   deepIndigo: '#4F46E5',      // Add if missing
   hotPink: '#EC4899',         // Add if missing
   neonGreen: '#10B981',       // Add if missing
+  amber400: '#fbbf24',
+  amber500: '#f59e0b',
 };
 
 export const GRADIENTS = {

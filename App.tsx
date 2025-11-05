@@ -22,6 +22,8 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import CreatePostScreen from './src/screens/CreatePostScreen';
 import SearchScreen from './src/screens/SearchScreen';
 import CommentsScreen from './src/screens/CommentsScreen';
+import CreateCanvasScreen from './src/screens/CreateCanvasScreen';
+import CanvasEditorScreen from './src/screens/CanvasEditorScreen';
 
 import { COLORS } from './src/theme/colors';
 
@@ -33,10 +35,10 @@ const MainTabs = () => (
     id={undefined}
     screenOptions={{
       headerShown: false,
-      tabBarStyle: { 
-        backgroundColor: COLORS.slate900, 
+      tabBarStyle: {
+        backgroundColor: COLORS.slate900,
         borderTopColor: COLORS.slate800,
-        height: 85,
+        height: 100,
         paddingBottom: 25,
         paddingTop: 10,
       },
@@ -51,42 +53,52 @@ const MainTabs = () => (
         marginTop: 5,
       },
     }}>
-    <Tab.Screen 
-      name="Feed" 
-      component={FeedScreen} 
-      options={{ 
+    <Tab.Screen
+      name="Feed"
+      component={FeedScreen}
+      options={{
         tabBarIcon: ({ color, focused }) => (
           <Ionicons name="home-outline" size={focused ? 28 : 24} color={color} />
         ),
-      }} 
+      }}
     />
-    <Tab.Screen 
-      name="Search" 
-      component={SearchScreen} 
-      options={{ 
+    <Tab.Screen
+      name="Search"
+      component={SearchScreen}
+      options={{
         tabBarIcon: ({ color, focused }) => (
           <Ionicons name="search-outline" size={focused ? 28 : 24} color={color} />
         ),
-      }} 
+      }}
     />
-    <Tab.Screen 
-      name="CreatePost" 
-      component={CreatePostScreen} 
-      options={{ 
+    <Tab.Screen
+      name="Canvas"
+      component={CreateCanvasScreen}
+      options={{
+        tabBarIcon: ({ color, focused }) => (
+          <Ionicons name="color-palette-outline" size={focused ? 30 : 26} color={color} />
+        ),
+        tabBarLabel: 'Canvas',
+      }}
+    />
+    <Tab.Screen
+      name="CreatePost"
+      component={CreatePostScreen}
+      options={{
         tabBarIcon: ({ color, focused }) => (
           <Ionicons name="add-circle-outline" size={focused ? 32 : 28} color={color} />
         ),
         tabBarLabel: 'Post',
-      }} 
+      }}
     />
-    <Tab.Screen 
-      name="Profile" 
-      component={ProfileScreen} 
-      options={{ 
+    <Tab.Screen
+      name="Profile"
+      component={ProfileScreen}
+      options={{
         tabBarIcon: ({ color, focused }) => (
           <Ionicons name="person-outline" size={focused ? 28 : 24} color={color} />
         ),
-      }} 
+      }}
     />
   </Tab.Navigator>
 );
@@ -108,6 +120,7 @@ const AppNavigator = () => {
       ) : (
         <>
           <Stack.Screen name="MainTabs" component={MainTabs} />
+          <Stack.Screen name="CanvasEditor" component={CanvasEditorScreen} />
           <Stack.Screen name="Comments" component={CommentsScreen} options={{ presentation: 'modal' }} />
         </>
       )}

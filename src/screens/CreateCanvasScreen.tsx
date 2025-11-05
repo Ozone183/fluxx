@@ -1,0 +1,358 @@
+// src/screens/CreateCanvasScreen.tsx
+
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  Switch,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { firestore } from '../config/firebase';
+import { Ionicons as Icon } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+
+import { COLORS, GRADIENTS } from '../theme/colors';
+import { useAuth, APP_ID } from '../context/AuthContext';
+import { Canvas } from '../types/canvas';
+
+const CreateCanvasScreen = () => {
+  const navigation = useNavigation();
+  const { userId, userChannel } = useAuth();
+
+  const [title, setTitle] = useState('');
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  const generateInviteCode = () => {
+    return Math.random().toString(36).substring(2, 10).toUpperCase();
+  };
+
+  const handleCreate = async () => {
+    if (!title.trim()) {
+      Alert.alert('Title Required', 'Please give your canvas a title');
+      return;
+    }
+
+    if (!userId) {
+      Alert.alert('Error', 'You must be logged in to create a canvas');
+      return;
+    }
+
+    try {
+      setCreating(true);
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const now = Date.now();
+      const expiresAt = now + (24 * 60 * 60 * 1000); // 24 hours
+
+      const canvasData: Omit<Canvas, 'id'> = {
+        title: title.trim(),
+        creatorId: userId,
+        creatorUsername: userChannel || '@unknown',
+        
+        // Canvas dimensions (standard Instagram story size)
+        width: 1080,
+        height: 1920,
+        backgroundColor: '#FFFFFF',
+        
+        // Access
+        accessType: isPrivate ? 'private' : 'public',
+        inviteCode: isPrivate ? generateInviteCode() : undefined,
+        
+        // Empty layers initially
+        layers: [],
+        
+        // Creator as first collaborator
+        collaborators: {
+          [userId]: {
+            userId,
+            username: userChannel || '@unknown',
+            joinedAt: now,
+            isActive: true,
+            lastSeen: now,
+          },
+        },
+        maxCollaborators: 12,
+        
+        // Lifecycle
+        createdAt: now,
+        expiresAt,
+        isExpired: false,
+        isArchived: false,
+        
+        // Stats
+        viewCount: 0,
+        likeCount: 0,
+        likedBy: [],
+      };
+
+      const canvasRef = await addDoc(
+        collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases'),
+        canvasData
+      );
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Navigate to Canvas Editor
+(navigation as any).navigate('CanvasEditor', { canvasId: canvasRef.id });
+
+    } catch (error) {
+      console.error('Canvas creation error:', error);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Creation Failed', 'Could not create canvas. Please try again.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Icon name="arrow-back" size={24} color={COLORS.white} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Create Canvas</Text>
+        <View style={styles.placeholder} />
+      </View>
+
+      {/* Content */}
+      <View style={styles.content}>
+        <LinearGradient colors={GRADIENTS.primary} style={styles.previewCard}>
+          <Icon name="color-palette" size={60} color={COLORS.white} />
+          <Text style={styles.previewText}>Canvas Collab</Text>
+          <Text style={styles.previewSubtext}>Create & collaborate in real-time</Text>
+        </LinearGradient>
+
+        <View style={styles.form}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Canvas Title</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., Weekend Vibes, Team Brainstorm..."
+              placeholderTextColor={COLORS.slate500}
+              value={title}
+              onChangeText={setTitle}
+              maxLength={50}
+              autoFocus
+            />
+            <Text style={styles.charCount}>{title.length}/50</Text>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <View style={styles.switchRow}>
+              <View style={styles.switchLabel}>
+                <Icon 
+                  name={isPrivate ? 'lock-closed' : 'earth'} 
+                  size={20} 
+                  color={isPrivate ? COLORS.amber400 : COLORS.cyan400} 
+                />
+                <Text style={styles.label}>
+                  {isPrivate ? 'Private Canvas' : 'Public Canvas'}
+                </Text>
+              </View>
+              <Switch
+                value={isPrivate}
+                onValueChange={setIsPrivate}
+                trackColor={{ false: COLORS.slate700, true: COLORS.cyan500 }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+            <Text style={styles.hint}>
+              {isPrivate
+                ? 'Only people with invite code can join'
+                : 'Anyone can discover and join this canvas'}
+            </Text>
+          </View>
+
+          <View style={styles.features}>
+            <Text style={styles.featuresTitle}>What you can do:</Text>
+            <FeatureItem icon="image" text="Add photos & images" />
+            <FeatureItem icon="text" text="Add text & captions" />
+            <FeatureItem icon="people" text="Collaborate with up to 12 people" />
+            <FeatureItem icon="time" text="Canvas expires in 24 hours" />
+            <FeatureItem icon="download" text="Export as image anytime" />
+          </View>
+        </View>
+      </View>
+
+      {/* Create Button */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[styles.createButton, creating && styles.createButtonDisabled]}
+          onPress={handleCreate}
+          disabled={creating}
+          activeOpacity={0.8}
+        >
+          <LinearGradient colors={GRADIENTS.primary} style={styles.createGradient}>
+            {creating ? (
+              <ActivityIndicator color={COLORS.white} />
+            ) : (
+              <>
+                <Icon name="add-circle" size={24} color={COLORS.white} />
+                <Text style={styles.createButtonText}>Create Canvas</Text>
+              </>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+const FeatureItem = ({ icon, text }: { icon: string; text: string }) => (
+  <View style={styles.featureItem}>
+    <Icon name={icon as any} size={18} color={COLORS.cyan400} />
+    <Text style={styles.featureText}>{text}</Text>
+  </View>
+);
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.slate900,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 50,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.slate800,
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  placeholder: {
+    width: 40,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+  },
+  previewCard: {
+    borderRadius: 20,
+    padding: 40,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  previewText: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: COLORS.white,
+    marginTop: 16,
+  },
+  previewSubtext: {
+    fontSize: 14,
+    color: COLORS.white,
+    opacity: 0.8,
+    marginTop: 4,
+  },
+  form: {
+    flex: 1,
+  },
+  inputGroup: {
+    marginBottom: 24,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.white,
+    marginBottom: 8,
+    marginLeft: 8,
+  },
+  input: {
+    backgroundColor: COLORS.slate800,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.slate700,
+  },
+  charCount: {
+    fontSize: 12,
+    color: COLORS.slate500,
+    textAlign: 'right',
+    marginTop: 4,
+    marginRight: 8,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  switchLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  hint: {
+    fontSize: 13,
+    color: COLORS.slate400,
+    marginTop: 8,
+    marginLeft: 8,
+  },
+  features: {
+    backgroundColor: COLORS.slate800,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+  },
+  featuresTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.white,
+    marginBottom: 12,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 10,
+  },
+  featureText: {
+    fontSize: 14,
+    color: COLORS.slate300,
+  },
+  footer: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.slate800,
+  },
+  createButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  createButtonDisabled: {
+    opacity: 0.6,
+  },
+  createGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  createButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+});
+
+export default CreateCanvasScreen;

@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getDatabase } from 'firebase/database';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD2og-Zlqhkc15vqphHaVLW8E3k_wpfwJU",
@@ -9,7 +10,8 @@ const firebaseConfig = {
   projectId: "fluxx-fe69f",
   storageBucket: "fluxx-fe69f.firebasestorage.app",
   messagingSenderId: "150360579647",
-  appId: "1:150360579647:android:a8ba67f24fbab786dc628a"
+  appId: "1:150360579647:android:a8ba67f24fbab786dc628a",
+  databaseURL: "https://fluxx-fe69f-default-rtdb.firebaseio.com",
 };
 
 const app = initializeApp(firebaseConfig);
@@ -19,5 +21,6 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);          // ← Changed from 'firestore' to 'db'
 export const firestore = getFirestore(app);   // ← Keep this for backward compatibility
 export const storage = getStorage(app);
+export const database = getDatabase(app);
 
 export default app;

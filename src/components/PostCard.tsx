@@ -62,24 +62,22 @@ const PostCard: React.FC<PostCardProps> = ({
   const profilePicUrl = profile?.profilePictureUrl;
   const initials = getInitials(displayChannel);
 
+  // Share function with deep link
   const handleShare = async () => {
     try {
+      const postUrl = `https://fluxx.app/post/${post.id}`; // TODO: Replace with your actual domain
+      const message = `Check out this post by ${displayChannel} on Fluxx!\n\n"${post.content}"\n\n${postUrl}`;
+
       const result = await Share.share({
-        message: `Check out this post by ${displayChannel} on Fluxx:\n\n${post.content}`,
-        title: `Post by ${displayChannel}`,
+        message: message,
+        title: `Post from ${displayChannel}`,
       });
 
       if (result.action === Share.sharedAction) {
-        if (result.activityType) {
-          console.log('Shared with activity type:', result.activityType);
-        } else {
-          console.log('Post shared successfully');
-        }
-      } else if (result.action === Share.dismissedAction) {
-        console.log('Share dismissed');
+        console.log('Post shared successfully');
       }
     } catch (error: any) {
-      Alert.alert('Share Error', error.message);
+      Alert.alert('Share Failed', error.message);
     }
   };
 
@@ -114,15 +112,13 @@ const PostCard: React.FC<PostCardProps> = ({
       {/* Content */}
       <Text style={styles.content}>{post.content}</Text>
 
-      {/* Image - Fixed with container wrapper */}
+      {/* Image */}
       {post.image && (
-        <View style={styles.imageContainer}>
-          <Image
-            source={{ uri: post.image }}
-            style={styles.postImage}
-            resizeMode={'cover'}
-          />
-        </View>
+        <Image
+          source={{ uri: post.image }}
+          style={styles.postImage}
+          resizeMode={'cover'}
+        />
       )}
 
       {/* Actions */}
@@ -161,7 +157,7 @@ const PostCard: React.FC<PostCardProps> = ({
           activeOpacity={0.7}
           onPress={handleShare}
         >
-          <Icon name="paper-plane" size={20} color={COLORS.slate400} />
+          <Icon name="paper-plane-outline" size={20} color={COLORS.slate400} />
         </TouchableOpacity>
       </View>
     </View>
@@ -250,16 +246,12 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 12,
   },
-  imageContainer: {
-    width: '100%',
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 12,
-    backgroundColor: COLORS.slate700,
-  },
   postImage: {
     width: '100%',
     height: 240,
+    borderRadius: 12,
+    marginBottom: 12,
+    backgroundColor: COLORS.slate700,
   },
   actions: {
     flexDirection: 'row',

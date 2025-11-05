@@ -13,7 +13,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../theme/colors';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface Post {
   id: string;
@@ -65,7 +65,7 @@ const PostCard: React.FC<PostCardProps> = ({
   // Share function with deep link
   const handleShare = async () => {
     try {
-      const postUrl = `https://fluxx.app/post/${post.id}`; // TODO: Replace with your actual domain
+      const postUrl = `https://fluxx.app/post/${post.id}`;
       const message = `Check out this post by ${displayChannel} on Fluxx!\n\n"${post.content}"\n\n${postUrl}`;
 
       const result = await Share.share({
@@ -82,83 +82,87 @@ const PostCard: React.FC<PostCardProps> = ({
   };
 
   return (
-    <View style={styles.card}>
-      {/* Header */}
-      <TouchableOpacity
-        style={styles.header}
-        onPress={() => onViewProfile(post.userId)}
-        activeOpacity={0.7}
-      >
-        {profilePicUrl ? (
-          <Image
-            source={{ uri: profilePicUrl }}
-            style={styles.profilePic}
-            resizeMode={'cover'}
-          />
-        ) : (
-          <LinearGradient
-            colors={getGradientForChannel(displayChannel)}
-            style={styles.profilePic}
-          >
-            <Text style={styles.initials}>{initials}</Text>
-          </LinearGradient>
-        )}
-        <View style={styles.headerInfo}>
-          <Text style={styles.channel}>{displayChannel}</Text>
-          <Text style={styles.timestamp}>{timeAgo}</Text>
-        </View>
-      </TouchableOpacity>
+    <View style={styles.postContainer}>
+      {/* Header Card */}
+      <View style={styles.headerCard}>
+        <TouchableOpacity
+          style={styles.header}
+          onPress={() => onViewProfile(post.userId)}
+          activeOpacity={0.7}
+        >
+          {profilePicUrl ? (
+            <Image
+              source={{ uri: profilePicUrl }}
+              style={styles.profilePic}
+              resizeMode={'cover'}
+            />
+          ) : (
+            <LinearGradient
+              colors={getGradientForChannel(displayChannel)}
+              style={styles.profilePic}
+            >
+              <Text style={styles.initials}>{initials}</Text>
+            </LinearGradient>
+          )}
+          <View style={styles.headerInfo}>
+            <Text style={styles.channel}>{displayChannel}</Text>
+            <Text style={styles.timestamp}>{timeAgo}</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
 
-      {/* Content */}
-      <Text style={styles.content}>{post.content}</Text>
-
-      {/* Image */}
+      {/* Full Width Image */}
       {post.image && (
         <Image
           source={{ uri: post.image }}
-          style={styles.postImage}
+          style={styles.fullWidthImage}
           resizeMode={'cover'}
         />
       )}
 
-      {/* Actions */}
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={[styles.actionButton, isLiked && styles.likedButton]}
-          onPress={() => onLike(post.id, post.likedBy || [])}
-          activeOpacity={0.7}
-        >
-          <Icon
-            name="heart"
-            size={20}
-            color={isLiked ? COLORS.red400 : COLORS.slate400}
-            style={isLiked ? styles.heartFilled : undefined}
-          />
-          <Text
-            style={[styles.actionText, isLiked && styles.likedText]}
+      {/* Content Card */}
+      <View style={styles.contentCard}>
+        <Text style={styles.content}>{post.content}</Text>
+
+        {/* Actions */}
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[styles.actionButton, isLiked && styles.likedButton]}
+            onPress={() => onLike(post.id, post.likedBy || [])}
+            activeOpacity={0.7}
           >
-            {likesCount}
-          </Text>
-        </TouchableOpacity>
+            <Icon
+              name="heart"
+              size={20}
+              color={isLiked ? COLORS.red400 : COLORS.slate400}
+              style={isLiked ? styles.heartFilled : undefined}
+            />
+            <Text
+              style={[styles.actionText, isLiked && styles.likedText]}
+            >
+              {likesCount}
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => onComment(post)}
-          activeOpacity={0.7}
-        >
-          <Icon name="chatbubble-outline" size={20} color={COLORS.slate400} />
-          <Text style={styles.actionText}>{commentsCount}</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => onComment(post)}
+            activeOpacity={0.7}
+          >
+            <Icon name="chatbubble-outline" size={20} color={COLORS.slate400} />
+            <Text style={styles.actionText}>{commentsCount}</Text>
+          </TouchableOpacity>
 
-        <View style={styles.spacer} />
+          <View style={styles.spacer} />
 
-        <TouchableOpacity 
-          style={styles.actionButton} 
-          activeOpacity={0.7}
-          onPress={handleShare}
-        >
-          <Icon name="paper-plane-outline" size={20} color={COLORS.slate400} />
-        </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.actionButton} 
+            activeOpacity={0.7}
+            onPress={handleShare}
+          >
+            <Icon name="paper-plane-outline" size={20} color={COLORS.slate400} />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -193,24 +197,23 @@ const getGradientForChannel = (channel: string): readonly [string, string] => {
 };
 
 const styles = StyleSheet.create({
-  card: {
+  postContainer: {
+    marginVertical: 8,
+  },
+  headerCard: {
     backgroundColor: COLORS.slate800,
     marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 16,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
     padding: 16,
+    paddingBottom: 12,
     borderWidth: 1,
+    borderBottomWidth: 0,
     borderColor: COLORS.slate700,
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
   },
   profilePic: {
     width: 44,
@@ -240,18 +243,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.slate400,
   },
+  fullWidthImage: {
+    width: SCREEN_WIDTH - 32,
+    height: SCREEN_WIDTH - 32,
+    marginHorizontal: 16,
+    backgroundColor: COLORS.slate700,
+  },
+  contentCard: {
+    backgroundColor: COLORS.slate800,
+    marginHorizontal: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    padding: 16,
+    paddingTop: 12,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: COLORS.slate700,
+  },
   content: {
     fontSize: 16,
     color: COLORS.gray200,
     lineHeight: 24,
     marginBottom: 12,
-  },
-  postImage: {
-    width: '100%',
-    height: 240,
-    borderRadius: 12,
-    marginBottom: 12,
-    backgroundColor: COLORS.slate700,
   },
   actions: {
     flexDirection: 'row',

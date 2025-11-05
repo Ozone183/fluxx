@@ -37,6 +37,10 @@ export const COLORS = {
   neonGreen: '#10B981',       // Add if missing
   amber400: '#fbbf24',
   amber500: '#f59e0b',
+  purple400: '#c084fc',
+  purple500: '#a855f7',
+  purple600: '#9333ea',
+  purple700: '#7e22ce',
 };
 
 export const GRADIENTS = {

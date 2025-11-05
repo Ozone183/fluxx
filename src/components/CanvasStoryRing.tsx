@@ -1,7 +1,7 @@
-// src/components/CanvasStoryRing.tsx
+// src/components/CanvasStoryRing.tsx - ENHANCED VERSION
 
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS, GRADIENTS } from '../theme/colors';
@@ -20,14 +20,44 @@ const CanvasStoryRing: React.FC<CanvasStoryRingProps> = ({
   onPress,
   activeCollaboratorsCount = 0,
 }) => {
+  // Animated pulse effect
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!isCreateNew && canvas && !canvas.isExpired) {
+      // Pulse animation for active canvases
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.08,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }
+  }, []);
+
   if (isCreateNew) {
     return (
       <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
-        <LinearGradient colors={GRADIENTS.primary} style={styles.createRing}>
-          <View style={styles.createInner}>
-            <Icon name="add" size={32} color={COLORS.white} />
-          </View>
-        </LinearGradient>
+        <View style={styles.ringContainer}>
+          <LinearGradient
+            colors={['#06b6d4', '#3b82f6', '#8b5cf6']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.createRing}
+          >
+            <View style={styles.createInner}>
+              <Icon name="add" size={32} color={COLORS.cyan400} />
+            </View>
+          </LinearGradient>
+        </View>
         <Text style={styles.username}>Create</Text>
       </TouchableOpacity>
     );
@@ -39,34 +69,54 @@ const CanvasStoryRing: React.FC<CanvasStoryRingProps> = ({
   const creatorName = canvas.creatorUsername.replace('@', '');
   const hasActiveUsers = activeCollaboratorsCount > 0;
 
+  // Brighter gradient colors for active canvases
+  const ringGradient = isExpired
+    ? ['#475569', '#334155'] as const
+    : ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'] as const; // Cyan → Blue → Purple → Pink
+
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
-      <LinearGradient
-        colors={isExpired ? [COLORS.slate700, COLORS.slate600] : GRADIENTS.primary}
-        style={styles.ring}
+      <Animated.View
+        style={[
+          styles.ringContainer,
+          !isExpired && { transform: [{ scale: pulseAnim }] }
+        ]}
       >
-        <View style={styles.innerRing}>
-          <View style={styles.canvas}>
-            <Icon 
-              name="color-palette" 
-              size={28} 
-              color={isExpired ? COLORS.slate500 : COLORS.cyan400} 
-            />
+        <LinearGradient
+          colors={ringGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[
+            styles.ring,
+            !isExpired && styles.activeRingShadow
+          ]}
+        >
+          <View style={styles.innerRing}>
+            <View style={styles.canvas}>
+              <Icon
+                name="color-palette"
+                size={30}
+                color={isExpired ? COLORS.slate500 : COLORS.cyan400}
+              />
+            </View>
           </View>
-        </View>
-      </LinearGradient>
-      
+        </LinearGradient>
+      </Animated.View>
+
       {/* Active Collaborators Badge */}
       {hasActiveUsers && !isExpired && (
-        <View style={styles.badge}>
+        <LinearGradient
+          colors={['#06b6d4', '#3b82f6']}
+          style={styles.badge}
+        >
           <Text style={styles.badgeText}>{activeCollaboratorsCount}</Text>
-        </View>
+        </LinearGradient>
       )}
 
       {/* Expired Badge */}
       {isExpired && (
         <View style={[styles.badge, styles.expiredBadge]}>
-          <Icon name="time" size={12} color={COLORS.white} />
+          <Icon name="time-outline" size={12} color={COLORS.white} />
         </View>
       )}
 
@@ -81,44 +131,60 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     marginRight: 16,
-    width: 72,
+    width: 76,
+  },
+  ringContainer: {
+    width: 76,
+    height: 76,
   },
   ring: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    padding: 3,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    padding: 3.5,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  activeRingShadow: {
+    shadowColor: '#06b6d4',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 12,
+  },
   innerRing: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+    width: 69,
+    height: 69,
+    borderRadius: 34.5,
     backgroundColor: COLORS.slate900,
-    padding: 2,
+    padding: 2.5,
     justifyContent: 'center',
     alignItems: 'center',
   },
   canvas: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: COLORS.slate800,
     justifyContent: 'center',
     alignItems: 'center',
   },
   createRing: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#06b6d4',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 10,
   },
   createInner: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+    width: 69,
+    height: 69,
+    borderRadius: 34.5,
     backgroundColor: COLORS.slate800,
     justifyContent: 'center',
     alignItems: 'center',
@@ -126,25 +192,30 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 12,
     color: COLORS.white,
-    marginTop: 6,
+    marginTop: 8,
     fontWeight: '600',
   },
   badge: {
     position: 'absolute',
-    bottom: 24,
-    right: 0,
-    backgroundColor: COLORS.cyan500,
-    borderRadius: 12,
-    width: 24,
-    height: 24,
+    bottom: 28,
+    right: 2,
+    borderRadius: 14,
+    minWidth: 28,
+    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    paddingHorizontal: 6,
+    borderWidth: 3,
     borderColor: COLORS.slate900,
+    shadowColor: '#06b6d4',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 8,
   },
   badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
     color: COLORS.white,
   },
   expiredBadge: {

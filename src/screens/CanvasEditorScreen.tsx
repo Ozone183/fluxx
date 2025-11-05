@@ -14,7 +14,7 @@ import {
   TextInput as RNTextInput,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { doc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { ref as dbRef, onValue, set, serverTimestamp } from 'firebase/database';
 import { firestore, database } from '../config/firebase';
 import * as ImagePicker from 'expo-image-picker';
@@ -175,29 +175,40 @@ const CanvasEditorScreen = () => {
 
   const handleAddText = async () => {
     if (!textInput.trim()) return;
-
+  
     try {
       const newLayer: CanvasLayer = {
-        id: `layer_${Date.now()}`,
+        id: `layer_${Date.now()}_${Math.random()}`, // Make ID more unique
         type: 'text',
-        position: { x: CANVAS_WIDTH / 4, y: CANVAS_HEIGHT / 2 },
-        size: { width: CANVAS_WIDTH / 2, height: 60 },
+        position: { 
+          x: Math.random() * (CANVAS_WIDTH / 2), // Random position
+          y: Math.random() * (CANVAS_HEIGHT / 2) 
+        },
+        size: { 
+          width: CANVAS_WIDTH * 0.8, // Wider to fit more text
+          height: 100 // Taller for multi-line
+        },
         rotation: 0,
         zIndex: (canvas?.layers.length || 0) + 1,
         text: textInput.trim(),
-        fontSize: 24,
-        fontColor: '#FFFFFF',
+        fontSize: 28, // Bigger font
+        fontColor: '#000000', // Black text (white canvas)
         fontFamily: 'System',
         createdBy: userId!,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
-
+  
       const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
-      await updateDoc(canvasRef, {
-        layers: arrayUnion(newLayer),
-      });
-
+      const canvasSnap = await getDoc(canvasRef);
+      
+      if (canvasSnap.exists()) {
+        const currentLayers = canvasSnap.data().layers || [];
+        await updateDoc(canvasRef, {
+          layers: [...currentLayers, newLayer] // ADD to array, don't replace
+        });
+      }
+  
       setTextInput('');
       setShowTextModal(false);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

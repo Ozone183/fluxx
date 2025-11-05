@@ -17,6 +17,7 @@ import { firestore } from '../config/firebase';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { ScrollView } from 'react-native';
 
 import { COLORS, GRADIENTS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
@@ -70,15 +71,7 @@ const CreateCanvasScreen = () => {
         layers: [],
         
         // Creator as first collaborator
-        collaborators: {
-          [userId]: {
-            userId,
-            username: userChannel || '@unknown',
-            joinedAt: now,
-            isActive: true,
-            lastSeen: now,
-          },
-        },
+        collaborators: {},
         maxCollaborators: 12,
         
         // Lifecycle
@@ -124,64 +117,64 @@ const CreateCanvasScreen = () => {
       </View>
 
       {/* Content */}
-      <View style={styles.content}>
-        <LinearGradient colors={GRADIENTS.primary} style={styles.previewCard}>
-          <Icon name="color-palette" size={60} color={COLORS.white} />
-          <Text style={styles.previewText}>Canvas Collab</Text>
-          <Text style={styles.previewSubtext}>Create & collaborate in real-time</Text>
-        </LinearGradient>
+<ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+  <LinearGradient colors={GRADIENTS.primary} style={styles.previewCard}>
+    <Icon name="color-palette" size={60} color={COLORS.white} />
+    <Text style={styles.previewText}>Canvas Collab</Text>
+    <Text style={styles.previewSubtext}>Create & collaborate in real-time</Text>
+  </LinearGradient>
 
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Canvas Title</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., Weekend Vibes, Team Brainstorm..."
-              placeholderTextColor={COLORS.slate500}
-              value={title}
-              onChangeText={setTitle}
-              maxLength={50}
-              autoFocus
-            />
-            <Text style={styles.charCount}>{title.length}/50</Text>
-          </View>
+  <View style={styles.form}>
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>Canvas Title</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="e.g., Weekend Vibes, Team Brainstorm..."
+        placeholderTextColor={COLORS.slate500}
+        value={title}
+        onChangeText={setTitle}
+        maxLength={50}
+        autoFocus
+      />
+      <Text style={styles.charCount}>{title.length}/50</Text>
+    </View>
 
-          <View style={styles.inputGroup}>
-            <View style={styles.switchRow}>
-              <View style={styles.switchLabel}>
-                <Icon 
-                  name={isPrivate ? 'lock-closed' : 'earth'} 
-                  size={20} 
-                  color={isPrivate ? COLORS.amber400 : COLORS.cyan400} 
-                />
-                <Text style={styles.label}>
-                  {isPrivate ? 'Private Canvas' : 'Public Canvas'}
-                </Text>
-              </View>
-              <Switch
-                value={isPrivate}
-                onValueChange={setIsPrivate}
-                trackColor={{ false: COLORS.slate700, true: COLORS.cyan500 }}
-                thumbColor={COLORS.white}
-              />
-            </View>
-            <Text style={styles.hint}>
-              {isPrivate
-                ? 'Only people with invite code can join'
-                : 'Anyone can discover and join this canvas'}
-            </Text>
-          </View>
-
-          <View style={styles.features}>
-            <Text style={styles.featuresTitle}>What you can do:</Text>
-            <FeatureItem icon="image" text="Add photos & images" />
-            <FeatureItem icon="text" text="Add text & captions" />
-            <FeatureItem icon="people" text="Collaborate with up to 12 people" />
-            <FeatureItem icon="time" text="Canvas expires in 24 hours" />
-            <FeatureItem icon="download" text="Export as image anytime" />
-          </View>
+    <View style={styles.inputGroup}>
+      <View style={styles.switchRow}>
+        <View style={styles.switchLabel}>
+          <Icon 
+            name={isPrivate ? 'lock-closed' : 'earth'} 
+            size={20} 
+            color={isPrivate ? COLORS.amber400 : COLORS.cyan400} 
+          />
+          <Text style={styles.label}>
+            {isPrivate ? 'Private Canvas' : 'Public Canvas'}
+          </Text>
         </View>
+        <Switch
+          value={isPrivate}
+          onValueChange={setIsPrivate}
+          trackColor={{ false: COLORS.slate700, true: COLORS.cyan500 }}
+          thumbColor={COLORS.white}
+        />
       </View>
+      <Text style={styles.hint}>
+        {isPrivate
+          ? 'Only people with invite code can join'
+          : 'Anyone can discover and join this canvas'}
+      </Text>
+    </View>
+
+    <View style={styles.features}>
+      <Text style={styles.featuresTitle}>What you can do:</Text>
+      <FeatureItem icon="image" text="Add photos & images" />
+      <FeatureItem icon="text" text="Add text & captions" />
+      <FeatureItem icon="people" text="Collaborate with up to 12 people" />
+      <FeatureItem icon="time" text="Canvas expires in 24 hours" />
+      <FeatureItem icon="download" text="Export as image anytime" />
+    </View>
+  </View>
+</ScrollView>
 
       {/* Create Button */}
       <View style={styles.footer}>

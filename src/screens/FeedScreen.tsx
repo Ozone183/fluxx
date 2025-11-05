@@ -20,6 +20,7 @@ import { useAuth, APP_ID } from '../context/AuthContext';
 import { useProfiles } from '../context/ProfileContext';
 import PostCard from '../components/PostCard';
 import EmptyState from '../components/EmptyState';
+import CanvasStoriesBar from '../components/CanvasStoriesBar'; // ← ADD THIS
 
 interface Post {
   id: string;
@@ -44,7 +45,7 @@ const FeedScreen = () => {
   const scrollY = new Animated.Value(0);
 
   // Real-time posts listener
-useEffect(() => {
+  useEffect(() => {
     const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
     
     const unsubscribe = onSnapshot(
@@ -80,12 +81,11 @@ useEffect(() => {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // The snapshot listener will automatically update
     setTimeout(() => setRefreshing(false), 1000);
   }, []);
 
   // Handle like toggle
-const handleLike = async (postId: string, likedBy: string[]) => {
+  const handleLike = async (postId: string, likedBy: string[]) => {
     if (!userId) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -102,18 +102,17 @@ const handleLike = async (postId: string, likedBy: string[]) => {
     }
   };
 
-
   // Navigate to comments
-const handleComments = (post: Post) => {
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  (navigation as any).navigate('Comments', { post });
-};
+  const handleComments = (post: Post) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    (navigation as any).navigate('Comments', { post });
+  };
 
-// Navigate to profile
-const handleViewProfile = (profileUserId: string) => {
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  (navigation as any).navigate('Profile', { userId: profileUserId });
-};
+  // Navigate to profile
+  const handleViewProfile = (profileUserId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    (navigation as any).navigate('Profile', { userId: profileUserId });
+  };
 
   // Header animation
   const headerOpacity = scrollY.interpolate({
@@ -152,6 +151,11 @@ const handleViewProfile = (profileUserId: string) => {
     </Animated.View>
   );
 
+  // ← ADD THIS: Canvas Stories at top of list
+  const renderListHeader = () => (
+    <CanvasStoriesBar />
+  );
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -168,6 +172,7 @@ const handleViewProfile = (profileUserId: string) => {
         data={posts}
         renderItem={renderPost}
         keyExtractor={item => item.id}
+        ListHeaderComponent={renderListHeader} // ← ADD THIS
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
@@ -203,7 +208,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   headerGradient: {
-    paddingTop: 60,  // ← Changed from 48
+    paddingTop: 60,
     paddingBottom: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,

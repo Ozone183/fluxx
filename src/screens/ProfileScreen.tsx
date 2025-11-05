@@ -44,8 +44,16 @@ const ProfileScreen = ({ route }: any) => {
   const { allProfiles } = useProfiles();
   const navigation = useNavigation();
   const isFocused = useIsFocused();
-  const isProfileTab = navigation.getState().routes[navigation.getState().index].name === 'Profile';
-  const profileUserId = (isFocused && isProfileTab) ? currentUserId : (route?.params?.userId || currentUserId);
+
+  // Check if we're on the Profile TAB or navigated from somewhere else
+  const routeName = navigation.getState()?.routes[navigation.getState()?.index]?.name;
+  const isProfileTab = routeName === 'Profile';
+
+  // If on Profile TAB and focused, always show current user
+  // If navigated from Search, use the userId from params
+  const profileUserId = (isFocused && isProfileTab)
+    ? currentUserId
+    : (route?.params?.userId || currentUserId);
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);

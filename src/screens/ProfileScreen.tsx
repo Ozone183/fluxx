@@ -45,24 +45,29 @@ const ProfileScreen = ({ route }: any) => {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
 
-  // Get current route info
-  const navState = navigation.getState();
-  const currentRoute = navState.routes[navState.index];
-  const isProfileTab = currentRoute.name === 'Profile';
+  // Get the parent navigator state to check if we're on a tab
+  const parentNav = navigation.getParent();
+  const isOnProfileTab = parentNav?.getState().routes[parentNav.getState().index]?.name === 'Profile';
 
-  // IMPORTANT: If we're on Profile TAB and it's focused, ALWAYS show current user
-  // Only use route params when navigating FROM search/other screens
-  const profileUserId = (isProfileTab && isFocused)
-    ? currentUserId
-    : (route?.params?.userId || currentUserId);
+  // CRITICAL: If we're on the Profile TAB, ALWAYS show current user
+  // Ignore ANY route params when on the tab
+  const profileUserId = isOnProfileTab ? currentUserId : (route?.params?.userId || currentUserId);
 
-  // Clear route params when leaving to prevent stale data
+  // AGGRESSIVELY clear params when on Profile tab
   useEffect(() => {
-    if (isProfileTab && isFocused && route?.params?.userId) {
-      // Clear params when returning to Profile tab
+    if (isOnProfileTab && isFocused) {
+      // Force clear the params
       navigation.setParams({ userId: undefined } as any);
     }
-  }, [isProfileTab, isFocused]);
+  }, [isOnProfileTab, isFocused]);
+
+  // Additional: Clear params when leaving the screen
+  useEffect(() => {
+    return () => {
+      // Cleanup on unmount
+      navigation.setParams({ userId: undefined } as any);
+    };
+  }, []);
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);

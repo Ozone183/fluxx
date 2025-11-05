@@ -56,7 +56,7 @@ const CanvasEditorScreen = () => {
     if (!canvasId) return;
 
     const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
-    
+
     const unsubscribe = onSnapshot(canvasRef, (snapshot) => {
       if (snapshot.exists()) {
         const canvasData = { id: snapshot.id, ...snapshot.data() } as Canvas;
@@ -76,7 +76,7 @@ const CanvasEditorScreen = () => {
     if (!canvasId || !userId) return;
 
     const presenceRef = dbRef(database, `canvases/${canvasId}/presence`);
-    
+
     const unsubscribe = onValue(presenceRef, (snapshot) => {
       const presences = snapshot.val() || {};
       setActivePresences(presences);
@@ -175,40 +175,44 @@ const CanvasEditorScreen = () => {
 
   const handleAddText = async () => {
     if (!textInput.trim()) return;
-  
+
     try {
+      // Calculate text width based on content length
+      const textLength = textInput.trim().length;
+      const estimatedWidth = Math.min(Math.max(textLength * 12, 200), CANVAS_WIDTH * 0.9);
+
       const newLayer: CanvasLayer = {
-        id: `layer_${Date.now()}_${Math.random()}`, // Make ID more unique
+        id: `layer_${Date.now()}_${Math.random()}`,
         type: 'text',
-        position: { 
-          x: Math.random() * (CANVAS_WIDTH / 2), // Random position
-          y: Math.random() * (CANVAS_HEIGHT / 2) 
+        position: {
+          x: Math.random() * (CANVAS_WIDTH / 4),
+          y: Math.random() * (CANVAS_HEIGHT / 4)
         },
-        size: { 
-          width: CANVAS_WIDTH * 0.8, // Wider to fit more text
-          height: 100 // Taller for multi-line
+        size: {
+          width: estimatedWidth, // Dynamic width based on text length
+          height: 80 // Taller for wrapping
         },
         rotation: 0,
         zIndex: (canvas?.layers.length || 0) + 1,
         text: textInput.trim(),
-        fontSize: 28, // Bigger font
-        fontColor: '#000000', // Black text (white canvas)
+        fontSize: 24,
+        fontColor: '#000000',
         fontFamily: 'System',
         createdBy: userId!,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
-  
+
       const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
       const canvasSnap = await getDoc(canvasRef);
-      
+
       if (canvasSnap.exists()) {
         const currentLayers = canvasSnap.data().layers || [];
         await updateDoc(canvasRef, {
-          layers: [...currentLayers, newLayer] // ADD to array, don't replace
+          layers: [...currentLayers, newLayer]
         });
       }
-  
+
       setTextInput('');
       setShowTextModal(false);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -223,7 +227,7 @@ const CanvasEditorScreen = () => {
 
     const updatedLayers = canvas.layers.filter(layer => layer.id !== layerId);
     const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
-    
+
     try {
       await updateDoc(canvasRef, { layers: updatedLayers });
       setSelectedLayerId(null);
@@ -281,7 +285,7 @@ const CanvasEditorScreen = () => {
     );
   }
 
-  const activeCollaborators = Object.values(activePresences).filter(p => 
+  const activeCollaborators = Object.values(activePresences).filter(p =>
     Date.now() - (p.lastActive || 0) < 10000 // Active in last 10 seconds
   );
 
@@ -309,7 +313,7 @@ const CanvasEditorScreen = () => {
       <CollaboratorsBar collaborators={activeCollaborators} maxShow={5} />
 
       {/* Canvas */}
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -332,7 +336,7 @@ const CanvasEditorScreen = () => {
       </ScrollView>
 
       {/* Add Menu */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.addButton}
         onPress={() => setShowAddMenu(true)}
         activeOpacity={0.8}
@@ -342,14 +346,14 @@ const CanvasEditorScreen = () => {
 
       {/* Add Menu Modal */}
       <Modal visible={showAddMenu} transparent animationType="slide">
-        <TouchableOpacity 
-          style={styles.modalOverlay} 
+        <TouchableOpacity
+          style={styles.modalOverlay}
           activeOpacity={1}
           onPress={() => setShowAddMenu(false)}
         >
           <View style={styles.addMenuSheet}>
             <Text style={styles.addMenuTitle}>Add to Canvas</Text>
-            
+
             <TouchableOpacity style={styles.addMenuItem} onPress={addImageLayer}>
               <Icon name="image" size={24} color={COLORS.cyan400} />
               <Text style={styles.addMenuText}>Add Image</Text>
@@ -360,8 +364,8 @@ const CanvasEditorScreen = () => {
               <Text style={styles.addMenuText}>Add Text</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={[styles.addMenuItem, styles.cancelItem]} 
+            <TouchableOpacity
+              style={[styles.addMenuItem, styles.cancelItem]}
               onPress={() => setShowAddMenu(false)}
             >
               <Text style={styles.cancelText}>Cancel</Text>
@@ -386,8 +390,8 @@ const CanvasEditorScreen = () => {
               autoFocus
             />
             <View style={styles.textModalActions}>
-              <TouchableOpacity 
-                style={styles.textModalButton} 
+              <TouchableOpacity
+                style={styles.textModalButton}
                 onPress={() => {
                   setTextInput('');
                   setShowTextModal(false);
@@ -395,8 +399,8 @@ const CanvasEditorScreen = () => {
               >
                 <Text style={styles.textModalCancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.textModalButton, styles.textModalAddButton]} 
+              <TouchableOpacity
+                style={[styles.textModalButton, styles.textModalAddButton]}
                 onPress={handleAddText}
               >
                 <Text style={styles.textModalAddText}>Add</Text>
@@ -475,7 +479,7 @@ const styles = StyleSheet.create({
   },
   addButton: {
     position: 'absolute',
-    bottom: 30,
+    bottom: 100, // ← Change from 30 to 100 (accounts for 120px tab bar)
     right: 20,
     width: 60,
     height: 60,

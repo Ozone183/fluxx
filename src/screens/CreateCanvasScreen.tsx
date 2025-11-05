@@ -65,7 +65,7 @@ const CreateCanvasScreen = () => {
 
         // Access
         accessType: isPrivate ? 'private' : 'public',
-        inviteCode: isPrivate ? generateInviteCode() : undefined,
+        ...(isPrivate && { inviteCode: generateInviteCode() }),
 
         // Empty layers initially
         layers: [],

@@ -150,6 +150,9 @@ const CanvasEditorScreen = () => {
           zIndex: (canvas?.layers.length || 0) + 1,
           imageUrl: downloadURL,
           createdBy: userId!,
+
+          createdByUsername: userChannel || '@unknown', // ADD
+          createdByProfilePic: null, // ADD
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
@@ -199,6 +202,8 @@ const CanvasEditorScreen = () => {
         fontColor: '#000000',
         fontFamily: 'System',
         createdBy: userId!,
+        createdByUsername: userChannel || '@unknown', // ADD
+        createdByProfilePic: null, // ADD
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };

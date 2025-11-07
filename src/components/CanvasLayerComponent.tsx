@@ -1,6 +1,6 @@
 // src/components/CanvasLayerComponent.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import {
   View,
@@ -16,6 +16,8 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
 import { CanvasLayer } from '../types/canvas';
+import UserProfileSheet from './UserProfileSheet';
+
 
 interface CanvasLayerProps {
   layer: CanvasLayer;
@@ -24,6 +26,16 @@ interface CanvasLayerProps {
   onDelete: () => void;
   canvasId: string;
 }
+
+const getTimeAgo = (timestamp: number): string => {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return 'now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+};
 
 const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
   layer,
@@ -34,6 +46,11 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
 }) => {
   const { userId } = useAuth();
   const [position, setPosition] = useState(layer.position);
+  // ADD THIS useEffect:
+useEffect(() => {
+  setPosition(layer.position);
+}, [layer.position]);
+  const [showProfile, setShowProfile] = useState(false); // ADD THIS
 
   // Pan responder for dragging
   const panResponder = PanResponder.create({
@@ -56,9 +73,9 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
       // Update in Firestore
       try {
         const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
-const canvasSnap = await getDoc(canvasRef);
-if (canvasSnap.exists()) {
-  const canvasData = canvasSnap.data();
+        const canvasSnap = await getDoc(canvasRef);
+        if (canvasSnap.exists()) {
+          const canvasData = canvasSnap.data();
           const updatedLayers = canvasData.layers.map((l: CanvasLayer) =>
             l.id === layer.id ? { ...l, position: newPosition, updatedAt: Date.now() } : l
           );
@@ -111,6 +128,15 @@ if (canvasSnap.exists()) {
         </Text>
       )}
 
+      {/* Attribution Badge - only show when selected */}
+      {isSelected && (
+        <TouchableOpacity style={styles.attributionBadge} onPress={() => setShowProfile(true)}>
+          <Text style={styles.attributionText}>
+            {layer.createdByUsername} • {getTimeAgo(layer.createdAt)}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* Delete Button (only if selected and user created it) */}
       {isSelected && canEdit && (
         <TouchableOpacity
@@ -124,6 +150,13 @@ if (canvasSnap.exists()) {
 
       {/* Selection Border */}
       {isSelected && <View style={styles.selectionBorder} />}
+
+      {/* Profile Sheet */}
+      <UserProfileSheet
+        userId={layer.createdBy}
+        visible={showProfile}
+        onClose={() => setShowProfile(false)}
+      />
     </View>
   );
 };
@@ -164,6 +197,20 @@ const styles = StyleSheet.create({
     right: -12,
     backgroundColor: COLORS.slate900,
     borderRadius: 12,
+  },
+  attributionBadge: {
+    position: 'absolute',
+    bottom: -20,
+    left: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  attributionText: {
+    fontSize: 10,
+    color: COLORS.white,
+    fontWeight: '600',
   },
 });
 

@@ -27,11 +27,11 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "owner": "bradleydexter",
     "extra": {
       "eas": {
-        "projectId": "91cd5c43-7e36-49d1-bf82-18b9c354ebb5"
+        "projectId": "6b415cbd-de60-4ff5-8411-bf560e2c1379"
       }
-    },
-    "owner": "ozone858"
+    }
   }
 }

@@ -49,7 +49,7 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
   // ADD THIS useEffect:
 useEffect(() => {
   setPosition(layer.position);
-}, [layer.position]);
+}, [layer.id, layer.position]); // Add layer.id dependency
   const [showProfile, setShowProfile] = useState(false); // ADD THIS
 
   // Pan responder for dragging
@@ -57,6 +57,7 @@ useEffect(() => {
     onStartShouldSetPanResponder: () => true,
     onPanResponderGrant: () => {
       onSelect();
+      setPosition(layer.position); // ADD THIS LINE
     },
     onPanResponderMove: (_, gestureState) => {
       setPosition({

@@ -1,10 +1,10 @@
-// src/components/CanvasStoryRing.tsx - ENHANCED VERSION
+// src/components/CanvasStoryRing.tsx - COMPLETE UPDATED VERSION
 
 import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { COLORS, GRADIENTS } from '../theme/colors';
+import { COLORS } from '../theme/colors';
 import { Canvas } from '../types/canvas';
 
 interface CanvasStoryRingProps {
@@ -20,12 +20,10 @@ const CanvasStoryRing: React.FC<CanvasStoryRingProps> = ({
   onPress,
   activeCollaboratorsCount = 0,
 }) => {
-  // Animated pulse effect
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (!isCreateNew && canvas && !canvas.isExpired) {
-      // Pulse animation for active canvases
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
@@ -69,10 +67,13 @@ const CanvasStoryRing: React.FC<CanvasStoryRingProps> = ({
   const creatorName = canvas.creatorUsername.replace('@', '');
   const hasActiveUsers = activeCollaboratorsCount > 0;
 
-  // Brighter gradient colors for active canvases
+  // Get first image layer for thumbnail
+  const firstImageLayer = canvas.layers.find(layer => layer.type === 'image' && layer.imageUrl);
+  const thumbnailUrl = firstImageLayer?.imageUrl;
+
   const ringGradient = isExpired
     ? ['#475569', '#334155'] as const
-    : ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'] as const; // Cyan → Blue → Purple → Pink
+    : ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'] as const;
 
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
@@ -92,18 +93,21 @@ const CanvasStoryRing: React.FC<CanvasStoryRingProps> = ({
           ]}
         >
           <View style={styles.innerRing}>
-            <View style={styles.canvas}>
-              <Icon
-                name="color-palette"
-                size={30}
-                color={isExpired ? COLORS.slate500 : COLORS.cyan400}
-              />
+            <View style={[styles.canvas, { backgroundColor: canvas.backgroundColor }]}>
+              {thumbnailUrl ? (
+                <Image source={{ uri: thumbnailUrl }} style={styles.thumbnail} resizeMode="cover" />
+              ) : (
+                <Icon
+                  name="color-palette"
+                  size={30}
+                  color={isExpired ? COLORS.slate500 : COLORS.cyan400}
+                />
+              )}
             </View>
           </View>
         </LinearGradient>
       </Animated.View>
 
-      {/* Active Collaborators Badge */}
       {hasActiveUsers && !isExpired && (
         <LinearGradient
           colors={['#06b6d4', '#3b82f6']}
@@ -113,7 +117,6 @@ const CanvasStoryRing: React.FC<CanvasStoryRingProps> = ({
         </LinearGradient>
       )}
 
-      {/* Expired Badge */}
       {isExpired && (
         <View style={[styles.badge, styles.expiredBadge]}>
           <Icon name="time-outline" size={12} color={COLORS.white} />
@@ -165,9 +168,13 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: COLORS.slate800,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  thumbnail: {
+    width: '100%',
+    height: '100%',
   },
   createRing: {
     width: 76,

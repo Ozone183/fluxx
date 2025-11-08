@@ -10,18 +10,19 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
+  ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { ScrollView } from 'react-native';
 
 import { COLORS, GRADIENTS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
-import { Canvas } from '../types/canvas';
+import { Canvas, CanvasLayer } from '../types/canvas';
+import { CANVAS_TEMPLATES } from '../data/canvasTemplates';
 
 const CreateCanvasScreen = () => {
   const navigation = useNavigation();
@@ -30,6 +31,7 @@ const CreateCanvasScreen = () => {
   const [title, setTitle] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState(CANVAS_TEMPLATES[0]);
 
   const generateInviteCode = () => {
     return Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -51,27 +53,69 @@ const CreateCanvasScreen = () => {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       const now = Date.now();
-      const expiresAt = now + (24 * 60 * 60 * 1000); // 24 hours
+      const expiresAt = now + (24 * 60 * 60 * 1000);
+
+      // Create starter layers for template
+      let starterLayers: CanvasLayer[] = [];
+      
+      if (selectedTemplate.id !== 'blank_canvas' && selectedTemplate.suggestedPrompts.length > 0) {
+        const textColor = selectedTemplate.backgroundColor === '#1A1A2E' ? '#FFFFFF' : '#000000';
+        const promptColor = selectedTemplate.backgroundColor === '#1A1A2E' ? '#AAAAAA' : '#666666';
+
+        starterLayers = [
+          // Title layer
+          {
+            id: `layer_title_${Date.now()}`,
+            type: 'text',
+            position: { x: 50, y: 80 },
+            size: { width: 320, height: 100 },
+            rotation: 0,
+            zIndex: 1,
+            text: selectedTemplate.title,
+            fontSize: 36,
+            fontColor: textColor,
+            fontFamily: 'System',
+            createdBy: 'system',
+            createdByUsername: '@fluxx',
+            createdByProfilePic: null,
+            createdAt: now,
+            updatedAt: now,
+          },
+          // Prompt hints
+          ...selectedTemplate.suggestedPrompts.slice(0, 3).map((prompt, i) => ({
+            id: `layer_prompt_${i}_${Date.now()}`,
+            type: 'text' as const,
+            position: { x: 60, y: 250 + (i * 180) },
+            size: { width: 300, height: 100 },
+            rotation: 0,
+            zIndex: i + 2,
+            text: `💡 ${prompt}`,
+            fontSize: 18,
+            fontColor: promptColor,
+            fontFamily: 'System',
+            createdBy: 'system',
+            createdByUsername: '@fluxx',
+            createdByProfilePic: null,
+            createdAt: now,
+            updatedAt: now,
+          }))
+        ];
+      }
 
       const canvasData: Omit<Canvas, 'id'> = {
         title: title.trim(),
         creatorId: userId,
         creatorUsername: userChannel || '@unknown',
 
-        // Canvas dimensions (standard Instagram story size)
         width: 1080,
         height: 1920,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: selectedTemplate.backgroundColor,
 
-        // Access
         accessType: isPrivate ? 'private' : 'public',
         ...(isPrivate && { inviteCode: generateInviteCode() }),
 
-        // Empty layers initially
-        layers: [],
+        layers: starterLayers,
 
-        // Creator as first collaborator
-        // Creator as first collaborator
         collaborators: {
           [userId]: {
             userId: userId,
@@ -82,15 +126,13 @@ const CreateCanvasScreen = () => {
             lastSeen: now,
           }
         },
-        maxCollaborators: 12,
+        maxCollaborators: selectedTemplate.maxLayers,
 
-        // Lifecycle
         createdAt: now,
         expiresAt,
         isExpired: false,
         isArchived: false,
 
-        // Stats
         viewCount: 0,
         likeCount: 0,
         likedBy: [],
@@ -102,8 +144,6 @@ const CreateCanvasScreen = () => {
       );
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      // Navigate to Canvas Editor
       (navigation as any).navigate('CanvasEditor', { canvasId: canvasRef.id });
 
     } catch (error) {
@@ -117,7 +157,6 @@ const CreateCanvasScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Icon name="arrow-back" size={24} color={COLORS.white} />
@@ -126,7 +165,6 @@ const CreateCanvasScreen = () => {
         <View style={styles.placeholder} />
       </View>
 
-      {/* Content */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <LinearGradient colors={GRADIENTS.primary} style={styles.previewCard}>
           <Icon name="color-palette" size={60} color={COLORS.white} />
@@ -147,6 +185,26 @@ const CreateCanvasScreen = () => {
               autoFocus
             />
             <Text style={styles.charCount}>{title.length}/50</Text>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Choose Template</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {CANVAS_TEMPLATES.map(template => (
+                <TouchableOpacity
+                  key={template.id}
+                  style={[
+                    styles.templateCard,
+                    selectedTemplate?.id === template.id && styles.templateCardSelected
+                  ]}
+                  onPress={() => setSelectedTemplate(template)}
+                >
+                  <Icon name={template.icon as any} size={24} color={COLORS.cyan400} />
+                  <Text style={styles.templateTitle}>{template.title}</Text>
+                  <Text style={styles.templateDesc}>{template.description}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
 
           <View style={styles.inputGroup}>
@@ -175,18 +233,17 @@ const CreateCanvasScreen = () => {
             </Text>
           </View>
 
-          <View style={styles.features}>
-            <Text style={styles.featuresTitle}>What you can do:</Text>
-            <FeatureItem icon="image" text="Add photos & images" />
-            <FeatureItem icon="text" text="Add text & captions" />
-            <FeatureItem icon="people" text="Collaborate with up to 12 people" />
-            <FeatureItem icon="time" text="Canvas expires in 24 hours" />
-            <FeatureItem icon="download" text="Export as image anytime" />
-          </View>
+          {selectedTemplate.suggestedPrompts.length > 0 && (
+            <View style={styles.promptsPreview}>
+              <Text style={styles.promptsTitle}>This template includes:</Text>
+              {selectedTemplate.suggestedPrompts.map((prompt, i) => (
+                <Text key={i} style={styles.promptItem}>• {prompt}</Text>
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
 
-      {/* Create Button */}
       <View style={styles.footer}>
         <TouchableOpacity
           style={[styles.createButton, creating && styles.createButtonDisabled]}
@@ -209,13 +266,6 @@ const CreateCanvasScreen = () => {
     </View>
   );
 };
-
-const FeatureItem = ({ icon, text }: { icon: string; text: string }) => (
-  <View style={styles.featureItem}>
-    <Icon name={icon as any} size={18} color={COLORS.cyan400} />
-    <Text style={styles.featureText}>{text}</Text>
-  </View>
-);
 
 const styles = StyleSheet.create({
   container: {
@@ -294,6 +344,49 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginRight: 8,
   },
+  templateCard: {
+    backgroundColor: COLORS.slate800,
+    borderRadius: 12,
+    padding: 16,
+    marginRight: 12,
+    alignItems: 'center',
+    width: 140,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  templateCardSelected: {
+    borderColor: COLORS.cyan400,
+    backgroundColor: COLORS.slate700,
+  },
+  templateTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  templateDesc: {
+    fontSize: 10,
+    color: COLORS.slate400,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  promptsPreview: {
+    backgroundColor: COLORS.slate800,
+    borderRadius: 12,
+    padding: 16,
+  },
+  promptsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.white,
+    marginBottom: 8,
+  },
+  promptItem: {
+    fontSize: 13,
+    color: COLORS.slate300,
+    marginBottom: 4,
+  },
   switchRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -309,28 +402,6 @@ const styles = StyleSheet.create({
     color: COLORS.slate400,
     marginTop: 8,
     marginLeft: 8,
-  },
-  features: {
-    backgroundColor: COLORS.slate800,
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 8,
-  },
-  featuresTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.white,
-    marginBottom: 12,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    gap: 10,
-  },
-  featureText: {
-    fontSize: 14,
-    color: COLORS.slate300,
   },
   footer: {
     padding: 20,

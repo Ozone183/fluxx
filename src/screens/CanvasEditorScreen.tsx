@@ -29,11 +29,49 @@ import { useAuth, APP_ID } from '../context/AuthContext';
 import { Canvas, CanvasLayer, ActivePresence } from '../types/canvas';
 import CanvasLayerComponent from '../components/CanvasLayerComponent';
 import CollaboratorsBar from '../components/CollaboratorsBar';
+import LayerListPanel from '../components/LayerListPanel'; // ← ADD THIS LINE
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CANVAS_RATIO = 9 / 16; // Instagram story ratio
+const CANVAS_RATIO = 9 / 16;
 const CANVAS_WIDTH = SCREEN_WIDTH - 40;
 const CANVAS_HEIGHT = CANVAS_WIDTH / CANVAS_RATIO;
+
+// ← ADD THIS FUNCTION HERE (before CanvasEditorScreen component)
+const findEmptySpot = (canvas: Canvas | null, newLayerSize: { width: number; height: number }) => {
+  if (!canvas) return { x: 50, y: 50 };
+
+  const positions = [
+    { x: 20, y: 20 },
+    { x: CANVAS_WIDTH - newLayerSize.width - 20, y: 20 },
+    { x: 20, y: CANVAS_HEIGHT - newLayerSize.height - 20 },
+    { x: CANVAS_WIDTH - newLayerSize.width - 20, y: CANVAS_HEIGHT - newLayerSize.height - 20 },
+    { x: CANVAS_WIDTH / 2 - newLayerSize.width / 2, y: 20 },
+    { x: CANVAS_WIDTH / 2 - newLayerSize.width / 2, y: CANVAS_HEIGHT - newLayerSize.height - 20 },
+    { x: 20, y: CANVAS_HEIGHT / 2 - newLayerSize.height / 2 },
+    { x: CANVAS_WIDTH - newLayerSize.width - 20, y: CANVAS_HEIGHT / 2 - newLayerSize.height / 2 },
+  ];
+
+  for (const pos of positions) {
+    let hasOverlap = false;
+
+    for (const layer of canvas.layers) {
+      const overlapX = pos.x < layer.position.x + layer.size.width && pos.x + newLayerSize.width > layer.position.x;
+      const overlapY = pos.y < layer.position.y + layer.size.height && pos.y + newLayerSize.height > layer.position.y;
+
+      if (overlapX && overlapY) {
+        hasOverlap = true;
+        break;
+      }
+    }
+
+    if (!hasOverlap) return pos;
+  }
+
+  return {
+    x: Math.random() * (CANVAS_WIDTH - newLayerSize.width),
+    y: Math.random() * (CANVAS_HEIGHT - newLayerSize.height),
+  };
+};
 
 const CanvasEditorScreen = () => {
   const navigation = useNavigation();
@@ -50,13 +88,13 @@ const CanvasEditorScreen = () => {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showTextModal, setShowTextModal] = useState(false);
   const [textInput, setTextInput] = useState('');
+  const [showLayerPanel, setShowLayerPanel] = useState(false); // ← ADD THIS LINE
 
-  // Listen to canvas updates
+  // ... all your useEffect hooks stay the same ...
+
   useEffect(() => {
     if (!canvasId) return;
-
     const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
-
     const unsubscribe = onSnapshot(canvasRef, (snapshot) => {
       if (snapshot.exists()) {
         const canvasData = { id: snapshot.id, ...snapshot.data() } as Canvas;
@@ -67,40 +105,30 @@ const CanvasEditorScreen = () => {
         navigation.goBack();
       }
     });
-
     return () => unsubscribe();
   }, [canvasId]);
 
-  // Listen to active presences (real-time)
   useEffect(() => {
     if (!canvasId || !userId) return;
-
     const presenceRef = dbRef(database, `canvases/${canvasId}/presence`);
-
     const unsubscribe = onValue(presenceRef, (snapshot) => {
       const presences = snapshot.val() || {};
       setActivePresences(presences);
     });
-
-    // Set my presence
     const myPresenceRef = dbRef(database, `canvases/${canvasId}/presence/${userId}`);
     set(myPresenceRef, {
       userId,
       username: userChannel || '@unknown',
       lastActive: serverTimestamp(),
     });
-
-    // Cleanup presence on unmount
     return () => {
       set(myPresenceRef, null);
       unsubscribe();
     };
   }, [canvasId, userId]);
 
-  // Update my presence every 5 seconds
   useEffect(() => {
     if (!canvasId || !userId) return;
-
     const interval = setInterval(() => {
       const myPresenceRef = dbRef(database, `canvases/${canvasId}/presence/${userId}`);
       set(myPresenceRef, {
@@ -110,7 +138,6 @@ const CanvasEditorScreen = () => {
         lastActive: serverTimestamp(),
       });
     }, 5000);
-
     return () => clearInterval(interval);
   }, [canvasId, userId, selectedLayerId]);
 
@@ -132,7 +159,6 @@ const CanvasEditorScreen = () => {
         setShowAddMenu(false);
         const imageUri = result.assets[0].uri;
 
-        // Upload to Firebase Storage
         const response = await fetch(imageUri);
         const blob = await response.blob();
         const filename = `canvas_${canvasId}_${Date.now()}.jpg`;
@@ -140,24 +166,25 @@ const CanvasEditorScreen = () => {
         await uploadBytes(storageReference, blob);
         const downloadURL = await getDownloadURL(storageReference);
 
-        // Create layer
+        // ← REPLACE THE OLD newLayer WITH THIS:
+        const newLayerSize = { width: CANVAS_WIDTH * 0.4, height: CANVAS_HEIGHT * 0.25 };
+        const smartPosition = findEmptySpot(canvas, newLayerSize);
+
         const newLayer: CanvasLayer = {
           id: `layer_${Date.now()}`,
           type: 'image',
-          position: { x: CANVAS_WIDTH / 4, y: CANVAS_HEIGHT / 4 },
-          size: { width: CANVAS_WIDTH / 2, height: CANVAS_HEIGHT / 3 },
+          position: smartPosition,
+          size: newLayerSize,
           rotation: 0,
           zIndex: (canvas?.layers.length || 0) + 1,
           imageUrl: downloadURL,
           createdBy: userId!,
-
-          createdByUsername: userChannel || '@unknown', // ADD
-          createdByProfilePic: null, // ADD
+          createdByUsername: userChannel || '@unknown',
+          createdByProfilePic: null,
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
 
-        // Update Firestore
         const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
         await updateDoc(canvasRef, {
           layers: arrayUnion(newLayer),
@@ -180,21 +207,17 @@ const CanvasEditorScreen = () => {
     if (!textInput.trim()) return;
 
     try {
-      // Calculate text width based on content length
+      // ← REPLACE THE OLD newLayer WITH THIS:
       const textLength = textInput.trim().length;
-      const estimatedWidth = Math.min(Math.max(textLength * 12, 200), CANVAS_WIDTH * 0.9);
+      const estimatedWidth = Math.min(Math.max(textLength * 12, 200), CANVAS_WIDTH * 0.6);
+      const newLayerSize = { width: estimatedWidth, height: 80 };
+      const smartPosition = findEmptySpot(canvas, newLayerSize);
 
       const newLayer: CanvasLayer = {
         id: `layer_${Date.now()}_${Math.random()}`,
         type: 'text',
-        position: {
-          x: Math.random() * (CANVAS_WIDTH / 4),
-          y: Math.random() * (CANVAS_HEIGHT / 4)
-        },
-        size: {
-          width: estimatedWidth, // Dynamic width based on text length
-          height: 80 // Taller for wrapping
-        },
+        position: smartPosition,
+        size: newLayerSize,
         rotation: 0,
         zIndex: (canvas?.layers.length || 0) + 1,
         text: textInput.trim(),
@@ -202,8 +225,8 @@ const CanvasEditorScreen = () => {
         fontColor: '#000000',
         fontFamily: 'System',
         createdBy: userId!,
-        createdByUsername: userChannel || '@unknown', // ADD
-        createdByProfilePic: null, // ADD
+        createdByUsername: userChannel || '@unknown',
+        createdByProfilePic: null,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -252,10 +275,7 @@ const CanvasEditorScreen = () => {
         return;
       }
 
-      // Capture canvas as image
       const uri = await viewShotRef.current.capture();
-
-      // Upload to Firebase Storage
       const response = await fetch(uri);
       const blob = await response.blob();
       const filename = `canvas_export_${canvasId}_${Date.now()}.png`;
@@ -263,7 +283,6 @@ const CanvasEditorScreen = () => {
       await uploadBytes(storageReference, blob);
       const downloadURL = await getDownloadURL(storageReference);
 
-      // Save export URL to canvas
       const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
       await updateDoc(canvasRef, { exportedImageUrl: downloadURL });
 
@@ -291,7 +310,7 @@ const CanvasEditorScreen = () => {
   }
 
   const activeCollaborators = Object.values(activePresences).filter(p =>
-    Date.now() - (p.lastActive || 0) < 10000 // Active in last 10 seconds
+    Date.now() - (p.lastActive || 0) < 10000
   );
 
   return (
@@ -305,6 +324,10 @@ const CanvasEditorScreen = () => {
           <Text style={styles.canvasTitle}>{canvas.title}</Text>
           <Text style={styles.expiryText}>Expires in {getTimeRemaining(canvas.expiresAt)}</Text>
         </View>
+        {/* ← ADD THIS LAYERS BUTTON BEFORE EXPORT BUTTON */}
+        <TouchableOpacity onPress={() => setShowLayerPanel(true)} style={styles.layersButton}>
+          <Icon name="layers-outline" size={24} color={COLORS.cyan400} />
+        </TouchableOpacity>
         <TouchableOpacity onPress={exportCanvas} disabled={exporting} style={styles.exportButton}>
           {exporting ? (
             <ActivityIndicator size="small" color={COLORS.cyan400} />
@@ -314,16 +337,14 @@ const CanvasEditorScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Collaborators Bar */}
       <CollaboratorsBar collaborators={activeCollaborators} maxShow={5} />
 
-      {/* Canvas */}
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }}>
-          <View style={[styles.canvas, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT }]}>
+          <View style={[styles.canvas, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT, backgroundColor: canvas.backgroundColor }]}>
             {canvas.layers
               .sort((a, b) => a.zIndex - b.zIndex)
               .map((layer) => (
@@ -340,7 +361,6 @@ const CanvasEditorScreen = () => {
         </ViewShot>
       </ScrollView>
 
-      {/* Add Menu */}
       <TouchableOpacity
         style={styles.addButton}
         onPress={() => setShowAddMenu(true)}
@@ -349,7 +369,6 @@ const CanvasEditorScreen = () => {
         <Icon name="add" size={32} color={COLORS.white} />
       </TouchableOpacity>
 
-      {/* Add Menu Modal */}
       <Modal visible={showAddMenu} transparent animationType="slide">
         <TouchableOpacity
           style={styles.modalOverlay}
@@ -379,7 +398,6 @@ const CanvasEditorScreen = () => {
         </TouchableOpacity>
       </Modal>
 
-      {/* Text Input Modal */}
       <Modal visible={showTextModal} transparent animationType="fade">
         <View style={styles.textModalOverlay}>
           <View style={styles.textModalContent}>
@@ -414,6 +432,16 @@ const CanvasEditorScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* ← ADD THIS LAYER PANEL MODAL AT THE END BEFORE </View> */}
+      <LayerListPanel
+        visible={showLayerPanel}
+        layers={canvas.layers}
+        onClose={() => setShowLayerPanel(false)}
+        onSelectLayer={setSelectedLayerId}
+        onDeleteLayer={deleteLayer}
+        selectedLayerId={selectedLayerId}
+      />
     </View>
   );
 };
@@ -469,6 +497,10 @@ const styles = StyleSheet.create({
     color: COLORS.amber400,
     marginTop: 2,
   },
+  layersButton: { // ← ADD THIS STYLE
+    padding: 8,
+    marginRight: 8,
+  },
   exportButton: {
     padding: 8,
   },
@@ -477,14 +509,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   canvas: {
-    backgroundColor: COLORS.white,
     borderRadius: 12,
     overflow: 'hidden',
     position: 'relative',
   },
   addButton: {
     position: 'absolute',
-    bottom: 100, // ← Change from 30 to 100 (accounts for 120px tab bar)
+    bottom: 100,
     right: 20,
     width: 60,
     height: 60,

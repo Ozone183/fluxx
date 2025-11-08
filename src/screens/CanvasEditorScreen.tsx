@@ -143,6 +143,15 @@ const CanvasEditorScreen = () => {
 
   const addImageLayer = async () => {
     try {
+      // ← ADD THIS CHECK HERE
+      if (canvas && canvas.layers.length >= canvas.maxCollaborators) {
+        Alert.alert(
+          'Canvas Full',
+          `This canvas can only hold ${canvas.maxCollaborators} layers. Delete a layer to add new content.`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission Required', 'Please grant photo library access.');
@@ -207,7 +216,16 @@ const CanvasEditorScreen = () => {
     if (!textInput.trim()) return;
 
     try {
-      // ← REPLACE THE OLD newLayer WITH THIS:
+      // Check layer limit
+      if (canvas && canvas.layers.length >= canvas.maxCollaborators) {
+        Alert.alert(
+          'Canvas Full',
+          `This canvas can only hold ${canvas.maxCollaborators} layers. Delete a layer to add new content.`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
       const textLength = textInput.trim().length;
       const estimatedWidth = Math.min(Math.max(textLength * 12, 200), CANVAS_WIDTH * 0.6);
       const newLayerSize = { width: estimatedWidth, height: 80 };
@@ -322,7 +340,9 @@ const CanvasEditorScreen = () => {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.canvasTitle}>{canvas.title}</Text>
-          <Text style={styles.expiryText}>Expires in {getTimeRemaining(canvas.expiresAt)}</Text>
+          <Text style={styles.expiryText}>
+            Expires in {getTimeRemaining(canvas.expiresAt)} • {canvas.layers.length}/{canvas.maxCollaborators} layers
+          </Text>
         </View>
         {/* ← ADD THIS LAYERS BUTTON BEFORE EXPORT BUTTON */}
         <TouchableOpacity onPress={() => setShowLayerPanel(true)} style={styles.layersButton}>

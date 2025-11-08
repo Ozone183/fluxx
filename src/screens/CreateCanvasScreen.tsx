@@ -241,6 +241,18 @@ const CreateCanvasScreen = () => {
               ))}
             </View>
           )}
+
+{/* ADD THIS ENTIRE BLOCK RIGHT HERE */}
+<View style={styles.features}>
+  <Text style={styles.featuresTitle}>What you can do:</Text>
+  <FeatureItem icon="image" text="Add photos & images" />
+  <FeatureItem icon="text" text="Add text & captions" />
+  <FeatureItem icon="people" text="Collaborate with up to 12 people" />
+  <FeatureItem icon="layers" text={`Max ${selectedTemplate.maxLayers} layers per canvas`} />
+  <FeatureItem icon="time" text="Canvas expires in 24 hours" />
+  <FeatureItem icon="download" text="Export as image anytime" />
+</View>
+
         </View>
       </ScrollView>
 
@@ -266,6 +278,14 @@ const CreateCanvasScreen = () => {
     </View>
   );
 };
+
+// ADD THIS HERE
+const FeatureItem = ({ icon, text }: { icon: string; text: string }) => (
+  <View style={styles.featureItem}>
+    <Icon name={icon as any} size={18} color={COLORS.cyan400} />
+    <Text style={styles.featureText}>{text}</Text>
+  </View>
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -426,6 +446,28 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: COLORS.white,
+  },
+  features: {
+    backgroundColor: COLORS.slate800,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+  },
+  featuresTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.white,
+    marginBottom: 12,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 10,
+  },
+  featureText: {
+    fontSize: 14,
+    color: COLORS.slate300,
   },
 });
 

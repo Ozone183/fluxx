@@ -20,7 +20,7 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
       'Share your mood',
       'Drop your outfit inspo',
     ],
-    maxLayers: 8,
+    maxLayers: 12,
   },
   {
     id: 'movie_night',
@@ -33,7 +33,7 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
       'Share your snack choice',
       'Drop a movie quote',
     ],
-    maxLayers: 8,
+    maxLayers: 12,
   },
   {
     id: 'travel_goals',
@@ -46,7 +46,7 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
       'Share travel photo',
       'Drop your bucket list spot',
     ],
-    maxLayers: 8,
+    maxLayers: 12,
   },
   {
     id: 'study_session',
@@ -59,7 +59,7 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
       'Share helpful resources',
       'Drop motivation quote',
     ],
-    maxLayers: 10,
+    maxLayers: 14,
   },
   {
     id: 'blank_canvas',
@@ -68,6 +68,6 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
     icon: 'create',
     backgroundColor: '#FFFFFF',
     suggestedPrompts: [],
-    maxLayers: 10,
+    maxLayers: 14,
   },
 ];

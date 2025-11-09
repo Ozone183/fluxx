@@ -58,49 +58,6 @@ const CreateCanvasScreen = () => {
       // Create starter layers for template
       let starterLayers: CanvasLayer[] = [];
       
-      if (selectedTemplate.id !== 'blank_canvas' && selectedTemplate.suggestedPrompts.length > 0) {
-        const textColor = selectedTemplate.backgroundColor === '#1A1A2E' ? '#FFFFFF' : '#000000';
-        const promptColor = selectedTemplate.backgroundColor === '#1A1A2E' ? '#AAAAAA' : '#666666';
-
-        starterLayers = [
-          // Title layer
-          {
-            id: `layer_title_${Date.now()}`,
-            type: 'text',
-            position: { x: 50, y: 80 },
-            size: { width: 320, height: 100 },
-            rotation: 0,
-            zIndex: 1,
-            text: selectedTemplate.title,
-            fontSize: 36,
-            fontColor: textColor,
-            fontFamily: 'System',
-            createdBy: 'system',
-            createdByUsername: '@fluxx',
-            createdByProfilePic: null,
-            createdAt: now,
-            updatedAt: now,
-          },
-          // Prompt hints
-          ...selectedTemplate.suggestedPrompts.slice(0, 3).map((prompt, i) => ({
-            id: `layer_prompt_${i}_${Date.now()}`,
-            type: 'text' as const,
-            position: { x: 60, y: 250 + (i * 180) },
-            size: { width: 300, height: 100 },
-            rotation: 0,
-            zIndex: i + 2,
-            text: `💡 ${prompt}`,
-            fontSize: 18,
-            fontColor: promptColor,
-            fontFamily: 'System',
-            createdBy: 'system',
-            createdByUsername: '@fluxx',
-            createdByProfilePic: null,
-            createdAt: now,
-            updatedAt: now,
-          }))
-        ];
-      }
 
       const canvasData: Omit<Canvas, 'id'> = {
         title: title.trim(),

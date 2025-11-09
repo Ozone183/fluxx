@@ -36,7 +36,6 @@ const CANVAS_RATIO = 9 / 16;
 const CANVAS_WIDTH = SCREEN_WIDTH - 40;
 const CANVAS_HEIGHT = CANVAS_WIDTH / CANVAS_RATIO;
 
-// ← ADD THIS FUNCTION HERE (before CanvasEditorScreen component)
 const findEmptySpot = (canvas: Canvas | null, newLayerSize: { width: number; height: number }) => {
   if (!canvas) return { x: 50, y: 50 };
 
@@ -49,14 +48,21 @@ const findEmptySpot = (canvas: Canvas | null, newLayerSize: { width: number; hei
     { x: CANVAS_WIDTH / 2 - newLayerSize.width / 2, y: CANVAS_HEIGHT - newLayerSize.height - 20 },
     { x: 20, y: CANVAS_HEIGHT / 2 - newLayerSize.height / 2 },
     { x: CANVAS_WIDTH - newLayerSize.width - 20, y: CANVAS_HEIGHT / 2 - newLayerSize.height / 2 },
+    { x: CANVAS_WIDTH * 0.15, y: CANVAS_HEIGHT * 0.25 },
+    { x: CANVAS_WIDTH * 0.62, y: CANVAS_HEIGHT * 0.25 },
+    { x: CANVAS_WIDTH * 0.15, y: CANVAS_HEIGHT * 0.58 },
+    { x: CANVAS_WIDTH * 0.62, y: CANVAS_HEIGHT * 0.58 },
   ];
 
   for (const pos of positions) {
     let hasOverlap = false;
 
     for (const layer of canvas.layers) {
-      const overlapX = pos.x < layer.position.x + layer.size.width && pos.x + newLayerSize.width > layer.position.x;
-      const overlapY = pos.y < layer.position.y + layer.size.height && pos.y + newLayerSize.height > layer.position.y;
+      // Add 10px padding to reduce false positives
+      const overlapX = pos.x < (layer.position.x + layer.size.width + 10) &&
+        (pos.x + newLayerSize.width) > (layer.position.x - 10);
+      const overlapY = pos.y < (layer.position.y + layer.size.height + 10) &&
+        (pos.y + newLayerSize.height) > (layer.position.y - 10);
 
       if (overlapX && overlapY) {
         hasOverlap = true;
@@ -67,9 +73,10 @@ const findEmptySpot = (canvas: Canvas | null, newLayerSize: { width: number; hei
     if (!hasOverlap) return pos;
   }
 
+  // If all 12 spots taken, slight offset
   return {
-    x: Math.random() * (CANVAS_WIDTH - newLayerSize.width),
-    y: Math.random() * (CANVAS_HEIGHT - newLayerSize.height),
+    x: 30 + (canvas.layers.length * 20) % (CANVAS_WIDTH - newLayerSize.width - 60),
+    y: 30 + (canvas.layers.length * 20) % (CANVAS_HEIGHT - newLayerSize.height - 60),
   };
 };
 
@@ -176,7 +183,7 @@ const CanvasEditorScreen = () => {
         const downloadURL = await getDownloadURL(storageReference);
 
         // ← REPLACE THE OLD newLayer WITH THIS:
-        const newLayerSize = { width: CANVAS_WIDTH * 0.4, height: CANVAS_HEIGHT * 0.25 };
+        const newLayerSize = { width: CANVAS_WIDTH * 0.28, height: CANVAS_HEIGHT * 0.16 };
         const smartPosition = findEmptySpot(canvas, newLayerSize);
 
         const newLayer: CanvasLayer = {

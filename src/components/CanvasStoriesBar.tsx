@@ -66,7 +66,7 @@ const CanvasStoriesBar = () => {
   }, [canvases]);
 
   const handleCreateCanvas = () => {
-    (navigation as any).navigate('CreateCanvas');
+    (navigation as any).navigate('Canvas');
   };
 
   const handleOpenCanvas = (canvasId: string) => {

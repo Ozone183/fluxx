@@ -207,7 +207,7 @@ const ProfileScreen = ({ route }: any) => {
       const blob = await response.blob();
 
       // Upload to Firebase Storage
-      const filename = `profiles/${currentUserId}_${Date.now()}.jpg`;
+      const filename = `profiles/${currentUserId}/${Date.now()}.jpg`;
       const storageRef = ref(storage, filename);
       await uploadBytes(storageRef, blob);
 

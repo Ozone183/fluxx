@@ -47,9 +47,9 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
   const { userId } = useAuth();
   const [position, setPosition] = useState(layer.position);
   // ADD THIS useEffect:
-useEffect(() => {
-  setPosition(layer.position);
-}, [layer.id, layer.position]); // Add layer.id dependency
+  useEffect(() => {
+    setPosition(layer.position);
+  }, [layer.id, layer.position.x, layer.position.y]); // More specific dependencies
   const [showProfile, setShowProfile] = useState(false); // ADD THIS
 
   // Pan responder for dragging
@@ -121,9 +121,12 @@ useEffect(() => {
             styles.text,
             {
               fontSize: layer.fontSize || 24,
-              color: layer.fontColor || '#FFFFFF',
+              color: layer.fontColor || '#000000',
+              width: '100%', // ADD THIS
             },
           ]}
+          numberOfLines={3} // ADD THIS
+          ellipsizeMode="tail" // ADD THIS
         >
           {layer.text}
         </Text>

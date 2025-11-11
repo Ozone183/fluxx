@@ -22,7 +22,10 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage
 import { storage } from '../config/firebase';
 import ViewShot from 'react-native-view-shot';
 import * as Haptics from 'expo-haptics';
+import * as MediaLibrary from 'expo-media-library';
 import { Ionicons as Icon } from '@expo/vector-icons';
+import { Share, Platform } from 'react-native';
+
 
 import { COLORS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
@@ -352,31 +355,131 @@ const CanvasEditorScreen = () => {
         return;
       }
 
-      // Capture canvas as image
+      // Step 1: Request Camera Roll permissions
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Please grant photo library access to save canvases to your Camera Roll.',
+          [{ text: 'OK' }]
+        );
+        setExporting(false);
+        return;
+      }
+
+      // Step 2: Capture canvas as image
       const uri = await viewShotRef.current.capture();
 
-      // Upload to Firebase Storage only
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      const filename = `canvas_export_${canvasId}_${Date.now()}.png`;
-      const storageReference = storageRef(storage, `exports/${filename}`);
-      await uploadBytes(storageReference, blob);
-      const downloadURL = await getDownloadURL(storageReference);
+      if (!uri) {
+        Alert.alert('Error', 'Failed to capture canvas');
+        setExporting(false);
+        return;
+      }
 
-      // Save export URL to canvas
-      const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
-      await updateDoc(canvasRef, { exportedImageUrl: downloadURL });
+      // Step 3: Upload to Firebase Storage
+      let firebaseUrl = '';
+      try {
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        const filename = `canvas_export_${canvasId}_${Date.now()}.png`;
+        const storageReference = storageRef(storage, `exports/${filename}`);
+        await uploadBytes(storageReference, blob);
+        firebaseUrl = await getDownloadURL(storageReference);
 
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Success!', 'Canvas exported successfully!');
+        // Save export URL to canvas document
+        const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
+        await updateDoc(canvasRef, { exportedImageUrl: firebaseUrl });
+
+        console.log('✅ Firebase upload successful:', firebaseUrl);
+      } catch (firebaseError) {
+        console.error('⚠️ Firebase upload failed:', firebaseError);
+        // Continue with Camera Roll save even if Firebase fails
+      }
+
+      // Step 4: Save to Camera Roll
+      const asset = await MediaLibrary.createAssetAsync(uri);
+
+      if (asset) {
+        // Optionally create custom album (iOS only)
+        try {
+          const album = await MediaLibrary.getAlbumAsync('Fluxx');
+          if (album) {
+            await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+          } else {
+            await MediaLibrary.createAlbumAsync('Fluxx', asset, false);
+          }
+        } catch (albumError) {
+          console.log('Album creation skipped:', albumError);
+          // Asset is still saved to Camera Roll even if album fails
+        }
+
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          '✅ Success!',
+          `Canvas exported!\n${firebaseUrl ? '• Saved to Cloud\n' : ''}• Saved to Camera Roll`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to save to Camera Roll');
+      }
+
     } catch (error) {
       console.error('Export error:', error);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Export Failed', 'Could not export canvas');
+      Alert.alert(
+        'Export Failed',
+        `An error occurred: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     } finally {
       setExporting(false);
     }
   };
+
+  const shareCanvas = async () => {
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      if (!canvas) {
+        Alert.alert('Error', 'Canvas not available');
+        return;
+      }
+
+      // Build share content
+      const canvasUrl = `fluxx://canvas/${canvasId}`; // Deep link
+      const webUrl = `https://fluxx.app/canvas/${canvasId}`; // Web fallback (if you have web app)
+
+      const shareMessage = canvas.accessType === 'private' && canvas.inviteCode
+  ? `🎨 Join my private canvas "${canvas.title}"!\n\n🔒 Invite Code: ${canvas.inviteCode}\n\nOpen Fluxx or visit: ${webUrl}`
+  : `🎨 Check out my canvas "${canvas.title}" on Fluxx!\n\nJoin here: ${webUrl}`;
+
+
+      const shareOptions = {
+        title: `Join "${canvas.title}" on Fluxx`,
+        message: Platform.OS === 'ios' ? shareMessage : shareMessage,
+        url: Platform.OS === 'ios' ? webUrl : undefined, // iOS can share URLs separately
+      };
+
+      const result = await Share.share(shareOptions);
+
+      if (result.action === Share.sharedAction) {
+        if (result.activityType) {
+          // Shared via specific activity (iOS only)
+          console.log(`Shared via ${result.activityType}`);
+        } else {
+          // Shared successfully (Android or iOS generic share)
+          console.log('Canvas shared successfully');
+        }
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else if (result.action === Share.dismissedAction) {
+        // User dismissed the share sheet
+        console.log('Share dismissed');
+      }
+    } catch (error) {
+      console.error('Share error:', error);
+      Alert.alert('Share Failed', 'Could not share canvas');
+    }
+  };
+
 
 
 
@@ -421,6 +524,10 @@ const CanvasEditorScreen = () => {
           ) : (
             <Icon name="download-outline" size={24} color={COLORS.cyan400} />
           )}
+        </TouchableOpacity>
+        <TouchableOpacity onPress={shareCanvas} style={styles.shareButton}>
+        <Icon name="share-outline" size={24} color={COLORS.purple400} />
+
         </TouchableOpacity>
 
       </View>
@@ -757,6 +864,10 @@ const styles = StyleSheet.create({
   formatButton: {
     padding: 8,
     marginRight: 8,
+  },
+  shareButton: {
+    padding: 8,
+    marginLeft: 8,
   },
 });
 

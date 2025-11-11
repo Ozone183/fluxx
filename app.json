@@ -14,7 +14,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.fluxx.app"
+      "bundleIdentifier": "com.fluxx.app",
+      "infoPlist": {
+        "NSPhotoLibraryAddUsageDescription": "Fluxx needs access to save your canvas creations to your photo library.",
+        "NSPhotoLibraryUsageDescription": "Fluxx needs access to your photo library to save your canvas creations."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -22,11 +26,26 @@
         "backgroundColor": "#0f172a"
       },
       "package": "com.fluxxstable",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Fluxx to save your canvas creations to your photos.",
+          "savePhotosPermission": "Allow Fluxx to save your canvas creations to your photos.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
+    ],
     "owner": "quezle",
     "extra": {
       "eas": {

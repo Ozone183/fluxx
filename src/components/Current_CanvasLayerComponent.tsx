@@ -8,6 +8,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   PanResponder,
+  Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
@@ -47,12 +50,14 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
   const [showProfile, setShowProfile] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
   const [lastTap, setLastTap] = useState(0);
+  const [showCaptionModal, setShowCaptionModal] = useState(false);
+  const [captionText, setCaptionText] = useState(layer.caption || '');
 
   useEffect(() => {
     setPosition(layer.position);
   }, [layer.id, layer.position.x, layer.position.y]);
 
-  // Double-tap handler for zoom (Feature 4)
+  // Double-tap handler for zoom
   const handleDoubleTap = () => {
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300;
@@ -61,6 +66,25 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
       setIsZoomed(!isZoomed);
     }
     setLastTap(now);
+  };
+
+  // Save caption to Firestore
+  const handleSaveCaption = async () => {
+    try {
+      const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
+      const canvasSnap = await getDoc(canvasRef);
+      if (canvasSnap.exists()) {
+        const canvasData = canvasSnap.data();
+        const updatedLayers = canvasData.layers.map((l: CanvasLayer) =>
+          l.id === layer.id ? { ...l, caption: captionText.trim(), updatedAt: Date.now() } : l
+        );
+        await updateDoc(canvasRef, { layers: updatedLayers });
+        setShowCaptionModal(false);
+      }
+    } catch (error) {
+      console.error('Save caption error:', error);
+      Alert.alert('Error', 'Could not save caption');
+    }
   };
 
   // Pan responder for dragging
@@ -123,11 +147,21 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
     >
       {/* Layer Content */}
       {layer.type === 'image' && layer.imageUrl && (
-        <Image
-          source={{ uri: layer.imageUrl }}
-          style={styles.image}
-          resizeMode="cover"
-        />
+        <>
+          <Image
+            source={{ uri: layer.imageUrl }}
+            style={styles.image}
+            resizeMode="cover"
+          />
+          {/* Caption overlay */}
+          {layer.caption && (
+            <View style={styles.captionOverlay}>
+              <Text style={styles.captionText} numberOfLines={2}>
+                {layer.caption}
+              </Text>
+            </View>
+          )}
+        </>
       )}
 
       {layer.type === 'text' && (
@@ -146,6 +180,22 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
           {layer.text}
         </Text>
       )}
+
+      {/* Caption Button for Images */}
+      {/* TEMPORARILY DISABLED FOR TESTING
+      {isSelected && layer.type === 'image' && canEdit && (
+        <TouchableOpacity
+          style={styles.captionButton}
+          onPress={() => {
+            setCaptionText(layer.caption || '');
+            setShowCaptionModal(true);
+          }}
+          activeOpacity={0.7}
+        >
+          <Icon name="text" size={20} color={COLORS.cyan400} />
+        </TouchableOpacity>
+      )}
+        */}
 
       {/* Attribution Badge - only show when selected */}
       {isSelected && (
@@ -176,6 +226,41 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
         visible={showProfile}
         onClose={() => setShowProfile(false)}
       />
+
+      {/* Caption Modal */}
+      {/* TEMPORARILY DISABLED FOR TESTING
+      <Modal visible={showCaptionModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add Caption</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Enter caption..."
+              placeholderTextColor={COLORS.slate500}
+              value={captionText}
+              onChangeText={setCaptionText}
+              multiline
+              maxLength={100}
+              autoFocus
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setShowCaptionModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalSaveButton]}
+                onPress={handleSaveCaption}
+              >
+                <Text style={styles.modalSaveText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      */}
     </View>
   );
 };
@@ -217,6 +302,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.slate900,
     borderRadius: 12,
   },
+  captionButton: {
+    position: 'absolute',
+    top: -12,
+    right: 24,
+    backgroundColor: COLORS.slate900,
+    borderRadius: 12,
+    padding: 4,
+  },
   attributionBadge: {
     position: 'absolute',
     bottom: -20,
@@ -230,6 +323,74 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: COLORS.white,
     fontWeight: '600',
+  },
+  captionOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    padding: 6,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  captionText: {
+    fontSize: 11,
+    color: COLORS.white,
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: COLORS.slate800,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginBottom: 16,
+  },
+  modalInput: {
+    backgroundColor: COLORS.slate700,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 16,
+    color: COLORS.white,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: COLORS.slate700,
+  },
+  modalSaveButton: {
+    backgroundColor: COLORS.cyan500,
+  },
+  modalCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.slate400,
+  },
+  modalSaveText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.white,
   },
 });
 

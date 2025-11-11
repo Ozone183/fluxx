@@ -7,9 +7,11 @@ export interface CanvasLayer {
   size: { width: number; height: number };
   rotation: number;
   zIndex: number;
+  pageIndex: number; // ← ADD THIS LINE
 
   // Image layer
   imageUrl?: string;
+  caption?: string; // ← ADD THIS LINE
 
   // Text layer
   text?: string;
@@ -54,6 +56,7 @@ export interface Canvas {
 
   // Layers
   layers: CanvasLayer[];
+  totalPages: number; // ← ADD THIS LINE
 
   // Collaboration
   collaborators: { [userId: string]: CanvasCollaborator };

@@ -72,6 +72,7 @@ const CreateCanvasScreen = () => {
         ...(isPrivate && { inviteCode: generateInviteCode() }),
 
         layers: starterLayers,
+        totalPages: selectedTemplate.totalPages, // ← ADD THIS LINE
 
         collaborators: {
           [userId]: {

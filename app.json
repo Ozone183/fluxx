@@ -27,10 +27,10 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "owner": "bradleydexter",
+    "owner": "quezle",
     "extra": {
       "eas": {
-        "projectId": "6b415cbd-de60-4ff5-8411-bf560e2c1379"
+        "projectId": "c390b4c6-b68f-4863-a09c-8d04445503b4"
       }
     }
   }

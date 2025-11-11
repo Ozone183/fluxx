@@ -346,15 +346,15 @@ const CanvasEditorScreen = () => {
     try {
       setExporting(true);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
+  
       if (!viewShotRef.current) {
         Alert.alert('Error', 'Canvas not ready for export');
         return;
       }
-
+  
       // Capture canvas as image
       const uri = await viewShotRef.current.capture();
-
+  
       // Upload to Firebase Storage only
       const response = await fetch(uri);
       const blob = await response.blob();
@@ -362,11 +362,11 @@ const CanvasEditorScreen = () => {
       const storageReference = storageRef(storage, `exports/${filename}`);
       await uploadBytes(storageReference, blob);
       const downloadURL = await getDownloadURL(storageReference);
-
+  
       // Save export URL to canvas
       const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
       await updateDoc(canvasRef, { exportedImageUrl: downloadURL });
-
+  
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('Success!', 'Canvas exported successfully!');
     } catch (error) {
@@ -378,21 +378,11 @@ const CanvasEditorScreen = () => {
     }
   };
 
-
+  
 
   const activeCollaborators = Object.values(activePresences).filter(p =>
     Date.now() - (p.lastActive || 0) < 10000
   );
-
-  // ✅ ADD THIS CHECK HERE
-  if (loading || !canvas) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.cyan400} />
-        <Text style={styles.loadingText}>Loading canvas...</Text>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>

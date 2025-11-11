@@ -6,6 +6,7 @@ export interface CanvasTemplate {
   backgroundColor: string;
   suggestedPrompts: string[];
   maxLayers: number;
+  totalPages: number; // ← ADD THIS
 }
 
 export const CANVAS_TEMPLATES: CanvasTemplate[] = [
@@ -21,6 +22,7 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
       'Drop your outfit inspo',
     ],
     maxLayers: 12,
+    totalPages: 2, // ← ADD THIS
   },
   {
     id: 'movie_night',
@@ -34,6 +36,7 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
       'Drop a movie quote',
     ],
     maxLayers: 12,
+    totalPages: 2, // ← ADD THIS
   },
   {
     id: 'travel_goals',
@@ -47,6 +50,7 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
       'Drop your bucket list spot',
     ],
     maxLayers: 12,
+    totalPages: 2, // ← ADD THIS
   },
   {
     id: 'study_session',
@@ -60,6 +64,7 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
       'Drop motivation quote',
     ],
     maxLayers: 14,
+    totalPages: 2, // ← ADD THIS
   },
   {
     id: 'blank_canvas',
@@ -69,5 +74,73 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
     backgroundColor: '#FFFFFF',
     suggestedPrompts: [],
     maxLayers: 14,
+    totalPages: 2, // ← ADD THIS
+  },
+  {
+    id: 'birthday',
+    title: 'Birthday Party',
+    description: 'Celebrate together',
+    icon: 'balloon',
+    backgroundColor: '#FFE5F1',
+    maxLayers: 12,
+    totalPages: 2, // ← ADD THIS
+    suggestedPrompts: [
+      'Share birthday photos',
+      'Write wishes',
+      'Add fun stickers',
+    ],
+  },
+  {
+    id: 'vacation',
+    title: 'Vacation Vibes',
+    description: 'Trip memories',
+    icon: 'airplane',
+    backgroundColor: '#E0F2FE',
+    maxLayers: 12,
+    totalPages: 3, // ← ADD THIS
+    suggestedPrompts: [
+      'Upload travel photos',
+      'Share favorite moments',
+      'Add location tags',
+    ],
+  },
+  {
+    id: 'event',
+    title: 'Event Recap',
+    description: 'Concert, party, meetup',
+    icon: 'musical-notes',
+    backgroundColor: '#F3E8FF',
+    maxLayers: 12,
+    totalPages: 2, // ← ADD THIS
+    suggestedPrompts: [
+      'Event highlights',
+      'Group photos',
+      'Best moments',
+    ],
+  },
+  {
+    id: 'moodboard',
+    title: 'Mood Board',
+    description: 'Vibes & aesthetics',
+    icon: 'color-palette',
+    backgroundColor: '#FEF3C7',
+    maxLayers: 12,
+    totalPages: 2, // ← ADD THIS
+    suggestedPrompts: [
+      'Inspirational images',
+      'Color themes',
+      'Style references',
+    ],
+  },
+  {
+    id: 'blank',
+    title: 'Blank Canvas',
+    description: 'Start from scratch',
+    icon: 'create',
+    backgroundColor: '#FFFFFF',
+    maxLayers: 12,
+    totalPages: 2, // ← ADD THIS
+    suggestedPrompts: [],
   },
 ];
+

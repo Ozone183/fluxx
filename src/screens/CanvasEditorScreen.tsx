@@ -14,7 +14,7 @@ import {
   TextInput as RNTextInput,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { doc, onSnapshot, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, arrayUnion, getDoc, increment } from 'firebase/firestore';
 import { ref as dbRef, onValue, set, serverTimestamp } from 'firebase/database';
 import { firestore, database } from '../config/firebase';
 import * as ImagePicker from 'expo-image-picker';
@@ -109,7 +109,25 @@ const CanvasEditorScreen = () => {
 
   useEffect(() => {
     if (!canvasId) return;
+    
     const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
+    
+    // Increment view count when canvas loads (only once per session)
+    const incrementViewCount = async () => {
+      try {
+        await updateDoc(canvasRef, {
+          viewCount: increment(1)
+        });
+        console.log('✅ View count incremented');
+      } catch (error) {
+        console.log('⚠️ View count update failed:', error);
+      }
+    };
+    
+    // Call once on mount
+    incrementViewCount();
+    
+    // Listen to canvas updates
     const unsubscribe = onSnapshot(canvasRef, (snapshot) => {
       if (snapshot.exists()) {
         const canvasData = { id: snapshot.id, ...snapshot.data() } as Canvas;
@@ -120,6 +138,7 @@ const CanvasEditorScreen = () => {
         navigation.goBack();
       }
     });
+    
     return () => unsubscribe();
   }, [canvasId]);
 
@@ -480,7 +499,37 @@ const CanvasEditorScreen = () => {
     }
   };
 
-
+  const toggleLike = async () => {
+    if (!canvas || !userId) return;
+    
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      
+      const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
+      const isLiked = canvas.likedBy?.includes(userId);
+      
+      if (isLiked) {
+        // Unlike
+        const updatedLikedBy = canvas.likedBy.filter(id => id !== userId);
+        await updateDoc(canvasRef, {
+          likeCount: increment(-1),
+          likedBy: updatedLikedBy
+        });
+        console.log('👎 Unliked canvas');
+      } else {
+        // Like
+        await updateDoc(canvasRef, {
+          likeCount: increment(1),
+          likedBy: arrayUnion(userId)
+        });
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        console.log('❤️ Liked canvas');
+      }
+    } catch (error) {
+      console.error('Like toggle error:', error);
+      Alert.alert('Error', 'Could not update like');
+    }
+  };
 
 
   const activeCollaborators = Object.values(activePresences).filter(p =>
@@ -529,10 +578,41 @@ const CanvasEditorScreen = () => {
         <Icon name="share-outline" size={24} color={COLORS.purple400} />
 
         </TouchableOpacity>
+        {/* Like Button */}
+<TouchableOpacity onPress={toggleLike} style={styles.likeButton}>
+  <Icon 
+    name={canvas?.likedBy?.includes(userId || '') ? "heart" : "heart-outline"} 
+    size={24} 
+    color={canvas?.likedBy?.includes(userId || '') ? COLORS.red500 : COLORS.red400} 
+  />
+  {canvas?.likeCount ? (
+    <Text style={styles.likeCountBadge}>{canvas.likeCount}</Text>
+  ) : null}
+</TouchableOpacity>
 
       </View>
 
       <CollaboratorsBar collaborators={activeCollaborators} maxShow={5} />
+
+      {/* Canvas Analytics */}
+{canvas && (
+  <View style={styles.analyticsBar}>
+    <View style={styles.analyticsItem}>
+      <Icon name="eye-outline" size={16} color={COLORS.cyan400} />
+      <Text style={styles.analyticsText}>{canvas.viewCount || 0} views</Text>
+    </View>
+    <View style={styles.analyticsItem}>
+      <Icon name="heart" size={16} color={COLORS.red400} />
+      <Text style={styles.analyticsText}>{canvas.likeCount || 0} likes</Text>
+    </View>
+    <View style={styles.analyticsItem}>
+      <Icon name="people-outline" size={16} color={COLORS.purple400} />
+      <Text style={styles.analyticsText}>
+        {getTopContributors(canvas).length} contributors
+      </Text>
+    </View>
+  </View>
+)}
 
       {/* ADD THIS ENTIRE BLOCK */}
       {canvas?.totalPages && canvas.totalPages > 1 && (
@@ -662,6 +742,26 @@ const getTimeRemaining = (expiresAt: number): string => {
   const hours = Math.floor(remaining / (1000 * 60 * 60));
   const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
   return `${hours}h ${minutes}m`;
+};
+
+const getTopContributors = (canvas: Canvas): Array<{ userId: string; username: string; count: number }> => {
+  const contributorMap: { [userId: string]: { username: string; count: number } } = {};
+  
+  canvas.layers.forEach(layer => {
+    if (contributorMap[layer.createdBy]) {
+      contributorMap[layer.createdBy].count += 1;
+    } else {
+      contributorMap[layer.createdBy] = {
+        username: layer.createdByUsername,
+        count: 1
+      };
+    }
+  });
+  
+  return Object.entries(contributorMap)
+    .map(([userId, data]) => ({ userId, ...data }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3); // Top 3 contributors
 };
 
 const styles = StyleSheet.create({
@@ -868,6 +968,45 @@ const styles = StyleSheet.create({
   shareButton: {
     padding: 8,
     marginLeft: 8,
+  },
+  likeButton: {
+    padding: 8,
+    marginLeft: 8,
+    position: 'relative',
+  },
+  likeCountBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: COLORS.red500,
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: '700',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 8,
+    minWidth: 16,
+    textAlign: 'center',
+  },
+  analyticsBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: COLORS.slate800,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.slate700,
+  },
+  analyticsItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  analyticsText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.white,
   },
 });
 

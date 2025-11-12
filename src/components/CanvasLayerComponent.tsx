@@ -162,7 +162,7 @@ const handleSaveCaption = async () => {
     >
       {/* Layer Content */}
       {layer.type === 'image' && layer.imageUrl && (
-  <>
+  <View style={styles.imageWithCaption}>
     <Image
       source={{ uri: layer.imageUrl }}
       style={styles.image}
@@ -175,7 +175,7 @@ const handleSaveCaption = async () => {
         </Text>
       </View>
     )}
-  </>
+  </View>
 )}
 
       {layer.type === 'text' && (
@@ -286,6 +286,10 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 8,
   },
+  imageWithCaption: {
+    width: '100%',
+    height: '100%',
+  },
   text: {
     textAlign: 'center',
     fontWeight: '700',
@@ -338,26 +342,18 @@ const styles = StyleSheet.create({
   },
   captionOverlay: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    padding: 6,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
+    bottom: 4,
+    left: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
   },
   captionText: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-    right: 8,
-    fontSize: 11,
+    fontSize: 10,
     color: COLORS.white,
     fontWeight: '600',
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
     textAlign: 'center',
   },
   modalOverlay: {

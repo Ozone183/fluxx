@@ -550,56 +550,59 @@ const CanvasEditorScreen = () => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        {/* Row 1: Navigation + Title + Action Icons */}
-        <View style={styles.headerTop}>
+        {/* Row 1: Back Button + Title */}
+        <View style={styles.titleRow}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Icon name="arrow-back" size={24} color={COLORS.white} />
           </TouchableOpacity>
           
-          <View style={styles.headerCenter}>
-            <Text style={styles.canvasTitle}>{canvas.title}</Text>
-          </View>
+          <Text style={styles.canvasTitle} numberOfLines={1} ellipsizeMode="tail">
+            {canvas.title}
+          </Text>
           
-          <View style={styles.headerActions}>
-            {/* Layers Button */}
-            <TouchableOpacity onPress={() => setShowLayerPanel(true)} style={styles.actionButton}>
-              <Icon name="layers-outline" size={22} color={COLORS.cyan400} />
-            </TouchableOpacity>
-            
-            {/* Auto-Format Button */}
-            <TouchableOpacity onPress={autoFormatLayers} style={styles.actionButton}>
-              <Icon name="grid-outline" size={22} color={COLORS.amber400} />
-            </TouchableOpacity>
-
-            {/* Export Button */}
-            <TouchableOpacity onPress={exportCanvas} disabled={exporting} style={styles.actionButton}>
-              {exporting ? (
-                <ActivityIndicator size="small" color={COLORS.cyan400} />
-              ) : (
-                <Icon name="download-outline" size={22} color={COLORS.cyan400} />
-              )}
-            </TouchableOpacity>
-
-            {/* Share Button */}
-            <TouchableOpacity onPress={shareCanvas} style={styles.actionButton}>
-              <Icon name="share-outline" size={22} color={COLORS.purple400} />
-            </TouchableOpacity>
-
-            {/* Like Button */}
-            <TouchableOpacity onPress={toggleLike} style={styles.likeButton}>
-              <Icon 
-                name={canvas?.likedBy?.includes(userId || '') ? "heart" : "heart-outline"} 
-                size={22} 
-                color={canvas?.likedBy?.includes(userId || '') ? COLORS.red500 : COLORS.red400} 
-              />
-              {canvas?.likeCount ? (
-                <Text style={styles.likeCountBadge}>{canvas.likeCount}</Text>
-              ) : null}
-            </TouchableOpacity>
-          </View>
+          <View style={styles.titleSpacer} />
         </View>
 
-        {/* Row 2: Canvas Info */}
+        {/* Row 2: Action Icons */}
+        <View style={styles.actionsRow}>
+          {/* Layers Button */}
+          <TouchableOpacity onPress={() => setShowLayerPanel(true)} style={styles.actionButton}>
+            <Icon name="layers-outline" size={22} color={COLORS.cyan400} />
+          </TouchableOpacity>
+          
+          {/* Auto-Format Button */}
+          <TouchableOpacity onPress={autoFormatLayers} style={styles.actionButton}>
+            <Icon name="grid-outline" size={22} color={COLORS.amber400} />
+          </TouchableOpacity>
+
+          {/* Export Button */}
+          <TouchableOpacity onPress={exportCanvas} disabled={exporting} style={styles.actionButton}>
+            {exporting ? (
+              <ActivityIndicator size="small" color={COLORS.cyan400} />
+            ) : (
+              <Icon name="download-outline" size={22} color={COLORS.cyan400} />
+            )}
+          </TouchableOpacity>
+
+          {/* Share Button */}
+          <TouchableOpacity onPress={shareCanvas} style={styles.actionButton}>
+            <Icon name="share-outline" size={22} color={COLORS.purple400} />
+          </TouchableOpacity>
+
+          {/* Like Button */}
+          <TouchableOpacity onPress={toggleLike} style={styles.actionButton}>
+            <Icon 
+              name={canvas?.likedBy?.includes(userId || '') ? "heart" : "heart-outline"} 
+              size={22} 
+              color={canvas?.likedBy?.includes(userId || '') ? COLORS.red500 : COLORS.red400} 
+            />
+            {canvas?.likeCount ? (
+              <Text style={styles.likeCountBadge}>{canvas.likeCount}</Text>
+            ) : null}
+          </TouchableOpacity>
+        </View>
+
+        {/* Row 3: Canvas Info */}
         <View style={styles.headerBottom}>
           <View style={styles.infoItem}>
             <Icon name="time-outline" size={14} color={COLORS.amber400} />
@@ -822,12 +825,32 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.slate800,
   },
-  headerTop: {
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 12,
+    gap: 12,
+  },
+  backButton: {
+    padding: 8,
+  },
+  canvasTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  titleSpacer: {
+    width: 40,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 12,
   },
   headerBottom: {
     flexDirection: 'row',
@@ -835,25 +858,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
     paddingTop: 8,
-    gap: 12,
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  canvasTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.white,
-    textAlign: 'center',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 12,
   },
   actionButton: {
@@ -881,6 +885,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
+    paddingBottom: 120,
     alignItems: 'center',
   },
   canvas: {

@@ -550,46 +550,80 @@ const CanvasEditorScreen = () => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back" size={24} color={COLORS.white} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.canvasTitle}>{canvas.title}</Text>
-          <Text style={styles.expiryText}>
-            Expires in {getTimeRemaining(canvas.expiresAt)} • Page {currentPage + 1}: {canvas.layers.filter(l => (l.pageIndex ?? 0) === currentPage).length}/{canvas.maxCollaborators} layers
-          </Text>
+        {/* Row 1: Navigation + Title + Action Icons */}
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Icon name="arrow-back" size={24} color={COLORS.white} />
+          </TouchableOpacity>
+          
+          <View style={styles.headerCenter}>
+            <Text style={styles.canvasTitle}>{canvas.title}</Text>
+          </View>
+          
+          <View style={styles.headerActions}>
+            {/* Layers Button */}
+            <TouchableOpacity onPress={() => setShowLayerPanel(true)} style={styles.actionButton}>
+              <Icon name="layers-outline" size={22} color={COLORS.cyan400} />
+            </TouchableOpacity>
+            
+            {/* Auto-Format Button */}
+            <TouchableOpacity onPress={autoFormatLayers} style={styles.actionButton}>
+              <Icon name="grid-outline" size={22} color={COLORS.amber400} />
+            </TouchableOpacity>
+
+            {/* Export Button */}
+            <TouchableOpacity onPress={exportCanvas} disabled={exporting} style={styles.actionButton}>
+              {exporting ? (
+                <ActivityIndicator size="small" color={COLORS.cyan400} />
+              ) : (
+                <Icon name="download-outline" size={22} color={COLORS.cyan400} />
+              )}
+            </TouchableOpacity>
+
+            {/* Share Button */}
+            <TouchableOpacity onPress={shareCanvas} style={styles.actionButton}>
+              <Icon name="share-outline" size={22} color={COLORS.purple400} />
+            </TouchableOpacity>
+
+            {/* Like Button */}
+            <TouchableOpacity onPress={toggleLike} style={styles.likeButton}>
+              <Icon 
+                name={canvas?.likedBy?.includes(userId || '') ? "heart" : "heart-outline"} 
+                size={22} 
+                color={canvas?.likedBy?.includes(userId || '') ? COLORS.red500 : COLORS.red400} 
+              />
+              {canvas?.likeCount ? (
+                <Text style={styles.likeCountBadge}>{canvas.likeCount}</Text>
+              ) : null}
+            </TouchableOpacity>
+          </View>
         </View>
-        {/* ← ADD THIS LAYERS BUTTON BEFORE EXPORT BUTTON */}
-        <TouchableOpacity onPress={() => setShowLayerPanel(true)} style={styles.layersButton}>
-          <Icon name="layers-outline" size={24} color={COLORS.cyan400} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={autoFormatLayers} style={styles.formatButton}>
-          <Icon name="grid-outline" size={24} color={COLORS.amber400} />
-        </TouchableOpacity>
 
-        <TouchableOpacity onPress={exportCanvas} disabled={exporting} style={styles.exportButton}>
-          {exporting ? (
-            <ActivityIndicator size="small" color={COLORS.cyan400} />
-          ) : (
-            <Icon name="download-outline" size={24} color={COLORS.cyan400} />
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity onPress={shareCanvas} style={styles.shareButton}>
-        <Icon name="share-outline" size={24} color={COLORS.purple400} />
-
-        </TouchableOpacity>
-        {/* Like Button */}
-<TouchableOpacity onPress={toggleLike} style={styles.likeButton}>
-  <Icon 
-    name={canvas?.likedBy?.includes(userId || '') ? "heart" : "heart-outline"} 
-    size={24} 
-    color={canvas?.likedBy?.includes(userId || '') ? COLORS.red500 : COLORS.red400} 
-  />
-  {canvas?.likeCount ? (
-    <Text style={styles.likeCountBadge}>{canvas.likeCount}</Text>
-  ) : null}
-</TouchableOpacity>
-
+        {/* Row 2: Canvas Info */}
+        <View style={styles.headerBottom}>
+          <View style={styles.infoItem}>
+            <Icon name="time-outline" size={14} color={COLORS.amber400} />
+            <Text style={styles.infoText}>Expires in {getTimeRemaining(canvas.expiresAt)}</Text>
+          </View>
+          
+          <View style={styles.infoDivider} />
+          
+          <View style={styles.infoItem}>
+            <Icon name="document-outline" size={14} color={COLORS.cyan400} />
+            <Text style={styles.infoText}>
+              Page {currentPage + 1} of {canvas.totalPages || 1}
+            </Text>
+          </View>
+          
+          <View style={styles.infoDivider} />
+          
+          <View style={styles.infoItem}>
+            <Icon name="layers-outline" size={14} color={COLORS.purple400} />
+            <Text style={styles.infoText}>
+              {canvas.layers.filter(l => (l.pageIndex ?? 0) === currentPage).length}/{canvas.maxCollaborators} layers
+            </Text>
+          </View>
+        </View>
       </View>
 
       <CollaboratorsBar collaborators={activeCollaborators} maxShow={5} />
@@ -782,14 +816,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   header: {
+    backgroundColor: COLORS.slate900,
+    paddingTop: 50,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.slate800,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 50,
     paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.slate800,
+  },
+  headerBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    gap: 12,
   },
   backButton: {
     padding: 8,
@@ -797,20 +843,38 @@ const styles = StyleSheet.create({
   headerCenter: {
     flex: 1,
     alignItems: 'center',
+    paddingHorizontal: 16,
   },
   canvasTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: COLORS.white,
+    textAlign: 'center',
   },
-  expiryText: {
-    fontSize: 12,
-    color: COLORS.amber400,
-    marginTop: 2,
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  layersButton: { // ← ADD THIS STYLE
+  actionButton: {
     padding: 8,
-    marginRight: 8,
+    borderRadius: 8,
+    backgroundColor: COLORS.slate800,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  infoText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.slate300,
+  },
+  infoDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: COLORS.slate600,
   },
   exportButton: {
     padding: 8,
@@ -961,17 +1025,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.white,
   },
-  formatButton: {
-    padding: 8,
-    marginRight: 8,
-  },
-  shareButton: {
-    padding: 8,
-    marginLeft: 8,
-  },
   likeButton: {
     padding: 8,
-    marginLeft: 8,
+    borderRadius: 8,
+    backgroundColor: COLORS.slate800,
     position: 'relative',
   },
   likeCountBadge: {

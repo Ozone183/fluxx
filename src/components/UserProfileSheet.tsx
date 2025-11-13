@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Image, ActivityIndicator } from 'react-native';
-import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Image, ActivityIndicator, Alert } from 'react-native';
+import { updateDoc, arrayUnion, arrayRemove, getDoc, doc, increment } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
+import * as Haptics from 'expo-haptics';
+
 
 interface UserProfileSheetProps {
   userId: string;
@@ -27,7 +29,7 @@ const UserProfileSheet: React.FC<UserProfileSheetProps> = ({ userId, visible, on
 
   const loadProfile = async () => {
     try {
-      const userDoc = await getDoc(doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'users', userId));
+      const userDoc = await getDoc(doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'profiles', userId));
       if (userDoc.exists()) {
         const data = userDoc.data();
         setProfile(data);
@@ -45,17 +47,44 @@ const UserProfileSheet: React.FC<UserProfileSheetProps> = ({ userId, visible, on
 
     try {
       setFollowLoading(true);
-      const userRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'users', userId);
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      const targetUserRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'profiles', userId);
+      const currentUserRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'profiles', currentUserId);
 
       if (isFollowing) {
-        await updateDoc(userRef, { followers: arrayRemove(currentUserId) });
+        // Unfollow: Remove from BOTH sides
+        await Promise.all([
+          updateDoc(targetUserRef, { 
+            followers: arrayRemove(currentUserId),
+            followerCount: increment(-1)
+          }),
+          updateDoc(currentUserRef, { 
+            following: arrayRemove(userId),
+            followingCount: increment(-1)
+          })
+        ]);
         setIsFollowing(false);
+        console.log('✅ Unfollowed user');
       } else {
-        await updateDoc(userRef, { followers: arrayUnion(currentUserId) });
+        // Follow: Add to BOTH sides
+        await Promise.all([
+          updateDoc(targetUserRef, { 
+            followers: arrayUnion(currentUserId),
+            followerCount: increment(1)
+          }),
+          updateDoc(currentUserRef, { 
+            following: arrayUnion(userId),
+            followingCount: increment(1)
+          })
+        ]);
         setIsFollowing(true);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        console.log('✅ Followed user');
       }
     } catch (error) {
-      console.error('Follow error:', error);
+      console.error('❌ Follow error:', error);
+      Alert.alert('Error', 'Could not update follow status');
     } finally {
       setFollowLoading(false);
     }
@@ -70,7 +99,9 @@ const UserProfileSheet: React.FC<UserProfileSheetProps> = ({ userId, visible, on
           ) : (
             <>
               <View style={styles.header}>
-                <Text style={styles.username}>{profile?.username || '@unknown'}</Text>
+              <Text style={styles.username}>
+                  @{profile?.channel || profile?.username || 'unknown'}
+                </Text>
                 <TouchableOpacity onPress={onClose}>
                   <Icon name="close" size={24} color={COLORS.white} />
                 </TouchableOpacity>
@@ -78,8 +109,12 @@ const UserProfileSheet: React.FC<UserProfileSheetProps> = ({ userId, visible, on
 
               <View style={styles.stats}>
                 <View style={styles.stat}>
-                  <Text style={styles.statNumber}>{profile?.followers?.length || 0}</Text>
+                  <Text style={styles.statNumber}>{profile?.followerCount || profile?.followers?.length || 0}</Text>
                   <Text style={styles.statLabel}>Followers</Text>
+                </View>
+                <View style={styles.stat}>
+                  <Text style={styles.statNumber}>{profile?.followingCount || profile?.following?.length || 0}</Text>
+                  <Text style={styles.statLabel}>Following</Text>
                 </View>
                 <View style={styles.stat}>
                   <Text style={styles.statNumber}>{profile?.canvasesCreated || 0}</Text>

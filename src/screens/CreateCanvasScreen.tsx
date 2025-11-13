@@ -67,6 +67,7 @@ const CreateCanvasScreen = () => {
         width: 1080,
         height: 1920,
         backgroundColor: selectedTemplate.backgroundColor,
+        templateId: selectedTemplate.id, // ✅ ADD THIS LINE
 
         accessType: isPrivate ? 'private' : 'public',
         ...(isPrivate && { inviteCode: generateInviteCode() }),

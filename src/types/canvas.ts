@@ -49,6 +49,7 @@ export interface Canvas {
   width: number;
   height: number;
   backgroundColor: string;
+  templateId?: string; // ✅ ADD THIS LINE
 
   // Access control
   accessType: 'public' | 'private' | 'friends'; // friends for v2

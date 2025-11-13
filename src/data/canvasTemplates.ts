@@ -133,7 +133,7 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
   {
     id: 'photo_dump',
     title: 'Photo Dump',
-    description: '📸 Unfiltered chaos, Instagram style',
+    description: '📸 Unfiltered chaos, raw moments, no filter needed',
     icon: 'images',
     backgroundColor: '#2C2C2E',
     maxLayers: 12,

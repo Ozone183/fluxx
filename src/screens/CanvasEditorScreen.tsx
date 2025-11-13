@@ -109,9 +109,9 @@ const CanvasEditorScreen = () => {
 
   useEffect(() => {
     if (!canvasId) return;
-    
+
     const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
-    
+
     // Increment view count when canvas loads (only once per session)
     const incrementViewCount = async () => {
       try {
@@ -123,10 +123,10 @@ const CanvasEditorScreen = () => {
         console.log('⚠️ View count update failed:', error);
       }
     };
-    
+
     // Call once on mount
     incrementViewCount();
-    
+
     // Listen to canvas updates
     const unsubscribe = onSnapshot(canvasRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -138,7 +138,7 @@ const CanvasEditorScreen = () => {
         navigation.goBack();
       }
     });
-    
+
     return () => unsubscribe();
   }, [canvasId]);
 
@@ -468,8 +468,8 @@ const CanvasEditorScreen = () => {
       const webUrl = `https://fluxx.app/canvas/${canvasId}`; // Web fallback (if you have web app)
 
       const shareMessage = canvas.accessType === 'private' && canvas.inviteCode
-  ? `🎨 Join my private canvas "${canvas.title}"!\n\n🔒 Invite Code: ${canvas.inviteCode}\n\nOpen Fluxx or visit: ${webUrl}`
-  : `🎨 Check out my canvas "${canvas.title}" on Fluxx!\n\nJoin here: ${webUrl}`;
+        ? `🎨 Join my private canvas "${canvas.title}"!\n\n🔒 Invite Code: ${canvas.inviteCode}\n\nOpen Fluxx or visit: ${webUrl}`
+        : `🎨 Check out my canvas "${canvas.title}" on Fluxx!\n\nJoin here: ${webUrl}`;
 
 
       const shareOptions = {
@@ -501,13 +501,13 @@ const CanvasEditorScreen = () => {
 
   const toggleLike = async () => {
     if (!canvas || !userId) return;
-    
+
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      
+
       const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
       const isLiked = canvas.likedBy?.includes(userId);
-      
+
       if (isLiked) {
         // Unlike
         const updatedLikedBy = canvas.likedBy.filter(id => id !== userId);
@@ -522,6 +522,21 @@ const CanvasEditorScreen = () => {
           likeCount: increment(1),
           likedBy: arrayUnion(userId)
         });
+
+        // ✅ ADD THIS: Create like notification
+        if (canvas.creatorId !== userId) {
+          const { createNotification } = await import('../utils/notifications');
+          await createNotification({
+            recipientUserId: canvas.creatorId,
+            type: 'like',
+            fromUserId: userId,
+            fromUsername: userChannel || '@unknown',
+            fromProfilePic: null,
+            relatedCanvasId: canvasId,
+            relatedCanvasTitle: canvas.title,
+          });
+        }
+
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         console.log('❤️ Liked canvas');
       }
@@ -555,11 +570,11 @@ const CanvasEditorScreen = () => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Icon name="arrow-back" size={24} color={COLORS.white} />
           </TouchableOpacity>
-          
+
           <Text style={styles.canvasTitle} numberOfLines={1} ellipsizeMode="tail">
             {canvas.title}
           </Text>
-          
+
           <View style={styles.titleSpacer} />
         </View>
 
@@ -569,7 +584,7 @@ const CanvasEditorScreen = () => {
           <TouchableOpacity onPress={() => setShowLayerPanel(true)} style={styles.actionButton}>
             <Icon name="layers-outline" size={22} color={COLORS.cyan400} />
           </TouchableOpacity>
-          
+
           {/* Auto-Format Button */}
           <TouchableOpacity onPress={autoFormatLayers} style={styles.actionButton}>
             <Icon name="grid-outline" size={22} color={COLORS.amber400} />
@@ -591,10 +606,10 @@ const CanvasEditorScreen = () => {
 
           {/* Like Button */}
           <TouchableOpacity onPress={toggleLike} style={styles.actionButton}>
-            <Icon 
-              name={canvas?.likedBy?.includes(userId || '') ? "heart" : "heart-outline"} 
-              size={22} 
-              color={canvas?.likedBy?.includes(userId || '') ? COLORS.red500 : COLORS.red400} 
+            <Icon
+              name={canvas?.likedBy?.includes(userId || '') ? "heart" : "heart-outline"}
+              size={22}
+              color={canvas?.likedBy?.includes(userId || '') ? COLORS.red500 : COLORS.red400}
             />
             {canvas?.likeCount ? (
               <Text style={styles.likeCountBadge}>{canvas.likeCount}</Text>
@@ -608,18 +623,18 @@ const CanvasEditorScreen = () => {
             <Icon name="time-outline" size={14} color={COLORS.amber400} />
             <Text style={styles.infoText}>Expires in {getTimeRemaining(canvas.expiresAt)}</Text>
           </View>
-          
+
           <View style={styles.infoDivider} />
-          
+
           <View style={styles.infoItem}>
             <Icon name="document-outline" size={14} color={COLORS.cyan400} />
             <Text style={styles.infoText}>
               Page {currentPage + 1} of {canvas.totalPages || 1}
             </Text>
           </View>
-          
+
           <View style={styles.infoDivider} />
-          
+
           <View style={styles.infoItem}>
             <Icon name="layers-outline" size={14} color={COLORS.purple400} />
             <Text style={styles.infoText}>
@@ -632,24 +647,24 @@ const CanvasEditorScreen = () => {
       <CollaboratorsBar collaborators={activeCollaborators} maxShow={5} />
 
       {/* Canvas Analytics */}
-{canvas && (
-  <View style={styles.analyticsBar}>
-    <View style={styles.analyticsItem}>
-      <Icon name="eye-outline" size={16} color={COLORS.cyan400} />
-      <Text style={styles.analyticsText}>{canvas.viewCount || 0} views</Text>
-    </View>
-    <View style={styles.analyticsItem}>
-      <Icon name="heart" size={16} color={COLORS.red400} />
-      <Text style={styles.analyticsText}>{canvas.likeCount || 0} likes</Text>
-    </View>
-    <View style={styles.analyticsItem}>
-      <Icon name="people-outline" size={16} color={COLORS.purple400} />
-      <Text style={styles.analyticsText}>
-        {getTopContributors(canvas).length} contributors
-      </Text>
-    </View>
-  </View>
-)}
+      {canvas && (
+        <View style={styles.analyticsBar}>
+          <View style={styles.analyticsItem}>
+            <Icon name="eye-outline" size={16} color={COLORS.cyan400} />
+            <Text style={styles.analyticsText}>{canvas.viewCount || 0} views</Text>
+          </View>
+          <View style={styles.analyticsItem}>
+            <Icon name="heart" size={16} color={COLORS.red400} />
+            <Text style={styles.analyticsText}>{canvas.likeCount || 0} likes</Text>
+          </View>
+          <View style={styles.analyticsItem}>
+            <Icon name="people-outline" size={16} color={COLORS.purple400} />
+            <Text style={styles.analyticsText}>
+              {getTopContributors(canvas).length} contributors
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* ADD THIS ENTIRE BLOCK */}
       {canvas?.totalPages && canvas.totalPages > 1 && (
@@ -783,7 +798,7 @@ const getTimeRemaining = (expiresAt: number): string => {
 
 const getTopContributors = (canvas: Canvas): Array<{ userId: string; username: string; count: number }> => {
   const contributorMap: { [userId: string]: { username: string; count: number } } = {};
-  
+
   canvas.layers.forEach(layer => {
     if (contributorMap[layer.createdBy]) {
       contributorMap[layer.createdBy].count += 1;
@@ -794,7 +809,7 @@ const getTopContributors = (canvas: Canvas): Array<{ userId: string; username: s
       };
     }
   });
-  
+
   return Object.entries(contributorMap)
     .map(([userId, data]) => ({ userId, ...data }))
     .sort((a, b) => b.count - a.count)

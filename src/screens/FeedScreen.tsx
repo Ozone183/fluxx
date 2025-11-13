@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Animated,
 } from 'react-native';
-import { collection, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, where, query, orderBy } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -37,6 +37,31 @@ const FeedScreen = () => {
   const navigation = useNavigation();
   const { userId, userChannel } = useAuth();
   const { allProfiles } = useProfiles();
+  const [unreadCount, setUnreadCount] = useState(0); // ← ADD THIS
+
+  // ✅ ADD THIS ENTIRE useEffect BLOCK:
+  useEffect(() => {
+    if (!userId) return;
+
+    const notificationsRef = collection(
+      firestore,
+      'artifacts',
+      APP_ID,
+      'public',
+      'data',
+      'notifications',
+      userId,
+      'items'
+    );
+
+    const q = query(notificationsRef, where('isRead', '==', false));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setUnreadCount(snapshot.docs.length);
+    });
+
+    return () => unsubscribe();
+  }, [userId]);
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -47,7 +72,7 @@ const FeedScreen = () => {
   // Real-time posts listener
   useEffect(() => {
     const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
-    
+
     const unsubscribe = onSnapshot(
       postsRef,
       (snapshot) => {
@@ -59,7 +84,7 @@ const FeedScreen = () => {
         // Sort by timestamp (newest first)
         fetchedPosts.sort(
           (a, b) =>
-            (b.timestamp?.toMillis?.() || b.timestamp?.seconds * 1000 || 0) - 
+            (b.timestamp?.toMillis?.() || b.timestamp?.seconds * 1000 || 0) -
             (a.timestamp?.toMillis?.() || a.timestamp?.seconds * 1000 || 0),
         );
 
@@ -139,14 +164,32 @@ const FeedScreen = () => {
         style={styles.headerGradient}
       >
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>
-            FLUX<Text style={styles.headerAccent}>X</Text>
+  <Text style={styles.headerTitle}>
+    FLUX<Text style={styles.headerAccent}>X</Text>
+  </Text>
+  
+  <View style={styles.headerRight}>
+    <View style={styles.headerBadge}>
+      <Icon name="flash-outline" size={16} color={COLORS.cyan400} />
+      <Text style={styles.headerChannel}>{userChannel}</Text>
+    </View>
+
+    {/* ✅ ADD BELL BUTTON HERE */}
+    <TouchableOpacity 
+      style={styles.bellButton}
+      onPress={() => (navigation as any).navigate('Notifications')}
+    >
+      <Icon name="notifications-outline" size={24} color={COLORS.white} />
+      {unreadCount > 0 && (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>
+            {unreadCount > 9 ? '9+' : unreadCount}
           </Text>
-          <View style={styles.headerBadge}>
-            <Icon name="flash-outline" size={16} color={COLORS.cyan400} />
-            <Text style={styles.headerChannel}>{userChannel}</Text>
-          </View>
         </View>
+      )}
+    </TouchableOpacity>
+  </View>
+</View>
       </LinearGradient>
     </Animated.View>
   );
@@ -259,6 +302,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 16,
     fontWeight: '600',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  bellButton: {
+    position: 'relative',
+    padding: 8,
+  },
+  badge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: COLORS.red500,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.slate900,
+  },
+  badgeText: {
+    color: COLORS.white,
+    fontSize: 11,
+    fontWeight: '700',
   },
 });
 

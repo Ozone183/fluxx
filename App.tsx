@@ -24,6 +24,7 @@ import SearchScreen from './src/screens/SearchScreen';
 import CommentsScreen from './src/screens/CommentsScreen';
 import CreateCanvasScreen from './src/screens/CreateCanvasScreen';
 import CanvasEditorScreen from './src/screens/CanvasEditorScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 
 import { COLORS } from './src/theme/colors';
 
@@ -122,6 +123,11 @@ const AppNavigator = () => {
           <Stack.Screen name="MainTabs" component={MainTabs} />
           <Stack.Screen name="CanvasEditor" component={CanvasEditorScreen} />
           <Stack.Screen name="Comments" component={CommentsScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{ headerShown: false }}
+          />
         </>
       )}
     </Stack.Navigator>

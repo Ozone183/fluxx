@@ -55,11 +55,11 @@ const UserProfileSheet: React.FC<UserProfileSheetProps> = ({ userId, visible, on
       if (isFollowing) {
         // Unfollow: Remove from BOTH sides
         await Promise.all([
-          updateDoc(targetUserRef, { 
+          updateDoc(targetUserRef, {
             followers: arrayRemove(currentUserId),
             followerCount: increment(-1)
           }),
-          updateDoc(currentUserRef, { 
+          updateDoc(currentUserRef, {
             following: arrayRemove(userId),
             followingCount: increment(-1)
           })
@@ -69,16 +69,30 @@ const UserProfileSheet: React.FC<UserProfileSheetProps> = ({ userId, visible, on
       } else {
         // Follow: Add to BOTH sides
         await Promise.all([
-          updateDoc(targetUserRef, { 
+          updateDoc(targetUserRef, {
             followers: arrayUnion(currentUserId),
             followerCount: increment(1)
           }),
-          updateDoc(currentUserRef, { 
+          updateDoc(currentUserRef, {
             following: arrayUnion(userId),
             followingCount: increment(1)
           })
         ]);
         setIsFollowing(true);
+
+        // ✅ ADD THIS: Create follow notification
+        const { createNotification } = await import('../utils/notifications');
+        const currentUserProfile = await getDoc(currentUserRef);
+        const currentUserData = currentUserProfile.data();
+
+        await createNotification({
+          recipientUserId: userId,
+          type: 'follow',
+          fromUserId: currentUserId,
+          fromUsername: currentUserData?.channel || '@unknown',
+          fromProfilePic: currentUserData?.profilePictureUrl,
+        });
+
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         console.log('✅ Followed user');
       }
@@ -99,7 +113,7 @@ const UserProfileSheet: React.FC<UserProfileSheetProps> = ({ userId, visible, on
           ) : (
             <>
               <View style={styles.header}>
-              <Text style={styles.username}>
+                <Text style={styles.username}>
                   @{profile?.channel || profile?.username || 'unknown'}
                 </Text>
                 <TouchableOpacity onPress={onClose}>

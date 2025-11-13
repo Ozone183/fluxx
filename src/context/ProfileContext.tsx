@@ -8,6 +8,11 @@ interface Profile {
   channel: string;
   profilePictureUrl: string | null;
   bio?: string; // Added bio field (optional)
+  followers?: string[];           // ✅ ADD THIS
+  following?: string[];           // ✅ ADD THIS
+  followerCount?: number;         // ✅ ADD THIS
+  followingCount?: number;        // ✅ ADD THIS
+  canvasesCreated?: number;       // ✅ ADD THIS
 }
 
 interface ProfileContextType {

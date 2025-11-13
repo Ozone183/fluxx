@@ -13,7 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, increment } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -57,7 +57,7 @@ const CreateCanvasScreen = () => {
 
       // Create starter layers for template
       let starterLayers: CanvasLayer[] = [];
-      
+
 
       const canvasData: Omit<Canvas, 'id'> = {
         title: title.trim(),
@@ -100,6 +100,17 @@ const CreateCanvasScreen = () => {
         collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases'),
         canvasData
       );
+
+      // ✅ ADD THIS BLOCK HERE
+      try {
+        const profileRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'profiles', userId);
+        await updateDoc(profileRef, {
+          canvasesCreated: increment(1)
+        });
+        console.log('✅ Canvas count incremented');
+      } catch (error) {
+        console.error('⚠️ Canvas count update failed:', error);
+      }
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       (navigation as any).navigate('CanvasEditor', { canvasId: canvasRef.id });
@@ -200,16 +211,16 @@ const CreateCanvasScreen = () => {
             </View>
           )}
 
-{/* ADD THIS ENTIRE BLOCK RIGHT HERE */}
-<View style={styles.features}>
-  <Text style={styles.featuresTitle}>What you can do:</Text>
-  <FeatureItem icon="image" text="Add photos & images" />
-  <FeatureItem icon="text" text="Add text & captions" />
-  <FeatureItem icon="people" text="Collaborate with up to 12 people" />
-  <FeatureItem icon="layers" text={`Max ${selectedTemplate.maxLayers} layers per canvas`} />
-  <FeatureItem icon="time" text="Canvas expires in 24 hours" />
-  <FeatureItem icon="download" text="Export as image anytime" />
-</View>
+          {/* ADD THIS ENTIRE BLOCK RIGHT HERE */}
+          <View style={styles.features}>
+            <Text style={styles.featuresTitle}>What you can do:</Text>
+            <FeatureItem icon="image" text="Add photos & images" />
+            <FeatureItem icon="text" text="Add text & captions" />
+            <FeatureItem icon="people" text="Collaborate with up to 12 people" />
+            <FeatureItem icon="layers" text={`Max ${selectedTemplate.maxLayers} layers per canvas`} />
+            <FeatureItem icon="time" text="Canvas expires in 24 hours" />
+            <FeatureItem icon="download" text="Export as image anytime" />
+          </View>
 
         </View>
       </ScrollView>

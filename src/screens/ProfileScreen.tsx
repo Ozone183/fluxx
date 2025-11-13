@@ -324,8 +324,20 @@ const ProfileScreen = ({ route }: any) => {
 
         <View style={styles.statsContainer}>
           <View style={styles.stat}>
+            <Text style={styles.statValue}>{profile?.canvasesCreated || 0}</Text>
+            <Text style={styles.statLabel}>Canvases</Text>
+          </View>
+          <View style={styles.stat}>
             <Text style={styles.statValue}>{postsCount}</Text>
             <Text style={styles.statLabel}>Posts</Text>
+          </View>
+          <View style={styles.stat}>
+            <Text style={styles.statValue}>{profile?.followerCount || 0}</Text>
+            <Text style={styles.statLabel}>Followers</Text>
+          </View>
+          <View style={styles.stat}>
+            <Text style={styles.statValue}>{profile?.followingCount || 0}</Text>
+            <Text style={styles.statLabel}>Following</Text>
           </View>
         </View>
 

@@ -78,12 +78,17 @@ const ChannelSetupScreen = () => {
         return;
       }
 
-      // Create profile
+      // Create profile with all required fields
       const userProfileRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'profiles', userId);
       await setDoc(userProfileRef, {
         userId,
         channel,
         profilePictureUrl: profilePicUri || null,
+        followers: [],
+        following: [],
+        followerCount: 0,
+        followingCount: 0,
+        canvasesCreated: 0,
         createdAt: serverTimestamp(),
       });
 
@@ -171,11 +176,11 @@ const ChannelSetupScreen = () => {
             activeOpacity={0.8}
           >
             <LinearGradient
-  colors={isValid ? [COLORS.cyan500, COLORS.indigo600] : [COLORS.slate700, COLORS.slate700]}
-  style={styles.submitGradient}
-  start={{ x: 0, y: 0 }}
-  end={{ x: 1, y: 0 }} 
->
+              colors={isValid ? [COLORS.cyan500, COLORS.indigo600] : [COLORS.slate700, COLORS.slate700]}
+              style={styles.submitGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
               {isLoading ? (
                 <ActivityIndicator color={COLORS.white} />
               ) : (

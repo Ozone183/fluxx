@@ -25,7 +25,8 @@ import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { Share, Platform } from 'react-native';
-
+import { captureRef } from 'react-native-view-shot';
+import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
@@ -457,46 +458,85 @@ const CanvasEditorScreen = () => {
   const shareCanvas = async () => {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
+  
       if (!canvas) {
         Alert.alert('Error', 'Canvas not available');
         return;
       }
-
-      // Build share content
-      const canvasUrl = `fluxx://canvas/${canvasId}`; // Deep link
-      const webUrl = `https://fluxx.app/canvas/${canvasId}`; // Web fallback (if you have web app)
-
+  
+      // Build share content with BOTH schemes
+      const appUrl = `fluxx://canvas/${canvasId}`;
+      const webUrl = `https://fluxx.app/canvas/${canvasId}`;
+  
       const shareMessage = canvas.accessType === 'private' && canvas.inviteCode
-        ? `🎨 Join my private canvas "${canvas.title}"!\n\n🔒 Invite Code: ${canvas.inviteCode}\n\nOpen Fluxx or visit: ${webUrl}`
-        : `🎨 Check out my canvas "${canvas.title}" on Fluxx!\n\nJoin here: ${webUrl}`;
-
-
+        ? `🎨 Join my private canvas "${canvas.title}"!\n\n🔒 Invite Code: ${canvas.inviteCode}\n\n📱 Tap to open: ${webUrl}`
+        : `🎨 Check out my canvas "${canvas.title}" on Fluxx!\n\n📱 Tap to open: ${webUrl}`;
+  
       const shareOptions = {
         title: `Join "${canvas.title}" on Fluxx`,
-        message: Platform.OS === 'ios' ? shareMessage : shareMessage,
-        url: Platform.OS === 'ios' ? webUrl : undefined, // iOS can share URLs separately
+        message: shareMessage,
+        url: Platform.OS === 'ios' ? webUrl : undefined,
       };
-
+  
       const result = await Share.share(shareOptions);
-
+  
       if (result.action === Share.sharedAction) {
-        if (result.activityType) {
-          // Shared via specific activity (iOS only)
-          console.log(`Shared via ${result.activityType}`);
-        } else {
-          // Shared successfully (Android or iOS generic share)
-          console.log('Canvas shared successfully');
-        }
+        console.log('✅ Canvas shared:', canvasId);
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else if (result.action === Share.dismissedAction) {
-        // User dismissed the share sheet
         console.log('Share dismissed');
       }
     } catch (error) {
       console.error('Share error:', error);
       Alert.alert('Share Failed', 'Could not share canvas');
     }
+  };
+
+  const handleExportImage = async () => {
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      if (!viewShotRef.current) {
+        Alert.alert('Error', 'Canvas not ready for export');
+        return;
+      }
+
+      // Request media library permissions
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Please enable photo library access in settings');
+        return;
+      }
+
+      // Capture canvas as image
+      const uri = await captureRef(viewShotRef, {
+        format: 'png',
+        quality: 1,
+      });
+
+      // Add watermark overlay (simple approach)
+      const watermarkedUri = await addWatermarkOverlay(uri);
+
+      // Save to gallery
+      const asset = await MediaLibrary.createAssetAsync(watermarkedUri);
+      await MediaLibrary.createAlbumAsync('Fluxx', asset, false);
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        '✅ Exported!',
+        'Canvas saved to your gallery',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Export error:', error);
+      Alert.alert('Export Failed', 'Could not save canvas');
+    }
+  };
+
+  const addWatermarkOverlay = async (imageUri: string): Promise<string> => {
+    // For now, return original URI
+    // We'll add watermark rendering in next step
+    return imageUri;
   };
 
   const toggleLike = async () => {
@@ -604,6 +644,11 @@ const CanvasEditorScreen = () => {
             <Icon name="share-outline" size={22} color={COLORS.purple400} />
           </TouchableOpacity>
 
+          {/* NEW: Export button */}
+          <TouchableOpacity onPress={handleExportImage}>
+            <Ionicons name="download-outline" size={24} color="#fff" />
+          </TouchableOpacity>
+
           {/* Like Button */}
           <TouchableOpacity onPress={toggleLike} style={styles.actionButton}>
             <Icon
@@ -688,7 +733,7 @@ const CanvasEditorScreen = () => {
         <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }}>
           <View style={[styles.canvas, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT, backgroundColor: canvas.backgroundColor }]}>
             {canvas.layers
-              .filter(layer => (layer.pageIndex ?? 0) === currentPage) // ← ADD THIS LINE
+              .filter(layer => (layer.pageIndex ?? 0) === currentPage)
               .sort((a, b) => a.zIndex - b.zIndex)
               .map((layer) => (
                 <CanvasLayerComponent
@@ -700,6 +745,16 @@ const CanvasEditorScreen = () => {
                   canvasId={canvasId}
                 />
               ))}
+
+            {/* Fancy Watermark overlay */}
+            <View style={styles.watermark} pointerEvents="none">
+              <View style={styles.watermarkBadge}>
+                <View style={styles.watermarkGradient}>
+                  <Ionicons name="color-palette" size={12} color="#fff" />
+                  <Text style={styles.watermarkText}>Made with Fluxx</Text>
+                </View>
+              </View>
+            </View>
           </View>
         </ViewShot>
       </ScrollView>
@@ -1084,6 +1139,37 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: COLORS.white,
+  },
+  watermark: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    zIndex: 9999,
+  },
+  watermarkBadge: {
+    backgroundColor: 'rgba(6, 182, 212, 0.8)', // Fluxx cyan with transparency
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.6)', // Lighter cyan border
+    shadowColor: '#06b6d4', // Cyan shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  watermarkGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  watermarkText: {
+    fontFamily: 'Inter',
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#fff',
+    letterSpacing: 0.5,
   },
 });
 

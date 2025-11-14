@@ -3,6 +3,7 @@
     "name": "Fluxx",
     "slug": "fluxx",
     "version": "1.0.0",
+    "scheme": "fluxx",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,6 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.fluxx.app",
+      "associatedDomains": ["applinks:fluxx.app"],
       "infoPlist": {
         "NSPhotoLibraryAddUsageDescription": "Fluxx needs access to save your canvas creations to your photo library.",
         "NSPhotoLibraryUsageDescription": "Fluxx needs access to your photo library to save your canvas creations."
@@ -27,6 +29,29 @@
       },
       "package": "com.fluxxstable",
       "googleServicesFile": "./google-services.json",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "fluxx.app",
+              "pathPrefix": "/canvas"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "fluxx"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "permissions": [
         "WRITE_EXTERNAL_STORAGE",
         "READ_EXTERNAL_STORAGE",

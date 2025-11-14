@@ -7,6 +7,8 @@ import { StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Linking from 'expo-linking';
+import { createNavigationContainerRef } from '@react-navigation/native';
 
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ProfileProvider } from './src/context/ProfileContext';
@@ -112,35 +114,39 @@ const AppNavigator = () => {
 
   return (
     <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
-  {!userId ? (
-    <>
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Signup" component={SignupScreen} />
-    </>
-  ) : !isProfileSetup ? (
-    <Stack.Screen name="ChannelSetup" component={ChannelSetupScreen} />
-  ) : (
-    <>
-      <Stack.Screen name="MainTabs" component={MainTabs} />
-      <Stack.Screen name="CanvasEditor" component={CanvasEditorScreen} />
-      <Stack.Screen name="Comments" component={CommentsScreen} options={{ presentation: 'modal' }} />
-      <Stack.Screen
-        name="Notifications"
-        component={NotificationsScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="UserProfile"
-        component={UserProfileScreen}
-        options={{ headerShown: false }}
-      />
-    </>
-  )}
-</Stack.Navigator>
+      {!userId ? (
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Signup" component={SignupScreen} />
+        </>
+      ) : !isProfileSetup ? (
+        <Stack.Screen name="ChannelSetup" component={ChannelSetupScreen} />
+      ) : (
+        <>
+          <Stack.Screen name="MainTabs" component={MainTabs} />
+          <Stack.Screen name="CanvasEditor" component={CanvasEditorScreen} />
+          <Stack.Screen name="Comments" component={CommentsScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="UserProfile"
+            component={UserProfileScreen}
+            options={{ headerShown: false }}
+          />
+        </>
+      )}
+    </Stack.Navigator>
   );
 };
 
-const App = () => {
+const navigationRef = createNavigationContainerRef();
+
+// NEW: Separate component that uses useAuth
+const AppContent = () => {
+  const { userId, isProfileSetup } = useAuth(); // ✅ Now inside AuthProvider
   const [showSplash, setShowSplash] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
@@ -160,6 +166,50 @@ const App = () => {
       setIsCheckingOnboarding(false);
     }
   };
+
+  const handleDeepLink = (url: string) => {
+    try {
+      const { path } = Linking.parse(url);
+      
+      console.log('🔗 Deep link received:', url);
+      console.log('📍 Parsed path:', path);
+      console.log('👤 User ID:', userId);
+      console.log('✅ Profile setup:', isProfileSetup);
+      
+      if (path?.startsWith('canvas/')) {
+        const canvasId = path.replace('canvas/', '');
+        console.log('🎨 Canvas ID extracted:', canvasId);
+        
+        if (userId && isProfileSetup) {
+          console.log('✅ Navigating to canvas...');
+          (navigationRef.current as any)?.navigate('CanvasEditor', { canvasId });
+        } else {
+          console.log('❌ User not authenticated, cannot navigate');
+        }
+      } else {
+        console.log('❌ Invalid deep link path');
+      }
+    } catch (error) {
+      console.error('❌ Deep link error:', error);
+    }
+  };
+
+  // Deep linking handler
+  useEffect(() => {
+    // Handle initial URL (app opened from link)
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink(url);
+      }
+    });
+
+    // Handle URL when app is already open
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      handleDeepLink(url);
+    });
+
+    return () => subscription.remove();
+  }, [userId, isProfileSetup]);
 
   const handleSplashFinish = () => {
     setShowSplash(false);
@@ -182,14 +232,21 @@ const App = () => {
   }
 
   return (
+    <ProfileProvider>
+      <NavigationContainer ref={navigationRef}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.slate900} />
+        <AppNavigator />
+      </NavigationContainer>
+    </ProfileProvider>
+  );
+};
+
+// Main App component wraps everything in AuthProvider
+const App = () => {
+  return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        <ProfileProvider>
-          <NavigationContainer>
-            <StatusBar barStyle="light-content" backgroundColor={COLORS.slate900} />
-            <AppNavigator />
-          </NavigationContainer>
-        </ProfileProvider>
+        <AppContent />
       </AuthProvider>
     </GestureHandlerRootView>
   );

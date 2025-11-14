@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,28 +16,57 @@ import { MusicTrack } from '../data/musicTracks';
 interface MusicPlayerBarProps {
   track: MusicTrack;
   onRemove: () => void;
+  isCreator: boolean;
 }
 
-const MusicPlayerBar: React.FC<MusicPlayerBarProps> = ({ track, onRemove }) => {
+const MusicPlayerBar: React.FC<MusicPlayerBarProps> = ({ 
+  track, 
+  onRemove, 
+  isCreator 
+}) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [position, setPosition] = useState(0);
-  const [duration, setDuration] = useState(track.duration * 1000); // Convert to ms
+  const [duration, setDuration] = useState(track.duration * 1000);
   const [volume, setVolume] = useState(0.5);
 
   useEffect(() => {
     loadSound();
+    
     return () => {
       if (sound) {
-        sound.unloadAsync();
+        sound.stopAsync().catch(() => {});
+        sound.unloadAsync().catch(() => {});
       }
     };
-  }, [track.id]);
+  }, [track.id, track.url]);
+
+  // Auto-play music when canvas opens
+  useEffect(() => {
+    if (sound && !isPlaying) {
+      const timer = setTimeout(() => {
+        sound.playAsync().catch((err) => {
+          console.log('Auto-play blocked or failed:', err);
+        });
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [sound]);
 
   const loadSound = async () => {
     try {
       setIsLoading(true);
+
+      // Stop and cleanup previous sound
+      if (sound) {
+        await sound.stopAsync();
+        await sound.unloadAsync();
+        setSound(null);
+        setIsPlaying(false);
+        setPosition(0);
+      }
 
       // Configure audio mode
       await Audio.setAudioModeAsync({
@@ -46,17 +75,19 @@ const MusicPlayerBar: React.FC<MusicPlayerBarProps> = ({ track, onRemove }) => {
         shouldDuckAndroid: true,
       });
 
+      console.log('🎵 Loading track:', track.title);
+
       // Load sound
       const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: track.url },
-        { volume: volume },
+        track.url,
+        { volume: volume, shouldPlay: false },
         onPlaybackStatusUpdate
       );
 
       setSound(newSound);
+      console.log('✅ Track loaded successfully:', track.title);
     } catch (error) {
-      console.error('Error loading sound:', error);
-      Alert.alert('Playback Error', 'Could not load music track');
+      console.error('❌ Error loading sound:', error);
     } finally {
       setIsLoading(false);
     }
@@ -68,7 +99,6 @@ const MusicPlayerBar: React.FC<MusicPlayerBarProps> = ({ track, onRemove }) => {
       setDuration(status.durationMillis || track.duration * 1000);
       setIsPlaying(status.isPlaying);
 
-      // Auto-stop at end
       if (status.didJustFinish) {
         setIsPlaying(false);
         setPosition(0);
@@ -87,13 +117,6 @@ const MusicPlayerBar: React.FC<MusicPlayerBarProps> = ({ track, onRemove }) => {
       }
     } catch (error) {
       console.error('Playback error:', error);
-    }
-  };
-
-  const handleVolumeChange = async (value: number) => {
-    setVolume(value);
-    if (sound) {
-      await sound.setVolumeAsync(value);
     }
   };
 
@@ -170,19 +193,21 @@ const MusicPlayerBar: React.FC<MusicPlayerBarProps> = ({ track, onRemove }) => {
           <Text style={styles.timeText}>{formatTime(duration)}</Text>
         </View>
 
-        {/* Volume Control */}
+        {/* Volume Icon */}
         <TouchableOpacity style={styles.volumeButton}>
           <Ionicons
-            name={volume > 0.5 ? 'volume-high' : volume > 0 ? 'volume-medium' : 'volume-mute'}
+            name="volume-medium"
             size={18}
             color={COLORS.slate400}
           />
         </TouchableOpacity>
 
-        {/* Remove Button */}
-        <TouchableOpacity style={styles.removeButton} onPress={handleRemove}>
-          <Ionicons name="close-circle" size={20} color={COLORS.red400} />
-        </TouchableOpacity>
+        {/* Remove Button - CREATOR ONLY */}
+        {isCreator && (
+          <TouchableOpacity style={styles.removeButton} onPress={handleRemove}>
+            <Ionicons name="close-circle" size={20} color={COLORS.red400} />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

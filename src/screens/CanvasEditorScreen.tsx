@@ -30,6 +30,7 @@ import { Ionicons } from '@expo/vector-icons';
 import MusicLibraryModal from '../components/MusicLibraryModal';
 import { MusicTrack } from '../data/musicTracks';
 import MusicPlayerBar from '../components/MusicPlayerBar';
+import { MUSIC_LIBRARY } from '../data/musicTracks';
 
 import { COLORS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
@@ -147,24 +148,6 @@ const CanvasEditorScreen = () => {
 
     return () => unsubscribe();
   }, [canvasId]);
-
-  {/* 🎵 ADD THIS NEW useEffect RIGHT HERE - AFTER LINE 143 */ }
-  useEffect(() => {
-    if (canvas?.musicTrack) {
-      setSelectedMusic({
-        id: canvas.musicTrack.id,
-        title: canvas.musicTrack.title,
-        artist: canvas.musicTrack.artist,
-        category: canvas.musicTrack.category as 'chill' | 'upbeat' | 'cinematic' | 'lofi' | 'ambient',
-        duration: canvas.musicTrack.duration,
-        url: canvas.musicTrack.url,
-        thumbnailUrl: canvas.musicTrack.thumbnailUrl,
-        isPremium: (canvas.musicTrack as any).isPremium ?? false,
-        bpm: (canvas.musicTrack as any).bpm,
-        mood: (canvas.musicTrack as any).mood,
-      });
-    }
-  }, [canvas]);
 
   useEffect(() => {
     if (!canvasId || !userId) return;
@@ -390,36 +373,21 @@ const CanvasEditorScreen = () => {
   const handleSelectMusic = async (track: MusicTrack | null) => {
     try {
       if (!canvasId) return;
-  
+
       const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
-  
+
       if (track) {
-        // Add music to canvas - remove undefined fields
-        const musicData: any = {
-          id: track.id,
-          title: track.title,
-          artist: track.artist,
-          category: track.category,
-          duration: track.duration,
-          url: track.url,
-        };
-  
-        // Only add optional fields if they exist
-        if (track.thumbnailUrl) musicData.thumbnailUrl = track.thumbnailUrl;
-        if (track.isPremium !== undefined) musicData.isPremium = track.isPremium;
-        if (track.bpm) musicData.bpm = track.bpm;
-        if (track.mood) musicData.mood = track.mood;
-  
+        // Save only track ID to Firestore
         await updateDoc(canvasRef, {
-          musicTrack: musicData,
+          selectedMusicId: track.id,
         });
-  
+
         setSelectedMusic(track);
         Alert.alert('🎵 Music Added', `"${track.title}" added to your canvas`);
       } else {
-        // Remove music from canvas
+        // Remove music
         await updateDoc(canvasRef, {
-          musicTrack: null,
+          selectedMusicId: null,
         });
         setSelectedMusic(null);
         Alert.alert('Music Removed', 'Music removed from canvas');
@@ -429,6 +397,18 @@ const CanvasEditorScreen = () => {
       Alert.alert('Error', 'Could not update music');
     }
   };
+
+  // 👇 ADD THIS NEW ONE:
+  useEffect(() => {
+    if (canvas?.selectedMusicId) {
+      const track = MUSIC_LIBRARY.find(t => t.id === canvas.selectedMusicId);
+      if (track) {
+        setSelectedMusic(track);
+      }
+    } else {
+      setSelectedMusic(null);
+    }
+  }, [canvas]);
 
   const exportCanvas = async () => {
     try {
@@ -704,20 +684,20 @@ const CanvasEditorScreen = () => {
             )}
           </TouchableOpacity>
 
-          {/* NEW: Music Button */}
-          <TouchableOpacity
-            onPress={() => setShowMusicLibrary(true)}
-            style={{ marginRight: 16, position: 'relative' }}
-          >
-            <Ionicons
-              name={selectedMusic ? "musical-notes" : "musical-notes-outline"}
-              size={24}
-              color={selectedMusic ? COLORS.cyan400 : "#fff"}
-            />
-            {selectedMusic && (
-              <View style={styles.musicIndicator} />
-            )}
-          </TouchableOpacity>
+          {/* Music Button - CREATOR ONLY */}
+          {userId === canvas.creatorId && (
+            <TouchableOpacity
+              onPress={() => setShowMusicLibrary(true)}
+              style={styles.actionButton}
+            >
+              <Ionicons
+                name={selectedMusic ? "musical-notes" : "musical-notes-outline"}
+                size={22}
+                color={selectedMusic ? COLORS.cyan400 : COLORS.purple400}
+              />
+              {selectedMusic && <View style={styles.musicIndicator} />}
+            </TouchableOpacity>
+          )}
 
           {/* Share Button */}
           <TouchableOpacity onPress={shareCanvas} style={styles.actionButton}>
@@ -776,6 +756,7 @@ const CanvasEditorScreen = () => {
         <MusicPlayerBar
           track={selectedMusic}
           onRemove={() => handleSelectMusic(null)}
+          isCreator={userId === canvas.creatorId}
         />
       )}
 

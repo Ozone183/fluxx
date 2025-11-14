@@ -77,18 +77,9 @@ export interface Canvas {
   likeCount: number;
   likedBy: string[];
 
-  musicTrack?: {
-    id: string;
-    title: string;
-    artist: string;
-    category: string;
-    duration: number;
-    url: string;
-    thumbnailUrl?: string;
-    isPremium?: boolean;  // ← ADD THIS
-    bpm?: number;         // ← ADD THIS (optional)
-    mood?: string[];      // ← ADD THIS (optional)
-  };
+  // Remove old musicTrack field if it exists
+  // Add this instead:
+  selectedMusicId?: string;
 }
 
 export interface ActivePresence {

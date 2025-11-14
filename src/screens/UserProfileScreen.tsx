@@ -155,11 +155,11 @@ const UserProfileScreen = () => {
   const renderPost = ({ item }: { item: any }) => (
     <TouchableOpacity 
       style={styles.postCard}
-      onPress={() => handlePostPress(item.id)}  // Changed from item.canvasId to item.id
+      onPress={() => handlePostPress(item)}
       activeOpacity={0.7}
     >
-      {item.canvasData?.thumbnail ? (
-        <Image source={{ uri: item.canvasData.thumbnail }} style={styles.postThumbnail} />
+      {item.image ? (
+        <Image source={{ uri: item.image }} style={styles.postThumbnail} />
       ) : (
         <View style={styles.postPlaceholder}>
           <Icon name="image-outline" size={32} color={COLORS.slate600} />

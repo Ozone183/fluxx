@@ -27,6 +27,9 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { Share, Platform } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { Ionicons } from '@expo/vector-icons';
+import MusicLibraryModal from '../components/MusicLibraryModal';
+import { MusicTrack } from '../data/musicTracks';
+import MusicPlayerBar from '../components/MusicPlayerBar';
 
 import { COLORS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
@@ -105,6 +108,8 @@ const CanvasEditorScreen = () => {
   const [textInput, setTextInput] = useState('');
   const [showLayerPanel, setShowLayerPanel] = useState(false); // ← ADD THIS LINE
   const [currentPage, setCurrentPage] = useState(0); // ← ADD THIS LINE
+  const [showMusicLibrary, setShowMusicLibrary] = useState(false);
+  const [selectedMusic, setSelectedMusic] = useState<MusicTrack | null>(null);
 
   // ... all your useEffect hooks stay the same ...
 
@@ -142,6 +147,24 @@ const CanvasEditorScreen = () => {
 
     return () => unsubscribe();
   }, [canvasId]);
+
+  {/* 🎵 ADD THIS NEW useEffect RIGHT HERE - AFTER LINE 143 */ }
+  useEffect(() => {
+    if (canvas?.musicTrack) {
+      setSelectedMusic({
+        id: canvas.musicTrack.id,
+        title: canvas.musicTrack.title,
+        artist: canvas.musicTrack.artist,
+        category: canvas.musicTrack.category as 'chill' | 'upbeat' | 'cinematic' | 'lofi' | 'ambient',
+        duration: canvas.musicTrack.duration,
+        url: canvas.musicTrack.url,
+        thumbnailUrl: canvas.musicTrack.thumbnailUrl,
+        isPremium: (canvas.musicTrack as any).isPremium ?? false,
+        bpm: (canvas.musicTrack as any).bpm,
+        mood: (canvas.musicTrack as any).mood,
+      });
+    }
+  }, [canvas]);
 
   useEffect(() => {
     if (!canvasId || !userId) return;
@@ -364,6 +387,48 @@ const CanvasEditorScreen = () => {
     }
   };
 
+  const handleSelectMusic = async (track: MusicTrack | null) => {
+    try {
+      if (!canvasId) return;
+  
+      const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
+  
+      if (track) {
+        // Add music to canvas - remove undefined fields
+        const musicData: any = {
+          id: track.id,
+          title: track.title,
+          artist: track.artist,
+          category: track.category,
+          duration: track.duration,
+          url: track.url,
+        };
+  
+        // Only add optional fields if they exist
+        if (track.thumbnailUrl) musicData.thumbnailUrl = track.thumbnailUrl;
+        if (track.isPremium !== undefined) musicData.isPremium = track.isPremium;
+        if (track.bpm) musicData.bpm = track.bpm;
+        if (track.mood) musicData.mood = track.mood;
+  
+        await updateDoc(canvasRef, {
+          musicTrack: musicData,
+        });
+  
+        setSelectedMusic(track);
+        Alert.alert('🎵 Music Added', `"${track.title}" added to your canvas`);
+      } else {
+        // Remove music from canvas
+        await updateDoc(canvasRef, {
+          musicTrack: null,
+        });
+        setSelectedMusic(null);
+        Alert.alert('Music Removed', 'Music removed from canvas');
+      }
+    } catch (error) {
+      console.error('Error updating music:', error);
+      Alert.alert('Error', 'Could not update music');
+    }
+  };
 
   const exportCanvas = async () => {
     try {
@@ -458,28 +523,28 @@ const CanvasEditorScreen = () => {
   const shareCanvas = async () => {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  
+
       if (!canvas) {
         Alert.alert('Error', 'Canvas not available');
         return;
       }
-  
+
       // Build share content with BOTH schemes
       const appUrl = `fluxx://canvas/${canvasId}`;
       const webUrl = `https://fluxx.app/canvas/${canvasId}`;
-  
+
       const shareMessage = canvas.accessType === 'private' && canvas.inviteCode
         ? `🎨 Join my private canvas "${canvas.title}"!\n\n🔒 Invite Code: ${canvas.inviteCode}\n\n📱 Tap to open: ${webUrl}`
         : `🎨 Check out my canvas "${canvas.title}" on Fluxx!\n\n📱 Tap to open: ${webUrl}`;
-  
+
       const shareOptions = {
         title: `Join "${canvas.title}" on Fluxx`,
         message: shareMessage,
         url: Platform.OS === 'ios' ? webUrl : undefined,
       };
-  
+
       const result = await Share.share(shareOptions);
-  
+
       if (result.action === Share.sharedAction) {
         console.log('✅ Canvas shared:', canvasId);
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -639,6 +704,21 @@ const CanvasEditorScreen = () => {
             )}
           </TouchableOpacity>
 
+          {/* NEW: Music Button */}
+          <TouchableOpacity
+            onPress={() => setShowMusicLibrary(true)}
+            style={{ marginRight: 16, position: 'relative' }}
+          >
+            <Ionicons
+              name={selectedMusic ? "musical-notes" : "musical-notes-outline"}
+              size={24}
+              color={selectedMusic ? COLORS.cyan400 : "#fff"}
+            />
+            {selectedMusic && (
+              <View style={styles.musicIndicator} />
+            )}
+          </TouchableOpacity>
+
           {/* Share Button */}
           <TouchableOpacity onPress={shareCanvas} style={styles.actionButton}>
             <Icon name="share-outline" size={22} color={COLORS.purple400} />
@@ -691,40 +771,52 @@ const CanvasEditorScreen = () => {
 
       <CollaboratorsBar collaborators={activeCollaborators} maxShow={5} />
 
-      {/* Canvas Analytics */}
-      {canvas && (
-        <View style={styles.analyticsBar}>
-          <View style={styles.analyticsItem}>
-            <Icon name="eye-outline" size={16} color={COLORS.cyan400} />
-            <Text style={styles.analyticsText}>{canvas.viewCount || 0} views</Text>
-          </View>
-          <View style={styles.analyticsItem}>
-            <Icon name="heart" size={16} color={COLORS.red400} />
-            <Text style={styles.analyticsText}>{canvas.likeCount || 0} likes</Text>
-          </View>
-          <View style={styles.analyticsItem}>
-            <Icon name="people-outline" size={16} color={COLORS.purple400} />
-            <Text style={styles.analyticsText}>
-              {getTopContributors(canvas).length} contributors
-            </Text>
-          </View>
-        </View>
+      {/* Music Player Bar - Shows when music is selected */}
+      {selectedMusic && (
+        <MusicPlayerBar
+          track={selectedMusic}
+          onRemove={() => handleSelectMusic(null)}
+        />
       )}
 
+      {/* Canvas Analytics */}
+      {
+        canvas && (
+          <View style={styles.analyticsBar}>
+            <View style={styles.analyticsItem}>
+              <Icon name="eye-outline" size={16} color={COLORS.cyan400} />
+              <Text style={styles.analyticsText}>{canvas.viewCount || 0} views</Text>
+            </View>
+            <View style={styles.analyticsItem}>
+              <Icon name="heart" size={16} color={COLORS.red400} />
+              <Text style={styles.analyticsText}>{canvas.likeCount || 0} likes</Text>
+            </View>
+            <View style={styles.analyticsItem}>
+              <Icon name="people-outline" size={16} color={COLORS.purple400} />
+              <Text style={styles.analyticsText}>
+                {getTopContributors(canvas).length} contributors
+              </Text>
+            </View>
+          </View>
+        )
+      }
+
       {/* ADD THIS ENTIRE BLOCK */}
-      {canvas?.totalPages && canvas.totalPages > 1 && (
-        <View style={styles.pageIndicator}>
-          {Array.from({ length: canvas.totalPages }).map((_, index) => (
-            <TouchableOpacity
-              key={index}
-              onPress={() => setCurrentPage(index)}
-              style={[styles.pageDot, currentPage === index && styles.pageDotActive]}
-            >
-              <Text style={styles.pageDotText}>{index + 1}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+      {
+        canvas?.totalPages && canvas.totalPages > 1 && (
+          <View style={styles.pageIndicator}>
+            {Array.from({ length: canvas.totalPages }).map((_, index) => (
+              <TouchableOpacity
+                key={index}
+                onPress={() => setCurrentPage(index)}
+                style={[styles.pageDot, currentPage === index && styles.pageDotActive]}
+              >
+                <Text style={styles.pageDotText}>{index + 1}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )
+      }
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -840,7 +932,16 @@ const CanvasEditorScreen = () => {
         onDeleteLayer={deleteLayer}
         selectedLayerId={selectedLayerId}
       />
-    </View>
+
+      {/* 🎵 ADD MUSIC LIBRARY MODAL HERE */}
+      <MusicLibraryModal
+        visible={showMusicLibrary}
+        onClose={() => setShowMusicLibrary(false)}
+        onSelectTrack={handleSelectMusic}
+        currentTrack={selectedMusic}
+      />
+
+    </View >
   );
 };
 
@@ -1170,6 +1271,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
     letterSpacing: 0.5,
+  },
+  musicIndicator: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.cyan400,
+    borderWidth: 1,
+    borderColor: COLORS.slate900,
   },
 });
 

@@ -76,6 +76,19 @@ export interface Canvas {
   viewCount: number;
   likeCount: number;
   likedBy: string[];
+
+  musicTrack?: {
+    id: string;
+    title: string;
+    artist: string;
+    category: string;
+    duration: number;
+    url: string;
+    thumbnailUrl?: string;
+    isPremium?: boolean;  // ← ADD THIS
+    bpm?: number;         // ← ADD THIS (optional)
+    mood?: string[];      // ← ADD THIS (optional)
+  };
 }
 
 export interface ActivePresence {
@@ -86,3 +99,5 @@ export interface ActivePresence {
   selectedLayerId?: string;
   lastActive: number;
 }
+
+

@@ -227,28 +227,28 @@ const MusicPlayerBar: React.FC<MusicPlayerBarProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: COLORS.slate800,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.slate700,
   },
   trackInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 8,
+    gap: 8,
+    marginBottom: 6,
   },
   trackText: {
     flex: 1,
   },
   trackTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#fff',
     marginBottom: 2,
   },
   trackArtist: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.slate400,
   },
   controls: {
@@ -257,9 +257,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   playButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: COLORS.cyan500,
     justifyContent: 'center',
     alignItems: 'center',
@@ -275,9 +275,9 @@ const styles = StyleSheet.create({
     height: 40,
   },
   timeText: {
-    fontSize: 11,
+    fontSize: 10,
     color: COLORS.slate400,
-    width: 38,
+    width: 35,
     textAlign: 'center',
   },
   volumeButton: {

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { collection, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, where, query, orderBy } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -21,6 +21,7 @@ import { useProfiles } from '../context/ProfileContext';
 import PostCard from '../components/PostCard';
 import EmptyState from '../components/EmptyState';
 import CanvasStoriesBar from '../components/CanvasStoriesBar'; // ← ADD THIS
+import { useRef } from 'react';
 
 interface Post {
   id: string;
@@ -31,15 +32,21 @@ interface Post {
   timestamp: any;
   likedBy: string[];
   commentsCount: number;
+  canvasId?: string;        // ✅ ADD THIS
+  canvasData?: {            // ✅ ADD THIS
+    title?: string;
+    thumbnail?: string;
+  };
 }
 
 const FeedScreen = () => {
   const navigation = useNavigation();
+  const route = useRoute(); // ✅ ADD THIS LINE
   const { userId, userChannel } = useAuth();
   const { allProfiles } = useProfiles();
-  const [unreadCount, setUnreadCount] = useState(0); // ← ADD THIS
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  // ✅ ADD THIS ENTIRE useEffect BLOCK:
+  // ✅ KEEP YOUR NOTIFICATION LISTENER - DON'T DELETE
   useEffect(() => {
     if (!userId) return;
 
@@ -66,6 +73,7 @@ const FeedScreen = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const flatListRef = useRef<FlatList>(null); // ✅ ADD THIS LINE
 
   const scrollY = new Animated.Value(0);
 
@@ -102,6 +110,26 @@ const FeedScreen = () => {
     return () => unsubscribe();
   }, []);
 
+  // Scroll to specific post if coming from notification
+useEffect(() => {
+  const scrollToPostId = (route.params as any)?.scrollToPostId;
+  
+  if (scrollToPostId && posts.length > 0 && flatListRef.current) {
+    const postIndex = posts.findIndex(p => p.id === scrollToPostId);
+    
+    if (postIndex !== -1) {
+      // Small delay to ensure list is rendered
+      setTimeout(() => {
+        flatListRef.current?.scrollToIndex({
+          index: postIndex,
+          animated: true,
+          viewPosition: 0.5, // Center the post
+        });
+      }, 300);
+    }
+  }
+}, [(route.params as any)?.scrollToPostId, posts]);
+
   // Pull-to-refresh
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -122,6 +150,30 @@ const FeedScreen = () => {
       await updateDoc(postRef, {
         likedBy: isLiked ? arrayRemove(userId) : arrayUnion(userId),
       });
+
+      // CREATE NOTIFICATION FOR LIKE (only when liking, not unliking)
+      if (!isLiked) {
+        try {
+          const post = posts.find(p => p.id === postId);
+
+          if (post && post.userId && post.userId !== userId) {
+            const { createNotification } = await import('../utils/notifications');
+
+            await createNotification({
+              recipientUserId: post.userId,
+              type: 'like',
+              fromUserId: userId,
+              fromUsername: userChannel || '@unknown',
+              fromProfilePic: null,
+              relatedCanvasId: postId,
+              relatedCanvasTitle: 'your post',
+            });
+          }
+        } catch (notifError) {
+          console.error('Notification creation failed:', notifError);
+          // Don't block like action if notification fails
+        }
+      }
     } catch (error) {
       console.error('Like toggle error:', error);
     }
@@ -164,32 +216,32 @@ const FeedScreen = () => {
         style={styles.headerGradient}
       >
         <View style={styles.headerContent}>
-  <Text style={styles.headerTitle}>
-    FLUX<Text style={styles.headerAccent}>X</Text>
-  </Text>
-  
-  <View style={styles.headerRight}>
-    <View style={styles.headerBadge}>
-      <Icon name="flash-outline" size={16} color={COLORS.cyan400} />
-      <Text style={styles.headerChannel}>{userChannel}</Text>
-    </View>
-
-    {/* ✅ ADD BELL BUTTON HERE */}
-    <TouchableOpacity 
-      style={styles.bellButton}
-      onPress={() => (navigation as any).navigate('Notifications')}
-    >
-      <Icon name="notifications-outline" size={24} color={COLORS.white} />
-      {unreadCount > 0 && (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>
-            {unreadCount > 9 ? '9+' : unreadCount}
+          <Text style={styles.headerTitle}>
+            FLUX<Text style={styles.headerAccent}>X</Text>
           </Text>
+
+          <View style={styles.headerRight}>
+            <View style={styles.headerBadge}>
+              <Icon name="flash-outline" size={16} color={COLORS.cyan400} />
+              <Text style={styles.headerChannel}>{userChannel}</Text>
+            </View>
+
+            {/* ✅ ADD BELL BUTTON HERE */}
+            <TouchableOpacity
+              style={styles.bellButton}
+              onPress={() => (navigation as any).navigate('Notifications')}
+            >
+              <Icon name="notifications-outline" size={24} color={COLORS.white} />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
-      )}
-    </TouchableOpacity>
-  </View>
-</View>
       </LinearGradient>
     </Animated.View>
   );
@@ -212,6 +264,7 @@ const FeedScreen = () => {
     <View style={styles.container}>
       {renderHeader()}
       <FlatList
+        ref={flatListRef} // ✅ ADD THIS
         data={posts}
         renderItem={renderPost}
         keyExtractor={item => item.id}

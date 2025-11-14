@@ -25,6 +25,7 @@ import CommentsScreen from './src/screens/CommentsScreen';
 import CreateCanvasScreen from './src/screens/CreateCanvasScreen';
 import CanvasEditorScreen from './src/screens/CanvasEditorScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
+import UserProfileScreen from './src/screens/UserProfileScreen';
 
 import { COLORS } from './src/theme/colors';
 
@@ -111,26 +112,31 @@ const AppNavigator = () => {
 
   return (
     <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
-      {!userId ? (
-        <>
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Signup" component={SignupScreen} />
-        </>
-      ) : !isProfileSetup ? (
-        <Stack.Screen name="ChannelSetup" component={ChannelSetupScreen} />
-      ) : (
-        <>
-          <Stack.Screen name="MainTabs" component={MainTabs} />
-          <Stack.Screen name="CanvasEditor" component={CanvasEditorScreen} />
-          <Stack.Screen name="Comments" component={CommentsScreen} options={{ presentation: 'modal' }} />
-          <Stack.Screen
-            name="Notifications"
-            component={NotificationsScreen}
-            options={{ headerShown: false }}
-          />
-        </>
-      )}
-    </Stack.Navigator>
+  {!userId ? (
+    <>
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Signup" component={SignupScreen} />
+    </>
+  ) : !isProfileSetup ? (
+    <Stack.Screen name="ChannelSetup" component={ChannelSetupScreen} />
+  ) : (
+    <>
+      <Stack.Screen name="MainTabs" component={MainTabs} />
+      <Stack.Screen name="CanvasEditor" component={CanvasEditorScreen} />
+      <Stack.Screen name="Comments" component={CommentsScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="UserProfile"
+        component={UserProfileScreen}
+        options={{ headerShown: false }}
+      />
+    </>
+  )}
+</Stack.Navigator>
   );
 };
 

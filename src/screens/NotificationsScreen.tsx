@@ -10,7 +10,7 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -38,7 +38,7 @@ const NotificationsScreen = () => {
 
   useEffect(() => {
     if (!userId) return;
-  
+
     const notificationsRef = collection(
       firestore,
       'artifacts',
@@ -49,9 +49,9 @@ const NotificationsScreen = () => {
       userId,
       'items'
     );
-  
+
     const q = query(notificationsRef, orderBy('timestamp', 'desc'));
-  
+
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -59,18 +59,17 @@ const NotificationsScreen = () => {
           id: doc.id,
           ...doc.data(),
         })) as Notification[];
-  
+
         setNotifications(notifs);
         setLoading(false);
       },
       (error) => {
-        // ✅ ERROR CALLBACK - Stops infinite loading
         console.error('Notifications error:', error);
         setNotifications([]);
         setLoading(false);
       }
     );
-  
+
     return () => unsubscribe();
   }, [userId]);
 
@@ -93,15 +92,23 @@ const NotificationsScreen = () => {
   };
 
   const handleNotificationPress = async (notification: Notification) => {
-    // Mark as read
     if (!notification.isRead) {
       await markAsRead(notification.id);
     }
-
-    // Navigate based on action URL
+  
     if (notification.actionUrl.includes('profile')) {
-      const targetUserId = notification.fromUserId;
-      (navigation as any).navigate('Profile', { userId: targetUserId });
+      (navigation as any).navigate('UserProfile', { userId: notification.fromUserId });
+    } else if (notification.actionUrl.includes('feed')) {
+      // Navigate to Feed tab with the post to scroll to
+      (navigation as any).navigate('MainTabs', {
+        screen: 'Feed',
+        params: { scrollToPostId: notification.relatedCanvasId }
+      });
+    } else if (notification.actionUrl.includes('post')) {
+      // Comment notifications - open comments
+      (navigation as any).navigate('Comments', { 
+        post: { id: notification.relatedCanvasId } 
+      });
     } else if (notification.actionUrl.includes('canvas')) {
       (navigation as any).navigate('CanvasEditor', { canvasId: notification.relatedCanvasId });
     }
@@ -137,9 +144,15 @@ const NotificationsScreen = () => {
     }
   };
 
-  const getTimeAgo = (timestamp: number): string => {
-    const seconds = Math.floor((Date.now() - timestamp) / 1000);
-    
+  const getTimeAgo = (timestamp: any): string => {
+    // Handle Firestore Timestamp object
+    const timestampMs = timestamp?.toMillis ? timestamp.toMillis() : timestamp;
+
+    if (!timestampMs || isNaN(timestampMs)) return 'Just now';
+
+    const seconds = Math.floor((Date.now() - timestampMs) / 1000);
+
+    if (seconds < 0) return 'Just now'; // Future timestamp
     if (seconds < 60) return 'Just now';
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;

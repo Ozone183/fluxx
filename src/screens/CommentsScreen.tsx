@@ -10,7 +10,7 @@ import {
   Platform,
   Image,
 } from 'react-native';
-import { collection, onSnapshot, addDoc, doc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, increment, serverTimestamp, arrayRemove, arrayUnion, getDoc } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,7 +29,31 @@ interface Comment {
 }
 
 const CommentsScreen = ({ route, navigation }: any) => {
-  const { post } = route.params;
+  const { post: routePost } = route.params;
+  const [post, setPost] = useState(routePost);
+  const [loadingPost, setLoadingPost] = useState(!routePost?.userId);
+
+  useEffect(() => {
+    // If post doesn't have full data, load it
+    if (!post?.userId && post?.id) {  // ✅ Added ?. operators
+      const loadFullPost = async () => {
+        try {
+          const postDoc = await getDoc(
+            doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts', post.id)
+          );
+          if (postDoc.exists()) {
+            setPost({ id: postDoc.id, ...postDoc.data() });
+          }
+        } catch (error) {
+          console.error('Error loading post:', error);
+        } finally {
+          setLoadingPost(false);
+        }
+      };
+      loadFullPost();
+    }
+  }, [post?.id]);  // ✅ Added ?. operator
+
   const { userId, userChannel } = useAuth();
   const { allProfiles } = useProfiles();
 
@@ -38,8 +62,23 @@ const CommentsScreen = ({ route, navigation }: any) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const commentsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts', post.id, 'comments');
-    
+    // Guard: Don't load comments if post ID is missing
+    if (!post?.id) {
+      console.error('❌ Cannot load comments - post ID is missing');
+      return;
+    }
+
+    const commentsRef = collection(
+      firestore,
+      'artifacts',
+      APP_ID,
+      'public',
+      'data',
+      'posts',
+      post.id,
+      'comments'
+    );
+
     const unsubscribe = onSnapshot(
       commentsRef,
       (snapshot) => {
@@ -48,11 +87,10 @@ const CommentsScreen = ({ route, navigation }: any) => {
           ...doc.data(),
         })) as Comment[];
 
-        // Sort oldest first
         fetchedComments.sort(
           (a, b) =>
-            (a.timestamp?.toMillis?.() || a.timestamp?.seconds * 1000 || 0) - 
-            (b.timestamp?.toMillis?.() || b.timestamp?.seconds * 1000 || 0),
+            (b.timestamp?.toMillis?.() || b.timestamp?.seconds * 1000 || 0) -
+            (a.timestamp?.toMillis?.() || a.timestamp?.seconds * 1000 || 0),
         );
 
         setComments(fetchedComments);
@@ -63,7 +101,7 @@ const CommentsScreen = ({ route, navigation }: any) => {
     );
 
     return () => unsubscribe();
-  }, [post.id]);
+  }, [post?.id]); // ✅ Only run when post.id changes
 
   const handleSubmit = async () => {
     if (!newComment.trim() || !userId || !userChannel) return;
@@ -80,6 +118,48 @@ const CommentsScreen = ({ route, navigation }: any) => {
         content: newComment.trim(),
         timestamp: serverTimestamp(),
       });
+
+      // ✅ CREATE NOTIFICATION FOR COMMENT
+      if (post.userId && post.userId !== userId) {
+        const { createNotification } = await import('../utils/notifications');
+
+        await createNotification({
+          recipientUserId: post.userId,
+          type: 'comment',
+          fromUserId: userId,
+          fromUsername: userChannel || '@unknown',
+          fromProfilePic: null,
+          relatedCanvasId: post.id, // ✅ Make sure this is post.id, not post.canvasId
+          relatedCanvasTitle: 'your post',
+        });
+      }
+
+      const handleCommentLike = async (commentId: string, likedBy: string[] = []) => {
+        if (!userId) return;
+
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+        const isLiked = likedBy.includes(userId);
+        const commentRef = doc(
+          firestore,
+          'artifacts',
+          APP_ID,
+          'public',
+          'data',
+          'posts',
+          post.id,
+          'comments',
+          commentId
+        );
+
+        try {
+          await updateDoc(commentRef, {
+            likedBy: isLiked ? arrayRemove(userId) : arrayUnion(userId),
+          });
+        } catch (error) {
+          console.error('Comment like error:', error);
+        }
+      };
 
       // Update comments count
       const postRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts', post.id);
@@ -125,11 +205,13 @@ const CommentsScreen = ({ route, navigation }: any) => {
             <Text style={styles.commentChannel}>{displayChannel}</Text>
             <Text style={styles.commentTime}>{timeString}</Text>
           </View>
+
+
         </View>
         <Text style={styles.commentContent}>{item.content}</Text>
       </View>
     );
-  };
+  }
 
   return (
     <View style={styles.container}>
@@ -346,6 +428,17 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  commentLikeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+  },
+  commentLikeCount: {
+    fontSize: 12,
+    color: COLORS.slate400,
+    fontWeight: '600',
   },
 });
 

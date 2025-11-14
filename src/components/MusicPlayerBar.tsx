@@ -19,10 +19,10 @@ interface MusicPlayerBarProps {
   isCreator: boolean;
 }
 
-const MusicPlayerBar: React.FC<MusicPlayerBarProps> = ({ 
-  track, 
-  onRemove, 
-  isCreator 
+const MusicPlayerBar: React.FC<MusicPlayerBarProps> = ({
+  track,
+  onRemove,
+  isCreator
 }) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -33,11 +33,16 @@ const MusicPlayerBar: React.FC<MusicPlayerBarProps> = ({
 
   useEffect(() => {
     loadSound();
-    
+
     return () => {
+      console.log('🔴 MusicPlayerBar UNMOUNTING for:', track.title);
       if (sound) {
-        sound.stopAsync().catch(() => {});
-        sound.unloadAsync().catch(() => {});
+        console.log('🛑 Stopping sound NOW');
+        // Make it synchronous and immediate
+        sound.stopAsync().catch(() => { });
+        sound.unloadAsync().catch(() => { });
+        setSound(null);
+        setIsPlaying(false);
       }
     };
   }, [track.id, track.url]);
@@ -50,8 +55,14 @@ const MusicPlayerBar: React.FC<MusicPlayerBarProps> = ({
           console.log('Auto-play blocked or failed:', err);
         });
       }, 1000);
-      
-      return () => clearTimeout(timer);
+
+      return () => {
+        clearTimeout(timer);
+        // ALSO stop sound here if component unmounts during timer
+        if (sound) {
+          sound.stopAsync().catch(() => { });
+        }
+      };
     }
   }, [sound]);
 

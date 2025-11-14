@@ -31,6 +31,7 @@ import MusicLibraryModal from '../components/MusicLibraryModal';
 import { MusicTrack } from '../data/musicTracks';
 import MusicPlayerBar from '../components/MusicPlayerBar';
 import { MUSIC_LIBRARY } from '../data/musicTracks';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { COLORS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
@@ -111,6 +112,21 @@ const CanvasEditorScreen = () => {
   const [currentPage, setCurrentPage] = useState(0); // ← ADD THIS LINE
   const [showMusicLibrary, setShowMusicLibrary] = useState(false);
   const [selectedMusic, setSelectedMusic] = useState<MusicTrack | null>(null);
+  const [shouldPlayMusic, setShouldPlayMusic] = useState(true);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // Screen is focused - enable music
+      setShouldPlayMusic(true);
+      console.log('🎵 Canvas focused - music enabled');
+
+      return () => {
+        // Screen is unfocused (user left canvas) - disable music
+        setShouldPlayMusic(false);
+        console.log('🛑 Canvas unfocused - stopping music');
+      };
+    }, [])
+  );
 
   // ... all your useEffect hooks stay the same ...
 
@@ -752,8 +768,9 @@ const CanvasEditorScreen = () => {
       <CollaboratorsBar collaborators={activeCollaborators} maxShow={5} />
 
       {/* Music Player Bar - Shows when music is selected */}
-      {selectedMusic && (
+      {selectedMusic && shouldPlayMusic && (
         <MusicPlayerBar
+          key={`music-${canvasId}`}
           track={selectedMusic}
           onRemove={() => handleSelectMusic(null)}
           isCreator={userId === canvas.creatorId}

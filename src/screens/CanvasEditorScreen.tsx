@@ -539,16 +539,16 @@ const CanvasEditorScreen = () => {
 
       // Build share content with BOTH schemes
       const appUrl = `fluxx://canvas/${canvasId}`;
-      const webUrl = `https://fluxx.app/canvas/${canvasId}`;
+      const webUrl = `fluxx://canvas/${canvasId}`;
 
       const shareMessage = canvas.accessType === 'private' && canvas.inviteCode
-        ? `🎨 Join my private canvas "${canvas.title}"!\n\n🔒 Invite Code: ${canvas.inviteCode}\n\n📱 Tap to open: ${webUrl}`
-        : `🎨 Check out my canvas "${canvas.title}" on Fluxx!\n\n📱 Tap to open: ${webUrl}`;
+        ? `🎨 Join my private canvas "${canvas.title}"!\n\n🔒 Invite Code: ${canvas.inviteCode}\n\n📱 Tap to open: ${appUrl}`
+        : `🎨 Check out my canvas "${canvas.title}" on Fluxx!\n\n📱 Tap to open: ${appUrl}`;
 
       const shareOptions = {
         title: `Join "${canvas.title}" on Fluxx`,
         message: shareMessage,
-        url: Platform.OS === 'ios' ? webUrl : undefined,
+        url: Platform.OS === 'ios' ? appUrl : undefined,
       };
 
       const result = await Share.share(shareOptions);
@@ -679,7 +679,7 @@ const CanvasEditorScreen = () => {
       {/* Header */}
       {!focusMode && (
         <View style={styles.header}>
-          {/* Row 1: Back Button + Title */}
+          {/* Row 1: Back Button + Title + Focus + Collapse */}
           <View style={styles.titleRow}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
               <Icon name="arrow-back" size={24} color={COLORS.white} />
@@ -692,7 +692,7 @@ const CanvasEditorScreen = () => {
             {/* Focus Mode Button */}
             <TouchableOpacity
               onPress={() => setFocusMode(!focusMode)}
-              style={styles.collapseButton}
+              style={styles.focusModeButton}
             >
               <Icon
                 name={focusMode ? "eye-off-outline" : "eye-outline"}
@@ -712,129 +712,133 @@ const CanvasEditorScreen = () => {
                 color={COLORS.cyan400}
               />
             </TouchableOpacity>
+          </View>
 
-            {/* Row 2: Action Icons - Collapsible */}
-            {!headerCollapsed && (
-              <View style={styles.actionsRow}>
-                {/* Layers Button */}
-                <TouchableOpacity onPress={() => setShowLayerPanel(true)} style={styles.actionButton}>
-                  <Icon name="layers-outline" size={22} color={COLORS.cyan400} />
-                </TouchableOpacity>
+          {/* Row 2: Primary Actions */}
+          {!headerCollapsed && (
+            <View style={styles.actionsRow}>
+              {/* Layers Button */}
+              <TouchableOpacity onPress={() => setShowLayerPanel(true)} style={styles.actionButton}>
+                <Icon name="layers-outline" size={22} color={COLORS.cyan400} />
+              </TouchableOpacity>
 
-                {/* Auto-Format Button */}
-                <TouchableOpacity onPress={autoFormatLayers} style={styles.actionButton}>
-                  <Icon name="grid-outline" size={22} color={COLORS.amber400} />
-                </TouchableOpacity>
+              {/* Auto-Format Button */}
+              <TouchableOpacity onPress={autoFormatLayers} style={styles.actionButton}>
+                <Icon name="grid-outline" size={22} color={COLORS.amber400} />
+              </TouchableOpacity>
 
-                {/* Export Button */}
-                <TouchableOpacity onPress={exportCanvas} disabled={exporting} style={styles.actionButton}>
-                  {exporting ? (
-                    <ActivityIndicator size="small" color={COLORS.cyan400} />
-                  ) : (
-                    <Icon name="download-outline" size={22} color={COLORS.cyan400} />
-                  )}
-                </TouchableOpacity>
-
-                {/* Music Button - CREATOR ONLY */}
-                {userId === canvas.creatorId && (
-                  <TouchableOpacity
-                    onPress={() => setShowMusicLibrary(true)}
-                    style={styles.actionButton}
-                  >
-                    <Ionicons
-                      name={selectedMusic ? "musical-notes" : "musical-notes-outline"}
-                      size={22}
-                      color={selectedMusic ? COLORS.cyan400 : COLORS.purple400}
-                    />
-                    {selectedMusic && <View style={styles.musicIndicator} />}
-                  </TouchableOpacity>
+              {/* Export Button (only 1) */}
+              <TouchableOpacity onPress={exportCanvas} disabled={exporting} style={styles.actionButton}>
+                {exporting ? (
+                  <ActivityIndicator size="small" color={COLORS.cyan400} />
+                ) : (
+                  <Icon name="download-outline" size={22} color={COLORS.cyan400} />
                 )}
+              </TouchableOpacity>
+            </View>
+          )}
 
-                {/* Share Button */}
-                <TouchableOpacity onPress={shareCanvas} style={styles.actionButton}>
-                  <Icon name="share-outline" size={22} color={COLORS.purple400} />
-                </TouchableOpacity>
-
-                {/* NEW: Export button */}
-                <TouchableOpacity onPress={handleExportImage}>
-                  <Ionicons name="download-outline" size={24} color="#fff" />
-                </TouchableOpacity>
-
-                {/* Like Button */}
-                <TouchableOpacity onPress={toggleLike} style={styles.actionButton}>
-                  <Icon
-                    name={canvas?.likedBy?.includes(userId || '') ? "heart" : "heart-outline"}
+          {/* Row 3: Secondary Actions */}
+          {!headerCollapsed && (
+            <View style={styles.secondaryActionsRow}>
+              {/* Music Button - CREATOR ONLY */}
+              {userId === canvas.creatorId && (
+                <TouchableOpacity onPress={() => setShowMusicLibrary(true)} style={styles.actionButton}>
+                  <Ionicons
+                    name={selectedMusic ? "musical-notes" : "musical-notes-outline"}
                     size={22}
-                    color={canvas?.likedBy?.includes(userId || '') ? COLORS.red500 : COLORS.red400}
+                    color={selectedMusic ? COLORS.cyan400 : COLORS.purple400}
                   />
-                  {canvas?.likeCount ? (
-                    <Text style={styles.likeCountBadge}>{canvas.likeCount}</Text>
-                  ) : null}
+                  {selectedMusic && <View style={styles.musicIndicator} />}
                 </TouchableOpacity>
+              )}
+
+              {/* Share Button */}
+              <TouchableOpacity onPress={shareCanvas} style={styles.actionButton}>
+                <Icon name="share-outline" size={22} color={COLORS.purple400} />
+              </TouchableOpacity>
+
+              {/* Like Button */}
+              <TouchableOpacity onPress={toggleLike} style={styles.actionButton}>
+                <Icon
+                  name={canvas?.likedBy?.includes(userId || '') ? "heart" : "heart-outline"}
+                  size={22}
+                  color={canvas?.likedBy?.includes(userId || '') ? COLORS.red500 : COLORS.red400}
+                />
+                {canvas?.likeCount ? (
+                  <Text style={styles.likeCountBadge}>{canvas.likeCount}</Text>
+                ) : null}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Row 4: Canvas Info */}
+          {!headerCollapsed && (
+            <View style={styles.headerBottom}>
+              <View style={styles.infoItem}>
+                <Icon name="time-outline" size={14} color={COLORS.amber400} />
+                <Text style={styles.infoText}>Expires in {getTimeRemaining(canvas.expiresAt)}</Text>
               </View>
-            )}
 
+              <View style={styles.infoDivider} />
 
-            {/* Row 3: Canvas Info */}
-            {!headerCollapsed && (
-              <View style={styles.headerBottom}>
-                <View style={styles.infoItem}>
-                  <Icon name="time-outline" size={14} color={COLORS.amber400} />
-                  <Text style={styles.infoText}>Expires in {getTimeRemaining(canvas.expiresAt)}</Text>
-                </View>
-
-                <View style={styles.infoDivider} />
-
-                <View style={styles.infoItem}>
-                  <Icon name="document-outline" size={14} color={COLORS.cyan400} />
-                  <Text style={styles.infoText}>
-                    Page {currentPage + 1} of {canvas.totalPages || 1}
-                  </Text>
-                </View>
-
-                <View style={styles.infoDivider} />
-
-                <View style={styles.infoItem}>
-                  <Icon name="layers-outline" size={14} color={COLORS.purple400} />
-                  <Text style={styles.infoText}>
-                    {canvas.layers.filter(l => (l.pageIndex ?? 0) === currentPage).length}/{canvas.maxCollaborators} layers
-                  </Text>
-                </View>
+              <View style={styles.infoItem}>
+                <Icon name="document-outline" size={14} color={COLORS.cyan400} />
+                <Text style={styles.infoText}>
+                  Page {currentPage + 1} of {canvas.totalPages || 1}
+                </Text>
               </View>
-            )}
-          </View>  {/* Closes header */}
+
+              <View style={styles.infoDivider} />
+
+              <View style={styles.infoItem}>
+                <Icon name="layers-outline" size={14} color={COLORS.purple400} />
+                <Text style={styles.infoText}>
+                  {canvas.layers.filter(l => (l.pageIndex ?? 0) === currentPage).length}/{canvas.maxCollaborators} layers
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
       )}
 
-      {/* 👇 ADD THIS ENTIRE BLOCK HERE */}
-      {headerCollapsed && (
+      {/* Floating Action Buttons (when header collapsed) */}
+      {headerCollapsed && !focusMode && (
         <View style={styles.floatingActions}>
           <TouchableOpacity style={styles.floatingButton} onPress={() => setShowLayerPanel(true)}>
-            <Icon name="layers-outline" size={18} color="#fff" />
+            <Icon name="layers-outline" size={20} color="#fff" />
           </TouchableOpacity>
 
           {userId === canvas.creatorId && (
-            <TouchableOpacity style={[styles.floatingButton, selectedMusic && styles.floatingButtonActive]} onPress={() => setShowMusicLibrary(true)}>
-              <Icon name="musical-notes-outline" size={18} color="#fff" />
+            <TouchableOpacity
+              style={[styles.floatingButton, selectedMusic && styles.floatingButtonActive]}
+              onPress={() => setShowMusicLibrary(true)}
+            >
+              <Icon name="musical-notes-outline" size={20} color="#fff" />
             </TouchableOpacity>
           )}
 
           <TouchableOpacity style={styles.floatingButton} onPress={shareCanvas}>
-            <Icon name="share-outline" size={18} color="#fff" />
+            <Icon name="share-outline" size={20} color="#fff" />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.floatingButton} onPress={toggleLike}>
-            <Icon name={canvas?.likedBy?.includes(userId || '') ? "heart" : "heart-outline"} size={18} color={canvas?.likedBy?.includes(userId || '') ? COLORS.red400 : "#fff"} />
+            <Icon
+              name={canvas?.likedBy?.includes(userId || '') ? "heart" : "heart-outline"}
+              size={20}
+              color={canvas?.likedBy?.includes(userId || '') ? COLORS.red400 : "#fff"}
+            />
           </TouchableOpacity>
         </View>
       )}
-      {/* 👆 END OF NEW CODE */}
 
       {!focusMode && (
-        <CollaboratorsBar collaborators={activeCollaborators} maxShow={5} />
+        <View style={{ paddingHorizontal: 60, alignItems: 'center' }}>
+          <CollaboratorsBar collaborators={activeCollaborators} maxShow={5} />
+        </View>
       )}
 
-      {/* Music Player Bar - Shows when music is selected */}
+      {/* Music Player Bar */}
       {selectedMusic && shouldPlayMusic && (
         <View style={focusMode && { display: 'none' }}>
           <MusicPlayerBar
@@ -870,8 +874,8 @@ const CanvasEditorScreen = () => {
         </TouchableOpacity>
       )}
 
-      {/* Floating Analytics Button (when analytics hidden) */}
-      {!showAnalytics && (
+      {/* Floating Analytics Button */}
+      {!showAnalytics && !focusMode && (
         <TouchableOpacity
           style={styles.floatingAnalyticsButton}
           onPress={() => setShowAnalytics(true)}
@@ -880,7 +884,7 @@ const CanvasEditorScreen = () => {
         </TouchableOpacity>
       )}
 
-      {/* Exit Focus Mode Button (top-left when in focus mode) */}
+      {/* Exit Focus Mode Button */}
       {focusMode && (
         <TouchableOpacity
           style={styles.exitFocusButton}
@@ -1441,6 +1445,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: 60,
     paddingBottom: 80,
+  },
+  secondaryActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    gap: 16,
   },
 });
 

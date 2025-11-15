@@ -96,7 +96,17 @@ const NotificationsScreen = () => {
     if (!notification.isRead) {
       await markAsRead(notification.id);
     }
-  
+
+    // Don't navigate to canvas if access was denied
+    if (notification.type === 'access_denied') {
+      Alert.alert(
+        '❌ Access Denied',
+        'Your request to access this canvas was declined by the owner.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     if (notification.actionUrl.includes('profile')) {
       (navigation as any).navigate('UserProfile', { userId: notification.fromUserId });
     } else if (notification.actionUrl.includes('feed')) {
@@ -107,8 +117,8 @@ const NotificationsScreen = () => {
       });
     } else if (notification.actionUrl.includes('post')) {
       // Comment notifications - open comments
-      (navigation as any).navigate('Comments', { 
-        post: { id: notification.relatedCanvasId } 
+      (navigation as any).navigate('Comments', {
+        post: { id: notification.relatedCanvasId }
       });
     } else if (notification.actionUrl.includes('canvas')) {
       (navigation as any).navigate('CanvasEditor', { canvasId: notification.relatedCanvasId });
@@ -127,6 +137,10 @@ const NotificationsScreen = () => {
         return 'chatbubble';
       case 'access_request':
         return 'lock-open';
+      case 'access_approved':
+        return 'checkmark-circle';
+      case 'access_denied':
+        return 'close-circle';
       default:
         return 'notifications';
     }
@@ -144,6 +158,10 @@ const NotificationsScreen = () => {
         return COLORS.amber400;
       case 'access_request':
         return COLORS.purple500;
+      case 'access_approved':
+        return COLORS.green600;
+      case 'access_denied':
+        return COLORS.red500;
       default:
         return COLORS.slate400;
     }
@@ -178,7 +196,7 @@ const NotificationsScreen = () => {
       }
 
       const canvasData = canvasSnap.data();
-      
+
       // Add user to allowedUsers
       await updateDoc(canvasRef, {
         allowedUsers: [...(canvasData.allowedUsers || []), notification.fromUserId],
@@ -189,7 +207,7 @@ const NotificationsScreen = () => {
       const { createNotification } = await import('../utils/notifications');
       await createNotification({
         recipientUserId: notification.fromUserId,
-        type: 'canvas_invite',
+        type: 'access_approved',
         fromUserId: userId!,
         fromUsername: 'Canvas Owner',
         fromProfilePic: null,
@@ -226,10 +244,22 @@ const NotificationsScreen = () => {
         pendingRequests: (canvasData.pendingRequests || []).filter((id: string) => id !== notification.fromUserId),
       });
 
+      // Send denial notification to requester
+      const { createNotification } = await import('../utils/notifications');
+      await createNotification({
+        recipientUserId: notification.fromUserId,
+        type: 'access_denied',
+        fromUserId: userId!,
+        fromUsername: 'Canvas Owner',
+        fromProfilePic: null,
+        relatedCanvasId: notification.relatedCanvasId,
+        relatedCanvasTitle: canvasData.title,
+      });
+
       // Mark notification as read
       await markAsRead(notification.id);
 
-      Alert.alert('❌ Denied', 'Access request denied');
+      Alert.alert('🚫 Denied', 'Access request denied');
     } catch (error) {
       console.error('Deny access error:', error);
       Alert.alert('Error', 'Could not deny access');

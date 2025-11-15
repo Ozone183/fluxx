@@ -4,7 +4,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
 import { APP_ID } from '../context/AuthContext';
 
-export type NotificationType = 'follow' | 'canvas_invite' | 'like' | 'comment' | 'access_request';
+export type NotificationType = 'follow' | 'canvas_invite' | 'like' | 'comment' | 'access_request' | 'access_approved' | 'access_denied';
 
 interface CreateNotificationParams {
     recipientUserId: string;
@@ -49,8 +49,15 @@ export const createNotification = async (params: CreateNotificationParams) => {
             break;
 
         case 'like':
-            message = `${fromUsername} liked your post`;
-            actionUrl = `fluxx://feed/${relatedCanvasId}`; // ✅ Changed to feed with postId
+            // Distinguish between canvas and post likes
+            // If relatedCanvasTitle exists, it's a canvas, otherwise it's a post
+            if (relatedCanvasTitle) {
+                message = `${fromUsername} liked your canvas "${relatedCanvasTitle}"`;
+                actionUrl = `fluxx://canvas/${relatedCanvasId}`;
+            } else {
+                message = `${fromUsername} liked your post`;
+                actionUrl = `fluxx://feed/${relatedCanvasId}`;
+            }
             break;
 
         case 'comment':
@@ -60,6 +67,16 @@ export const createNotification = async (params: CreateNotificationParams) => {
 
         case 'access_request':
             message = `${fromUsername} wants access to "${relatedCanvasTitle}"`;
+            actionUrl = `fluxx://canvas/${relatedCanvasId}`;
+            break;
+
+        case 'access_approved':
+            message = `Your request to access "${relatedCanvasTitle}" was approved`;
+            actionUrl = `fluxx://canvas/${relatedCanvasId}`;
+            break;
+
+        case 'access_denied':
+            message = `Your request to access "${relatedCanvasTitle}" was declined`;
             actionUrl = `fluxx://canvas/${relatedCanvasId}`;
             break;
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { useNavigation, useIsFocused, useFocusEffect } from '@react-navigation/native';
 
 import { COLORS, GRADIENTS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
@@ -45,29 +45,38 @@ const ProfileScreen = ({ route }: any) => {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
 
-  // Get the parent navigator state to check if we're on a tab
-  const parentNav = navigation.getParent();
-  const isOnProfileTab = parentNav?.getState().routes[parentNav.getState().index]?.name === 'Profile';
+  const prevRouteKey = useRef(route.key);
 
-  // CRITICAL: If we're on the Profile TAB, ALWAYS show current user
-  // Ignore ANY route params when on the tab
-  const profileUserId = isOnProfileTab ? currentUserId : (route?.params?.userId || currentUserId);
+  console.log('🔍 Profile:', {
+    routeKey: route.key,
+    prevKey: prevRouteKey.current,
+    routeParams: route?.params?.userId,
+    currentUser: currentUserId,
+  });
 
-  // AGGRESSIVELY clear params when on Profile tab
-  useEffect(() => {
-    if (isOnProfileTab && isFocused) {
-      // Force clear the params
-      navigation.setParams({ userId: undefined } as any);
-    }
-  }, [isOnProfileTab, isFocused]);
+  // Detect if this is a fresh mount (tab press) vs navigation with params
+  useFocusEffect(
+    React.useCallback(() => {
+      // If route key changed AND we have stale params, clear them
+      if (route.key !== prevRouteKey.current && route?.params?.userId) {
+        console.log('🧹 New route detected, checking params');
+        
+        // If coming from tab (no intentional params), clear stale ones
+        const timer = setTimeout(() => {
+          if (route?.params?.userId) {
+            console.log('🧹 Clearing stale params');
+            navigation.setParams({ userId: undefined } as any);
+          }
+        }, 50);
 
-  // Additional: Clear params when leaving the screen
-  useEffect(() => {
-    return () => {
-      // Cleanup on unmount
-      navigation.setParams({ userId: undefined } as any);
-    };
-  }, []);
+        return () => clearTimeout(timer);
+      }
+      
+      prevRouteKey.current = route.key;
+    }, [route.key, route?.params?.userId])
+  );
+
+  const profileUserId = route?.params?.userId || currentUserId;
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);

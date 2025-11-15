@@ -42,6 +42,7 @@ import CollaboratorsBar from '../components/CollaboratorsBar';
 import LayerListPanel from '../components/LayerListPanel'; // ← ADD THIS LINE
 import AnimationSelectorModal from '../components/AnimationSelectorModal';
 import PrivateCanvasMembersModal from '../components/PrivateCanvasMembersModal';
+import ShareModal from '../components/ShareModal';
 
 // Base canvas dimensions (reference size - iPhone 14 standard)
 const BASE_CANVAS_WIDTH = 350;
@@ -137,6 +138,7 @@ const CanvasEditorScreen = () => {
   const [showAnimationSelector, setShowAnimationSelector] = useState(false);
   const [animatingLayerId, setAnimatingLayerId] = useState<string | null>(null);
   const [showMembersModal, setShowMembersModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -590,39 +592,8 @@ const CanvasEditorScreen = () => {
   };
 
   const shareCanvas = async () => {
-    try {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-      if (!canvas) {
-        Alert.alert('Error', 'Canvas not available');
-        return;
-      }
-
-      // ✅ DEFINE deepLink HERE
-      const deepLink = `fluxx://canvas/${canvasId}`;
-
-      const shareMessage = canvas.accessType === 'private' && canvas.inviteCode
-        ? `🎨 Join my private canvas "${canvas.title}"!\n\n🔒 Invite Code: ${canvas.inviteCode}`
-        : `🎨 Check out my canvas "${canvas.title}" on Fluxx!`;
-
-      const shareOptions = {
-        title: `Join "${canvas.title}" on Fluxx`,
-        message: shareMessage,
-        url: deepLink, // ✅ ALWAYS include URL for both iOS and Android
-      };
-
-      const result = await Share.share(shareOptions);
-
-      if (result.action === Share.sharedAction) {
-        console.log('✅ Canvas shared:', canvasId);
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } else if (result.action === Share.dismissedAction) {
-        console.log('Share dismissed');
-      }
-    } catch (error) {
-      console.error('Share error:', error);
-      Alert.alert('Share Failed', 'Could not share canvas');
-    }
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowShareModal(true);
   };
 
   const handleExportImage = async () => {
@@ -1220,6 +1191,16 @@ const CanvasEditorScreen = () => {
           onClose={() => setShowMembersModal(false)}
         />
       )}
+
+      {/* 📤 Share Modal */}
+      <ShareModal
+        visible={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        canvasTitle={canvas.title}
+        canvasId={canvasId}
+        inviteCode={canvas.inviteCode}
+        isPrivate={canvas.accessType === 'private'}
+      />
     </View >
   );
 };

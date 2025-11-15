@@ -39,39 +39,55 @@ import { Canvas, CanvasLayer, ActivePresence } from '../types/canvas';
 import CanvasLayerComponent from '../components/CanvasLayerComponent';
 import CollaboratorsBar from '../components/CollaboratorsBar';
 import LayerListPanel from '../components/LayerListPanel'; // ← ADD THIS LINE
+import AnimationSelectorModal from '../components/AnimationSelectorModal';
 
+// Base canvas dimensions (reference size - iPhone 14 standard)
+const BASE_CANVAS_WIDTH = 350;
+const BASE_CANVAS_HEIGHT = 622; // 16:9 ratio
+
+// Actual device dimensions
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CANVAS_RATIO = 9 / 16;
-const CANVAS_WIDTH = SCREEN_WIDTH - 40;
-const CANVAS_HEIGHT = CANVAS_WIDTH / CANVAS_RATIO;
+
+// Calculate actual canvas size (with padding)
+const ACTUAL_CANVAS_WIDTH = Math.min(SCREEN_WIDTH - 40, 500); // Max 500px for tablets
+const ACTUAL_CANVAS_HEIGHT = ACTUAL_CANVAS_WIDTH * (BASE_CANVAS_HEIGHT / BASE_CANVAS_WIDTH);
+
+// Scale factor for this device
+const SCALE_FACTOR = ACTUAL_CANVAS_WIDTH / BASE_CANVAS_WIDTH;
+
+console.log('📐 Canvas System:', {
+  baseSize: `${BASE_CANVAS_WIDTH}x${BASE_CANVAS_HEIGHT}`,
+  actualSize: `${ACTUAL_CANVAS_WIDTH}x${ACTUAL_CANVAS_HEIGHT}`,
+  scaleFactor: SCALE_FACTOR,
+  deviceWidth: SCREEN_WIDTH
+});
 
 
 const findEmptySpot = (canvas: Canvas | null, newLayerSize: { width: number; height: number }, currentPage: number) => {
   if (!canvas) return { x: 50, y: 50 };
 
+  // Use BASE canvas dimensions for consistent positioning
   const positions = [
     { x: 20, y: 20 },
-    { x: CANVAS_WIDTH - newLayerSize.width - 20, y: 20 },
-    { x: 20, y: CANVAS_HEIGHT - newLayerSize.height - 20 },
-    { x: CANVAS_WIDTH - newLayerSize.width - 20, y: CANVAS_HEIGHT - newLayerSize.height - 20 },
-    { x: CANVAS_WIDTH / 2 - newLayerSize.width / 2, y: 20 },
-    { x: CANVAS_WIDTH / 2 - newLayerSize.width / 2, y: CANVAS_HEIGHT - newLayerSize.height - 20 },
-    { x: 20, y: CANVAS_HEIGHT / 2 - newLayerSize.height / 2 },
-    { x: CANVAS_WIDTH - newLayerSize.width - 20, y: CANVAS_HEIGHT / 2 - newLayerSize.height / 2 },
-    { x: CANVAS_WIDTH * 0.15, y: CANVAS_HEIGHT * 0.25 },
-    { x: CANVAS_WIDTH * 0.62, y: CANVAS_HEIGHT * 0.25 },
-    { x: CANVAS_WIDTH * 0.15, y: CANVAS_HEIGHT * 0.58 },
-    { x: CANVAS_WIDTH * 0.62, y: CANVAS_HEIGHT * 0.58 },
+    { x: BASE_CANVAS_WIDTH - newLayerSize.width - 20, y: 20 },
+    { x: 20, y: BASE_CANVAS_HEIGHT - newLayerSize.height - 20 },
+    { x: BASE_CANVAS_WIDTH - newLayerSize.width - 20, y: BASE_CANVAS_HEIGHT - newLayerSize.height - 20 },
+    { x: BASE_CANVAS_WIDTH / 2 - newLayerSize.width / 2, y: 20 },
+    { x: BASE_CANVAS_WIDTH / 2 - newLayerSize.width / 2, y: BASE_CANVAS_HEIGHT - newLayerSize.height - 20 },
+    { x: 20, y: BASE_CANVAS_HEIGHT / 2 - newLayerSize.height / 2 },
+    { x: BASE_CANVAS_WIDTH - newLayerSize.width - 20, y: BASE_CANVAS_HEIGHT / 2 - newLayerSize.height / 2 },
+    { x: BASE_CANVAS_WIDTH * 0.15, y: BASE_CANVAS_HEIGHT * 0.25 },
+    { x: BASE_CANVAS_WIDTH * 0.62, y: BASE_CANVAS_HEIGHT * 0.25 },
+    { x: BASE_CANVAS_WIDTH * 0.15, y: BASE_CANVAS_HEIGHT * 0.58 },
+    { x: BASE_CANVAS_WIDTH * 0.62, y: BASE_CANVAS_HEIGHT * 0.58 },
   ];
 
   for (const pos of positions) {
     let hasOverlap = false;
 
-    // Only check layers on current page
     const currentPageLayers = canvas.layers.filter(l => (l.pageIndex ?? 0) === currentPage);
 
     for (const layer of currentPageLayers) {
-      // Add 10px padding to reduce false positives
       const overlapX = pos.x < (layer.position.x + layer.size.width + 10) &&
         (pos.x + newLayerSize.width) > (layer.position.x - 10);
       const overlapY = pos.y < (layer.position.y + layer.size.height + 10) &&
@@ -86,10 +102,10 @@ const findEmptySpot = (canvas: Canvas | null, newLayerSize: { width: number; hei
     if (!hasOverlap) return pos;
   }
 
-  // If all 12 spots taken, slight offset
+  // If all spots taken
   return {
-    x: 30 + (canvas.layers.length * 20) % (CANVAS_WIDTH - newLayerSize.width - 60),
-    y: 30 + (canvas.layers.length * 20) % (CANVAS_HEIGHT - newLayerSize.height - 60),
+    x: 30 + (canvas.layers.length * 20) % (BASE_CANVAS_WIDTH - newLayerSize.width - 60),
+    y: 30 + (canvas.layers.length * 20) % (BASE_CANVAS_HEIGHT - newLayerSize.height - 60),
   };
 };
 
@@ -116,6 +132,8 @@ const CanvasEditorScreen = () => {
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
+  const [showAnimationSelector, setShowAnimationSelector] = useState(false);
+  const [animatingLayerId, setAnimatingLayerId] = useState<string | null>(null);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -244,8 +262,11 @@ const CanvasEditorScreen = () => {
         await uploadBytes(storageReference, blob);
         const downloadURL = await getDownloadURL(storageReference);
 
-        // ← REPLACE THE OLD newLayer WITH THIS:
-        const newLayerSize = { width: CANVAS_WIDTH * 0.28, height: CANVAS_HEIGHT * 0.16 };
+        // Use BASE canvas dimensions for consistent sizing across devices
+        const newLayerSize = {
+          width: BASE_CANVAS_WIDTH * 0.28,
+          height: BASE_CANVAS_HEIGHT * 0.16
+        };
         const smartPosition = findEmptySpot(canvas, newLayerSize, currentPage);
 
         const newLayer: CanvasLayer = {
@@ -297,8 +318,17 @@ const CanvasEditorScreen = () => {
       }
 
       const textLength = textInput.trim().length;
-      const estimatedWidth = Math.min(Math.max(textLength * 12, 200), CANVAS_WIDTH * 0.6);
-      const newLayerSize = { width: estimatedWidth, height: 80 };
+      const estimatedWidth = Math.min(Math.max(textLength * 8, 180), BASE_CANVAS_WIDTH * 0.7);
+
+      // Calculate height based on text length and width (allow wrapping)
+      const charsPerLine = Math.floor(estimatedWidth / 12);
+      const estimatedLines = Math.ceil(textLength / charsPerLine);
+      const estimatedHeight = Math.max(estimatedLines * 30, 60); // 30px per line, min 60px
+
+      const newLayerSize = {
+        width: estimatedWidth,
+        height: Math.min(estimatedHeight, BASE_CANVAS_HEIGHT * 0.4) // Max 40% of canvas height
+      };
       const smartPosition = findEmptySpot(canvas, newLayerSize, currentPage);
 
       const newLayer: CanvasLayer = {
@@ -367,8 +397,8 @@ const CanvasEditorScreen = () => {
       // Grid layout (3 columns)
       const cols = 3;
       const rows = Math.ceil(currentPageLayers.length / cols);
-      const cellWidth = (CANVAS_WIDTH - 40) / cols;
-      const cellHeight = (CANVAS_HEIGHT - 40) / rows;
+      const cellWidth = (BASE_CANVAS_WIDTH - 40) / cols;
+      const cellHeight = (BASE_CANVAS_HEIGHT - 40) / rows;
 
       // Reposition layers in grid
       const formattedLayers = currentPageLayers.map((layer, index) => {
@@ -674,6 +704,45 @@ const CanvasEditorScreen = () => {
     );
   }
 
+  const handleSelectAnimation = async (animationType: string) => {
+    if (!animatingLayerId || !canvas) return;
+
+    try {
+      const updatedLayers = canvas.layers.map(layer => {
+        if (layer.id === animatingLayerId) {
+          const updatedLayer: any = {
+            ...layer,
+            updatedAt: Date.now(),
+          };
+
+          // Remove animation or set new one
+          if (animationType === 'none') {
+            delete updatedLayer.animation; // DELETE instead of undefined
+          } else {
+            updatedLayer.animation = {
+              type: animationType,
+              duration: 1000,
+              delay: 0,
+              loop: false,
+            };
+          }
+
+          return updatedLayer;
+        }
+        return layer;
+      });
+
+      const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
+      await updateDoc(canvasRef, { layers: updatedLayers });
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      console.log('🎬 Animation applied:', animationType);
+    } catch (error) {
+      console.error('Animation error:', error);
+      Alert.alert('Error', 'Could not apply animation');
+    }
+  };
+
   return (
     <View style={[styles.container, focusMode && styles.focusModeContainer]}>
       {/* Header */}
@@ -916,7 +985,11 @@ const CanvasEditorScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }}>
-          <View style={[styles.canvas, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT, backgroundColor: canvas.backgroundColor }]}>
+          <View style={[styles.canvas, {
+            width: ACTUAL_CANVAS_WIDTH,
+            height: ACTUAL_CANVAS_HEIGHT,
+            backgroundColor: canvas.backgroundColor
+          }]}>
             {canvas.layers
               .filter(layer => (layer.pageIndex ?? 0) === currentPage)
               .sort((a, b) => a.zIndex - b.zIndex)
@@ -925,9 +998,14 @@ const CanvasEditorScreen = () => {
                   key={layer.id}
                   layer={layer}
                   isSelected={selectedLayerId === layer.id}
-                  onSelect={() => setSelectedLayerId(layer.id)}
+                  onSelect={() => setSelectedLayerId(selectedLayerId === layer.id ? null : layer.id)}
                   onDelete={() => deleteLayer(layer.id)}
+                  onPressAnimation={() => {
+                    setAnimatingLayerId(layer.id);
+                    setShowAnimationSelector(true);
+                  }}
                   canvasId={canvasId}
+                  scaleFactor={SCALE_FACTOR} // 🆕 ADD THIS
                 />
               ))}
 
@@ -1034,6 +1112,20 @@ const CanvasEditorScreen = () => {
         currentTrack={selectedMusic}
       />
 
+      {/* 🎬 Animation Selector Modal - ADD THIS */}
+      <AnimationSelectorModal
+        visible={showAnimationSelector}
+        onClose={() => {
+          setShowAnimationSelector(false);
+          setAnimatingLayerId(null);
+        }}
+        onSelectAnimation={handleSelectAnimation}
+        currentAnimation={
+          animatingLayerId
+            ? canvas?.layers.find(l => l.id === animatingLayerId)?.animation?.type || 'none'
+            : 'none'
+        }
+      />
     </View >
   );
 };

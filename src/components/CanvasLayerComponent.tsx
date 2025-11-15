@@ -1,6 +1,6 @@
 // src/components/CanvasLayerComponent.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,13 +19,18 @@ import { COLORS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
 import { CanvasLayer } from '../types/canvas';
 import UserProfileSheet from './UserProfileSheet';
+import { Animated, Easing } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { Canvas } from '../types/canvas';
 
 interface CanvasLayerProps {
   layer: CanvasLayer;
   isSelected: boolean;
   onSelect: () => void;
   onDelete: () => void;
+  onPressAnimation: () => void; // 🎬 NEW
   canvasId: string;
+  scaleFactor: number; // 🆕 ADD THIS
 }
 
 const getTimeAgo = (timestamp: number): string => {
@@ -43,8 +48,16 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
   isSelected,
   onSelect,
   onDelete,
+  onPressAnimation,
   canvasId,
+  scaleFactor, // 🆕 ADD THIS
 }) => {
+  // 🎬 Animation Values
+  const animatedOpacity = useRef(new Animated.Value(1)).current;
+  const animatedTranslateX = useRef(new Animated.Value(0)).current;
+  const animatedTranslateY = useRef(new Animated.Value(0)).current;
+  const animatedScale = useRef(new Animated.Value(1)).current;
+  const animatedRotation = useRef(new Animated.Value(0)).current;
   const { userId } = useAuth();
   const [position, setPosition] = useState(layer.position);
   const [showProfile, setShowProfile] = useState(false);
@@ -57,138 +70,335 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
     setPosition(layer.position);
   }, [layer.id, layer.position.x, layer.position.y]);
 
-  // Double-tap handler for zoom (Feature 4)
-  const handleDoubleTap = () => {
-    const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300;
-
-    if (now - lastTap < DOUBLE_TAP_DELAY) {
-      setIsZoomed(!isZoomed);
-    }
-    setLastTap(now);
-  };
-
   // Save caption to Firestore with null safety
-const handleSaveCaption = async () => {
-  if (!canvasId || !layer?.id) {
-    Alert.alert('Error', 'Invalid canvas or layer');
-    return;
-  }
-
-  try {
-    const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
-    const canvasSnap = await getDoc(canvasRef);
-    
-    if (!canvasSnap.exists()) {
-      Alert.alert('Error', 'Canvas not found');
+  const handleSaveCaption = async () => {
+    if (!canvasId || !layer?.id) {
+      Alert.alert('Error', 'Invalid canvas or layer');
       return;
     }
 
-    const canvasData = canvasSnap.data();
-    if (!canvasData?.layers || !Array.isArray(canvasData.layers)) {
-      Alert.alert('Error', 'Invalid canvas data');
-      return;
+    try {
+      const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
+      const canvasSnap = await getDoc(canvasRef);
+
+      if (!canvasSnap.exists()) {
+        Alert.alert('Error', 'Canvas not found');
+        return;
+      }
+
+      const canvasData = canvasSnap.data();
+      if (!canvasData?.layers || !Array.isArray(canvasData.layers)) {
+        Alert.alert('Error', 'Invalid canvas data');
+        return;
+      }
+
+      const updatedLayers = canvasData.layers.map((l: CanvasLayer) =>
+        l.id === layer.id ? { ...l, caption: captionText.trim(), updatedAt: Date.now() } : l
+      );
+
+      await updateDoc(canvasRef, { layers: updatedLayers });
+      setShowCaptionModal(false);
+    } catch (error) {
+      console.error('Save caption error:', error);
+      Alert.alert('Error', 'Could not save caption');
     }
-
-    const updatedLayers = canvasData.layers.map((l: CanvasLayer) =>
-      l.id === layer.id ? { ...l, caption: captionText.trim(), updatedAt: Date.now() } : l
-    );
-
-    await updateDoc(canvasRef, { layers: updatedLayers });
-    setShowCaptionModal(false);
-  } catch (error) {
-    console.error('Save caption error:', error);
-    Alert.alert('Error', 'Could not save caption');
-  }
-};
+  };
 
   // Pan responder for dragging
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onPanResponderGrant: () => {
-      handleDoubleTap();
-      onSelect();
+      const now = Date.now();
+      const DOUBLE_TAP_DELAY = 300;
+
+      console.log('👆 Tap detected!', {
+        timeSinceLastTap: now - lastTap,
+        isImage: layer.type === 'image',
+        currentZoom: isZoomed
+      });
+
+      if (now - lastTap < DOUBLE_TAP_DELAY && layer.type === 'image') {
+        // Double tap detected on image - ZOOM
+        console.log('🔍 ZOOMING!', !isZoomed);
+        setIsZoomed(!isZoomed);
+      } else {
+        // Single tap - SELECT/DESELECT
+        console.log('✅ Selecting layer');
+        onSelect();
+      }
+
+      setLastTap(now);
       setPosition(layer.position);
     },
     onPanResponderMove: (_, gestureState) => {
       setPosition({
-        x: layer.position.x + gestureState.dx,
-        y: layer.position.y + gestureState.dy,
+        x: layer.position.x + (gestureState.dx / scaleFactor),
+        y: layer.position.y + (gestureState.dy / scaleFactor),
       });
     },
     onPanResponderRelease: async (_, gestureState) => {
       const newPosition = {
-        x: layer.position.x + gestureState.dx,
-        y: layer.position.y + gestureState.dy,
+        x: layer.position.x + (gestureState.dx / scaleFactor),
+        y: layer.position.y + (gestureState.dy / scaleFactor),
       };
 
-      // Update in Firestore
-      try {
-        const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
-        const canvasSnap = await getDoc(canvasRef);
-        if (canvasSnap.exists()) {
-          const canvasData = canvasSnap.data();
-          const updatedLayers = canvasData.layers.map((l: CanvasLayer) =>
-            l.id === layer.id ? { ...l, position: newPosition, updatedAt: Date.now() } : l
-          );
-          await updateDoc(canvasRef, { layers: updatedLayers });
+      // Only update if layer actually moved
+      if (Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5) {
+        try {
+          const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
+          const canvasSnap = await getDoc(canvasRef);
+
+          if (canvasSnap.exists()) {
+            const currentCanvas = canvasSnap.data() as Canvas;
+            const updatedLayers = currentCanvas.layers.map((l) =>
+              l.id === layer.id
+                ? { ...l, position: newPosition, updatedAt: Date.now() }
+                : l
+            );
+
+            await updateDoc(canvasRef, { layers: updatedLayers });
+          }
+        } catch (error) {
+          console.error('Update position error:', error);
         }
-      } catch (error) {
-        console.error('Update position error:', error);
       }
+
+      // Reset position to actual layer position
+      setPosition(layer.position);
     },
   });
 
   const canEdit = layer.createdBy === userId;
 
+  // 🎬 Play Animation on Mount
+  useEffect(() => {
+    if (!layer.animation || layer.animation.type === 'none') return;
+
+    const { type, duration, delay, loop } = layer.animation;
+
+    // Reset all animated values
+    animatedOpacity.setValue(type.includes('fadeOut') ? 1 : type.includes('fadeIn') ? 0 : 1);
+    animatedTranslateX.setValue(0);
+    animatedTranslateY.setValue(0);
+    animatedScale.setValue(type.includes('scaleOut') ? 1 : type.includes('scaleIn') ? 0 : 1);
+    animatedRotation.setValue(0);
+
+    // Create animation based on type
+    let animation: Animated.CompositeAnimation;
+
+    switch (type) {
+      case 'fadeIn':
+        animation = Animated.timing(animatedOpacity, {
+          toValue: 1,
+          duration,
+          delay,
+          useNativeDriver: true,
+          easing: Easing.ease,
+        });
+        break;
+
+      case 'fadeOut':
+        animation = Animated.timing(animatedOpacity, {
+          toValue: 0,
+          duration,
+          delay,
+          useNativeDriver: true,
+          easing: Easing.ease,
+        });
+        break;
+
+      case 'slideLeft':
+        animatedTranslateX.setValue(100);
+        animation = Animated.timing(animatedTranslateX, {
+          toValue: 0,
+          duration,
+          delay,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.cubic),
+        });
+        break;
+
+      case 'slideRight':
+        animatedTranslateX.setValue(-100);
+        animation = Animated.timing(animatedTranslateX, {
+          toValue: 0,
+          duration,
+          delay,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.cubic),
+        });
+        break;
+
+      case 'slideUp':
+        animatedTranslateY.setValue(100);
+        animation = Animated.timing(animatedTranslateY, {
+          toValue: 0,
+          duration,
+          delay,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.cubic),
+        });
+        break;
+
+      case 'slideDown':
+        animatedTranslateY.setValue(-100);
+        animation = Animated.timing(animatedTranslateY, {
+          toValue: 0,
+          duration,
+          delay,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.cubic),
+        });
+        break;
+
+      case 'scaleIn':
+        animation = Animated.timing(animatedScale, {
+          toValue: 1,
+          duration,
+          delay,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.back(1.5)),
+        });
+        break;
+
+      case 'scaleOut':
+        animation = Animated.timing(animatedScale, {
+          toValue: 0,
+          duration,
+          delay,
+          useNativeDriver: true,
+          easing: Easing.in(Easing.back(1.5)),
+        });
+        break;
+
+      case 'bounce':
+        animation = Animated.sequence([
+          Animated.timing(animatedTranslateY, {
+            toValue: -20,
+            duration: duration / 4,
+            delay,
+            useNativeDriver: true,
+            easing: Easing.out(Easing.quad),
+          }),
+          Animated.timing(animatedTranslateY, {
+            toValue: 0,
+            duration: duration / 4,
+            useNativeDriver: true,
+            easing: Easing.bounce,
+          }),
+        ]);
+        break;
+
+      case 'rotate':
+        animation = Animated.timing(animatedRotation, {
+          toValue: 1,
+          duration,
+          delay,
+          useNativeDriver: true,
+          easing: Easing.linear,
+        });
+        break;
+
+      case 'pulse':
+        animation = Animated.sequence([
+          Animated.timing(animatedScale, {
+            toValue: 1.2,
+            duration: duration / 2,
+            delay,
+            useNativeDriver: true,
+            easing: Easing.ease,
+          }),
+          Animated.timing(animatedScale, {
+            toValue: 1,
+            duration: duration / 2,
+            useNativeDriver: true,
+            easing: Easing.ease,
+          }),
+        ]);
+        break;
+
+      default:
+        return;
+    }
+
+    // Start animation (loop if needed)
+    if (loop) {
+      Animated.loop(animation).start();
+    } else {
+      animation.start();
+    }
+
+    // Cleanup
+    return () => {
+      animation.stop();
+    };
+  }, [layer.animation]);
+
   return (
-    <View
+    <Animated.View
+      {...panResponder.panHandlers}
       style={[
-        styles.container,
+        styles.layerContainer,
         {
-          left: position.x,
-          top: position.y,
-          width: layer.size.width,
-          height: layer.size.height,
+          position: 'absolute',
+          left: layer.position.x * scaleFactor,
+          top: layer.position.y * scaleFactor,
+          width: layer.size.width * scaleFactor,
+          height: layer.size.height * scaleFactor,
+          zIndex: layer.zIndex,
+          opacity: animatedOpacity,
           transform: [
             { rotate: `${layer.rotation}deg` },
-            { scale: isZoomed ? 2.2 : 1 },
+            { translateX: animatedTranslateX },
+            { translateY: animatedTranslateY },
+            { scale: animatedScale },
+            {
+              rotate: animatedRotation.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0deg', '360deg'],
+              }),
+            },
           ],
-          zIndex: layer.zIndex,
         },
-        isSelected && styles.selected,
       ]}
-      {...panResponder.panHandlers}
     >
       {/* Layer Content */}
       {layer.type === 'image' && layer.imageUrl && (
-  <View style={styles.imageWithCaption}>
-    <Image
-      source={{ uri: layer.imageUrl }}
-      style={styles.image}
-      resizeMode="cover"
-    />
-    {layer.caption && layer.caption.trim().length > 0 && (
-      <View style={styles.captionOverlay}>
-        <Text style={styles.captionText} numberOfLines={2}>
-          {layer.caption}
-        </Text>
-      </View>
-    )}
-  </View>
-)}
+        <View style={styles.imageWithCaption}>
+          <Image
+            source={{ uri: layer.imageUrl }}
+            style={[
+              styles.image,
+              isZoomed && {
+                transform: [{ scale: 2 }],
+                zIndex: 9999
+              }
+            ]}
+            resizeMode="cover"
+          />
+          {layer.caption && layer.caption.trim().length > 0 && (
+            <View style={styles.captionOverlay}>
+              <Text style={styles.captionText} numberOfLines={2}>
+                {layer.caption}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {layer.type === 'text' && (
         <Text
           style={[
             styles.text,
             {
-              fontSize: layer.fontSize || 24,
+              fontSize: (layer.fontSize || 24) * scaleFactor,
               color: layer.fontColor || '#000000',
               width: '100%',
+              flexWrap: 'wrap', // Force text to wrap
+              textAlign: 'left', // Align properly
             },
           ]}
-          numberOfLines={3}
+          numberOfLines={undefined} // Remove line limit to allow full wrapping
           ellipsizeMode="tail"
         >
           {layer.text}
@@ -220,13 +430,26 @@ const handleSaveCaption = async () => {
 
       {/* Delete Button (only if selected and user created it) */}
       {isSelected && canEdit && (
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={onDelete}
-          activeOpacity={0.7}
-        >
-          <Icon name="close-circle" size={24} color={COLORS.red400} />
-        </TouchableOpacity>
+        <>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={onDelete}
+            activeOpacity={0.7}
+          >
+            <Icon name="close-circle" size={24} color={COLORS.red400} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.animationButton}
+            onPress={onPressAnimation}
+            activeOpacity={0.7}
+          >
+            <Icon name="film" size={20} color="#fff" />
+            {layer.animation && layer.animation.type !== 'none' && (
+              <View style={styles.animationIndicator} />
+            )}
+          </TouchableOpacity>
+        </>
       )}
 
       {/* Selection Border */}
@@ -273,7 +496,7 @@ const handleSaveCaption = async () => {
           </View>
         </View>
       </Modal>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -291,11 +514,13 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   text: {
-    textAlign: 'center',
+    textAlign: 'left', // Change from center to left
     fontWeight: '700',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
+    flexWrap: 'wrap', // Ensure wrapping
+    lineHeight: undefined, // Let it calculate naturally
   },
   selected: {
     // Selection styling handled by border
@@ -335,7 +560,7 @@ const styles = StyleSheet.create({
   captionButton: {
     position: 'absolute',
     top: -12,
-    right: 24,
+    right: 7,
     backgroundColor: COLORS.slate900,
     borderRadius: 12,
     padding: 4,
@@ -408,6 +633,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.white,
+  },
+  animationButton: {
+    position: 'absolute',
+    top: -12,
+    right: 42, // Position left of delete button
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.purple500,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  animationIndicator: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.cyan400,
+    borderWidth: 1,
+    borderColor: COLORS.purple500,
+  },
+  layerContainer: {
+    position: 'absolute',
   },
 });
 

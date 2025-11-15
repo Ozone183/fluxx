@@ -107,4 +107,15 @@ export const MUSIC_LIBRARY: MusicTrack[] = [
     mood: ['ethereal', 'peaceful', 'floating'],
     isPremium: false,
   },
+  {
+    id: 'black-pumas-colors',
+    title: 'Colors',
+    artist: 'Black Pumas',
+    category: 'chill',
+    duration: 259,
+    url: require('../../assets/music/black-pumas-colors.mp3'),
+    bpm: 70, // Optional - add if you want
+    mood: ['soulful', 'groovy', 'chill'],
+    isPremium: false,
+  },
 ];

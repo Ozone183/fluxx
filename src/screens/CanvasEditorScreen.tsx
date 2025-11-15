@@ -456,6 +456,34 @@ const CanvasEditorScreen = () => {
     }
   };
 
+  // 🆕 ADD THE toggleStoryMode FUNCTION RIGHT HERE (AFTER handleSelectMusic)
+  
+  const toggleStoryMode = async () => {
+    if (!canvas || !canvasId) return;
+
+    try {
+      const newValue = !canvas.showAllCaptions;
+      
+      const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
+      await updateDoc(canvasRef, {
+        showAllCaptions: newValue,
+      });
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      console.log('📖 Story Mode:', newValue ? 'ENABLED' : 'DISABLED');
+      
+      Alert.alert(
+        newValue ? '📖 Story Mode ON' : '📖 Story Mode OFF',
+        newValue 
+          ? 'All captions are now visible for storytelling!' 
+          : 'Captions will only show when layers are selected.'
+      );
+    } catch (error) {
+      console.error('Story mode toggle error:', error);
+      Alert.alert('Error', 'Could not toggle story mode');
+    }
+  };
+
   // 👇 ADD THIS NEW ONE:
   useEffect(() => {
     if (canvas?.selectedMusicId) {
@@ -796,7 +824,7 @@ const CanvasEditorScreen = () => {
                 <Icon name="grid-outline" size={22} color={COLORS.amber400} />
               </TouchableOpacity>
 
-              {/* Export Button (only 1) */}
+              {/* Export Button */}
               <TouchableOpacity onPress={exportCanvas} disabled={exporting} style={styles.actionButton}>
                 {exporting ? (
                   <ActivityIndicator size="small" color={COLORS.cyan400} />
@@ -804,6 +832,23 @@ const CanvasEditorScreen = () => {
                   <Icon name="download-outline" size={22} color={COLORS.cyan400} />
                 )}
               </TouchableOpacity>
+
+              {/* 🆕 Story Mode Toggle - CREATOR ONLY */}
+              {userId === canvas.creatorId && (
+                <TouchableOpacity 
+                  onPress={toggleStoryMode} 
+                  style={[
+                    styles.actionButton,
+                    canvas?.showAllCaptions && styles.actionButtonActive
+                  ]}
+                >
+                  <Icon 
+                    name={canvas?.showAllCaptions ? "book" : "book-outline"} 
+                    size={22} 
+                    color={canvas?.showAllCaptions ? COLORS.cyan400 : COLORS.purple400} 
+                  />
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -1006,6 +1051,7 @@ const CanvasEditorScreen = () => {
                   }}
                   canvasId={canvasId}
                   scaleFactor={SCALE_FACTOR} // 🆕 ADD THIS
+                  showAllCaptions={canvas?.showAllCaptions || false} // 🆕 ADD THIS
                 />
               ))}
 
@@ -1220,6 +1266,11 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
     backgroundColor: COLORS.slate800,
+  },
+  actionButtonActive: {
+    backgroundColor: COLORS.cyan500,
+    borderWidth: 1,
+    borderColor: COLORS.cyan400,
   },
   infoItem: {
     flexDirection: 'row',

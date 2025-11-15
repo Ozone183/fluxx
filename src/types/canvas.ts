@@ -88,6 +88,7 @@ export interface Canvas {
   // Remove old musicTrack field if it exists
   // Add this instead:
   selectedMusicId?: string;
+  showAllCaptions?: boolean; // 🆕 Story Mode toggle
 }
 
 export interface ActivePresence {

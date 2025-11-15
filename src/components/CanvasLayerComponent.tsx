@@ -22,6 +22,7 @@ import UserProfileSheet from './UserProfileSheet';
 import { Animated, Easing } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Canvas } from '../types/canvas';
+import LayerCaption from './LayerCaption';
 
 interface CanvasLayerProps {
   layer: CanvasLayer;
@@ -31,6 +32,7 @@ interface CanvasLayerProps {
   onPressAnimation: () => void; // 🎬 NEW
   canvasId: string;
   scaleFactor: number; // 🆕 ADD THIS
+  showAllCaptions: boolean; // 🆕 ADD THIS
 }
 
 const getTimeAgo = (timestamp: number): string => {
@@ -51,6 +53,7 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
   onPressAnimation,
   canvasId,
   scaleFactor, // 🆕 ADD THIS
+  showAllCaptions, // 🆕 ADD THIS
 }) => {
   // 🎬 Animation Values
   const animatedOpacity = useRef(new Animated.Value(1)).current;
@@ -364,26 +367,17 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
     >
       {/* Layer Content */}
       {layer.type === 'image' && layer.imageUrl && (
-        <View style={styles.imageWithCaption}>
-          <Image
-            source={{ uri: layer.imageUrl }}
-            style={[
-              styles.image,
-              isZoomed && {
-                transform: [{ scale: 2 }],
-                zIndex: 9999
-              }
-            ]}
-            resizeMode="cover"
-          />
-          {layer.caption && layer.caption.trim().length > 0 && (
-            <View style={styles.captionOverlay}>
-              <Text style={styles.captionText} numberOfLines={2}>
-                {layer.caption}
-              </Text>
-            </View>
-          )}
-        </View>
+        <Image
+          source={{ uri: layer.imageUrl }}
+          style={[
+            styles.image,
+            isZoomed && {
+              transform: [{ scale: 2 }],
+              zIndex: 9999
+            }
+          ]}
+          resizeMode="cover"
+        />
       )}
 
       {layer.type === 'text' && (
@@ -496,6 +490,16 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
           </View>
         </View>
       </Modal>
+      {/* 🆕 EXTERNAL CAPTION - ADD THIS */}
+      {layer.type === 'image' && (
+        <LayerCaption
+          caption={layer.caption || ''}
+          isVisible={showAllCaptions || isSelected}
+          scaleFactor={scaleFactor}
+          layerWidth={layer.size.width * scaleFactor}
+        />
+      )}
+
     </Animated.View>
   );
 };
@@ -564,22 +568,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.slate900,
     borderRadius: 12,
     padding: 4,
-  },
-  captionOverlay: {
-    position: 'absolute',
-    bottom: 4,
-    left: 4,
-    right: 4,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
-  captionText: {
-    fontSize: 10,
-    color: COLORS.white,
-    fontWeight: '600',
-    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,

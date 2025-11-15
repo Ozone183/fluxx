@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Modal,
   TextInput as RNTextInput,
+  Clipboard,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { doc, onSnapshot, updateDoc, arrayUnion, getDoc, increment } from 'firebase/firestore';
@@ -40,6 +41,7 @@ import CanvasLayerComponent from '../components/CanvasLayerComponent';
 import CollaboratorsBar from '../components/CollaboratorsBar';
 import LayerListPanel from '../components/LayerListPanel'; // ← ADD THIS LINE
 import AnimationSelectorModal from '../components/AnimationSelectorModal';
+import PrivateCanvasMembersModal from '../components/PrivateCanvasMembersModal';
 
 // Base canvas dimensions (reference size - iPhone 14 standard)
 const BASE_CANVAS_WIDTH = 350;
@@ -134,6 +136,7 @@ const CanvasEditorScreen = () => {
   const [focusMode, setFocusMode] = useState(false);
   const [showAnimationSelector, setShowAnimationSelector] = useState(false);
   const [animatingLayerId, setAnimatingLayerId] = useState<string | null>(null);
+  const [showMembersModal, setShowMembersModal] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -457,13 +460,13 @@ const CanvasEditorScreen = () => {
   };
 
   // 🆕 ADD THE toggleStoryMode FUNCTION RIGHT HERE (AFTER handleSelectMusic)
-  
+
   const toggleStoryMode = async () => {
     if (!canvas || !canvasId) return;
 
     try {
       const newValue = !canvas.showAllCaptions;
-      
+
       const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
       await updateDoc(canvasRef, {
         showAllCaptions: newValue,
@@ -471,11 +474,11 @@ const CanvasEditorScreen = () => {
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       console.log('📖 Story Mode:', newValue ? 'ENABLED' : 'DISABLED');
-      
+
       Alert.alert(
         newValue ? '📖 Story Mode ON' : '📖 Story Mode OFF',
-        newValue 
-          ? 'All captions are now visible for storytelling!' 
+        newValue
+          ? 'All captions are now visible for storytelling!'
           : 'Captions will only show when layers are selected.'
       );
     } catch (error) {
@@ -595,18 +598,17 @@ const CanvasEditorScreen = () => {
         return;
       }
 
-      // Build share content with BOTH schemes
-      const appUrl = `fluxx://canvas/${canvasId}`;
-      const webUrl = `fluxx://canvas/${canvasId}`;
+      // ✅ DEFINE deepLink HERE
+      const deepLink = `fluxx://canvas/${canvasId}`;
 
       const shareMessage = canvas.accessType === 'private' && canvas.inviteCode
-        ? `🎨 Join my private canvas "${canvas.title}"!\n\n🔒 Invite Code: ${canvas.inviteCode}\n\n📱 Tap to open: ${appUrl}`
-        : `🎨 Check out my canvas "${canvas.title}" on Fluxx!\n\n📱 Tap to open: ${appUrl}`;
+        ? `🎨 Join my private canvas "${canvas.title}"!\n\n🔒 Invite Code: ${canvas.inviteCode}`
+        : `🎨 Check out my canvas "${canvas.title}" on Fluxx!`;
 
       const shareOptions = {
         title: `Join "${canvas.title}" on Fluxx`,
         message: shareMessage,
-        url: Platform.OS === 'ios' ? appUrl : undefined,
+        url: deepLink, // ✅ ALWAYS include URL for both iOS and Android
       };
 
       const result = await Share.share(shareOptions);
@@ -782,9 +784,16 @@ const CanvasEditorScreen = () => {
               <Icon name="arrow-back" size={24} color={COLORS.white} />
             </TouchableOpacity>
 
-            <Text style={[styles.canvasTitle, { flex: 1, marginRight: 8 }]} numberOfLines={1} ellipsizeMode="tail">
-              {canvas.title}
-            </Text>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', marginRight: 8 }}>
+              <Text style={styles.canvasTitle} numberOfLines={1} ellipsizeMode="tail">
+                {canvas.title}
+              </Text>
+              {canvas.accessType === 'private' && (
+                <View style={styles.privateBadge}>
+                  <Icon name="lock-closed" size={12} color={COLORS.white} />
+                </View>
+              )}
+            </View>
 
             {/* Focus Mode Button */}
             <TouchableOpacity
@@ -835,17 +844,17 @@ const CanvasEditorScreen = () => {
 
               {/* 🆕 Story Mode Toggle - CREATOR ONLY */}
               {userId === canvas.creatorId && (
-                <TouchableOpacity 
-                  onPress={toggleStoryMode} 
+                <TouchableOpacity
+                  onPress={toggleStoryMode}
                   style={[
                     styles.actionButton,
                     canvas?.showAllCaptions && styles.actionButtonActive
                   ]}
                 >
-                  <Icon 
-                    name={canvas?.showAllCaptions ? "book" : "book-outline"} 
-                    size={22} 
-                    color={canvas?.showAllCaptions ? COLORS.cyan400 : COLORS.purple400} 
+                  <Icon
+                    name={canvas?.showAllCaptions ? "book" : "book-outline"}
+                    size={22}
+                    color={canvas?.showAllCaptions ? COLORS.cyan400 : COLORS.purple400}
                   />
                 </TouchableOpacity>
               )}
@@ -864,6 +873,35 @@ const CanvasEditorScreen = () => {
                     color={selectedMusic ? COLORS.cyan400 : COLORS.purple400}
                   />
                   {selectedMusic && <View style={styles.musicIndicator} />}
+                </TouchableOpacity>
+              )}
+
+              {/* Copy Invite Code Button - CREATOR ONLY for PRIVATE canvases */}
+              {userId === canvas.creatorId && canvas.accessType === 'private' && canvas.inviteCode && (
+                <TouchableOpacity
+                  onPress={() => {
+                    Clipboard.setString(canvas.inviteCode!);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    Alert.alert('📋 Copied!', `Invite code: ${canvas.inviteCode}`);
+                  }}
+                  style={styles.actionButton}
+                >
+                  <Icon name="key-outline" size={22} color={COLORS.amber400} />
+                </TouchableOpacity>
+              )}
+
+              {/* View Members Button - CREATOR ONLY for PRIVATE canvases */}
+              {userId === canvas.creatorId && canvas.accessType === 'private' && (
+                <TouchableOpacity
+                  onPress={() => setShowMembersModal(true)}
+                  style={styles.actionButton}
+                >
+                  <Icon name="people-outline" size={22} color={COLORS.purple400} />
+                  {canvas.allowedUsers && canvas.allowedUsers.length > 1 && (
+                    <View style={styles.memberCountBadge}>
+                      <Text style={styles.memberCountText}>{canvas.allowedUsers.length}</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               )}
 
@@ -1158,7 +1196,7 @@ const CanvasEditorScreen = () => {
         currentTrack={selectedMusic}
       />
 
-      {/* 🎬 Animation Selector Modal - ADD THIS */}
+      {/* 🎬 Animation Selector Modal */}
       <AnimationSelectorModal
         visible={showAnimationSelector}
         onClose={() => {
@@ -1172,6 +1210,16 @@ const CanvasEditorScreen = () => {
             : 'none'
         }
       />
+
+      {/* 🔒 Private Canvas Members Modal */}
+      {canvas.accessType === 'private' && canvas.allowedUsers && (
+        <PrivateCanvasMembersModal
+          visible={showMembersModal}
+          canvasId={canvasId}
+          allowedUsers={canvas.allowedUsers}
+          onClose={() => setShowMembersModal(false)}
+        />
+      )}
     </View >
   );
 };
@@ -1596,6 +1644,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
     gap: 16,
+  },
+  privateBadge: {
+    backgroundColor: COLORS.purple600,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  memberCountBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: COLORS.purple600,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  memberCountText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.white,
   },
 });
 

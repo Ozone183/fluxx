@@ -32,18 +32,6 @@
       "intentFilters": [
         {
           "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "fluxx.app",
-              "pathPrefix": "/canvas"
-            }
-          ],
-          "category": ["BROWSABLE", "DEFAULT"]
-        },
-        {
-          "action": "VIEW",
           "data": [
             {
               "scheme": "fluxx"

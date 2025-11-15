@@ -57,23 +57,25 @@ export interface Canvas {
   width: number;
   height: number;
   backgroundColor: string;
-  templateId?: string; // ✅ ADD THIS LINE
+  templateId?: string;
 
   // Access control
-  accessType: 'public' | 'private' | 'friends'; // friends for v2
-  inviteCode?: string; // For private canvases
+  accessType: 'public' | 'private' | 'friends';
+  inviteCode?: string;
+  allowedUsers?: string[]; // 🆕 userIds who have access
+  pendingRequests?: string[]; // 🆕 userIds waiting for approval
 
   // Layers
   layers: CanvasLayer[];
-  totalPages: number; // ← ADD THIS LINE
+  totalPages: number;
 
   // Collaboration
   collaborators: { [userId: string]: CanvasCollaborator };
-  maxCollaborators: number; // 12 for v1
+  maxCollaborators: number;
 
   // Lifecycle
   createdAt: number;
-  expiresAt: number; // 24 hours from creation
+  expiresAt: number;
   isExpired: boolean;
 
   // Export
@@ -85,10 +87,8 @@ export interface Canvas {
   likeCount: number;
   likedBy: string[];
 
-  // Remove old musicTrack field if it exists
-  // Add this instead:
   selectedMusicId?: string;
-  showAllCaptions?: boolean; // 🆕 Story Mode toggle
+  showAllCaptions?: boolean;
 }
 
 export interface ActivePresence {

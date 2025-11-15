@@ -65,7 +65,7 @@ const PostCard: React.FC<PostCardProps> = ({
   // Share function with deep link
   const handleShare = async () => {
     try {
-      const postUrl = `https://fluxx.app/post/${post.id}`;
+      const postUrl = `fluxx://post/${post.id}`; // ✅ FIXED: Use fluxx:// scheme
       const message = `Check out this post by ${displayChannel} on Fluxx!\n\n"${post.content}"\n\n${postUrl}`;
 
       const result = await Share.share({
@@ -155,8 +155,8 @@ const PostCard: React.FC<PostCardProps> = ({
 
           <View style={styles.spacer} />
 
-          <TouchableOpacity 
-            style={styles.actionButton} 
+          <TouchableOpacity
+            style={styles.actionButton}
             activeOpacity={0.7}
             onPress={handleShare}
           >

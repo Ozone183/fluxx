@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Image,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
@@ -124,6 +125,8 @@ const NotificationsScreen = () => {
         return 'mail';
       case 'comment':
         return 'chatbubble';
+      case 'access_request':
+        return 'lock-open';
       default:
         return 'notifications';
     }
@@ -139,6 +142,8 @@ const NotificationsScreen = () => {
         return COLORS.purple400;
       case 'comment':
         return COLORS.amber400;
+      case 'access_request':
+        return COLORS.purple500;
       default:
         return COLORS.slate400;
     }
@@ -160,16 +165,89 @@ const NotificationsScreen = () => {
     return `${Math.floor(seconds / 604800)}w ago`;
   };
 
+  const handleApproveAccess = async (notification: Notification) => {
+    if (!notification.relatedCanvasId) return;
+
+    try {
+      const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', notification.relatedCanvasId);
+      const canvasSnap = await getDoc(canvasRef);
+
+      if (!canvasSnap.exists()) {
+        Alert.alert('Error', 'Canvas not found');
+        return;
+      }
+
+      const canvasData = canvasSnap.data();
+      
+      // Add user to allowedUsers
+      await updateDoc(canvasRef, {
+        allowedUsers: [...(canvasData.allowedUsers || []), notification.fromUserId],
+        pendingRequests: (canvasData.pendingRequests || []).filter((id: string) => id !== notification.fromUserId),
+      });
+
+      // Send notification to requester
+      const { createNotification } = await import('../utils/notifications');
+      await createNotification({
+        recipientUserId: notification.fromUserId,
+        type: 'canvas_invite',
+        fromUserId: userId!,
+        fromUsername: 'Canvas Owner',
+        fromProfilePic: null,
+        relatedCanvasId: notification.relatedCanvasId,
+        relatedCanvasTitle: canvasData.title,
+      });
+
+      // Mark this notification as read
+      await markAsRead(notification.id);
+
+      Alert.alert('✅ Approved', `${notification.fromUsername} can now access your canvas!`);
+    } catch (error) {
+      console.error('Approve access error:', error);
+      Alert.alert('Error', 'Could not approve access');
+    }
+  };
+
+  const handleDenyAccess = async (notification: Notification) => {
+    if (!notification.relatedCanvasId) return;
+
+    try {
+      const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', notification.relatedCanvasId);
+      const canvasSnap = await getDoc(canvasRef);
+
+      if (!canvasSnap.exists()) {
+        Alert.alert('Error', 'Canvas not found');
+        return;
+      }
+
+      const canvasData = canvasSnap.data();
+
+      // Remove from pending requests
+      await updateDoc(canvasRef, {
+        pendingRequests: (canvasData.pendingRequests || []).filter((id: string) => id !== notification.fromUserId),
+      });
+
+      // Mark notification as read
+      await markAsRead(notification.id);
+
+      Alert.alert('❌ Denied', 'Access request denied');
+    } catch (error) {
+      console.error('Deny access error:', error);
+      Alert.alert('Error', 'Could not deny access');
+    }
+  };
+
   const renderNotification = ({ item }: { item: Notification }) => (
-    <TouchableOpacity
+    <View
       style={[
         styles.notificationCard,
         !item.isRead && styles.notificationCardUnread
       ]}
-      onPress={() => handleNotificationPress(item)}
-      activeOpacity={0.7}
     >
-      <View style={styles.notificationContent}>
+      <TouchableOpacity
+        style={styles.notificationContent}
+        onPress={() => handleNotificationPress(item)}
+        activeOpacity={0.7}
+      >
         {/* Profile Pic or Icon */}
         {item.fromProfilePic ? (
           <Image
@@ -194,8 +272,31 @@ const NotificationsScreen = () => {
 
         {/* Unread Indicator */}
         {!item.isRead && <View style={styles.unreadDot} />}
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+
+      {/* Approve/Deny Buttons for Access Requests */}
+      {item.type === 'access_request' && !item.isRead && (
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.denyButton]}
+            onPress={() => handleDenyAccess(item)}
+            activeOpacity={0.8}
+          >
+            <Icon name="close-circle" size={18} color={COLORS.white} />
+            <Text style={styles.actionButtonText}>Deny</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.approveButton]}
+            onPress={() => handleApproveAccess(item)}
+            activeOpacity={0.8}
+          >
+            <Icon name="checkmark-circle" size={18} color={COLORS.white} />
+            <Text style={styles.actionButtonText}>Approve</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
   );
 
   if (loading) {
@@ -342,6 +443,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     lineHeight: 20,
   },
+  actionButtons: {
+    flexDirection: 'row',
+    marginTop: 12,
+    gap: 8,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  approveButton: {
+    backgroundColor: COLORS.green600,
+  },
+  denyButton: {
+    backgroundColor: COLORS.red500,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
 });
+
 
 export default NotificationsScreen;

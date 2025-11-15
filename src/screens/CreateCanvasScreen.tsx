@@ -70,7 +70,11 @@ const CreateCanvasScreen = () => {
         templateId: selectedTemplate.id, // ✅ ADD THIS LINE
 
         accessType: isPrivate ? 'private' : 'public',
-        ...(isPrivate && { inviteCode: generateInviteCode() }),
+        ...(isPrivate && { 
+          inviteCode: generateInviteCode(),
+          allowedUsers: [userId], // Creator has access by default
+          pendingRequests: [],
+        }),
 
         layers: starterLayers,
         totalPages: selectedTemplate.totalPages, // ← ADD THIS LINE

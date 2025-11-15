@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons as Icon } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { COLORS } from '../theme/colors';
 import { Canvas } from '../types/canvas';
 
@@ -95,7 +96,17 @@ const CanvasStoryRing: React.FC<CanvasStoryRingProps> = ({
           <View style={styles.innerRing}>
             <View style={[styles.canvas, { backgroundColor: canvas.backgroundColor }]}>
               {thumbnailUrl ? (
-                <Image source={{ uri: thumbnailUrl }} style={styles.thumbnail} resizeMode="cover" />
+                <>
+                  <Image
+                    source={{ uri: thumbnailUrl }}
+                    style={[
+                      styles.thumbnail,
+                      canvas.accessType === 'private' && styles.blurredThumbnail
+                    ]}
+                    resizeMode="cover"
+                    blurRadius={canvas.accessType === 'private' ? 50 : 0}
+                  />
+                </>
               ) : (
                 <Icon
                   name="color-palette"
@@ -115,6 +126,13 @@ const CanvasStoryRing: React.FC<CanvasStoryRingProps> = ({
         >
           <Text style={styles.badgeText}>{activeCollaboratorsCount}</Text>
         </LinearGradient>
+      )}
+
+      {/* Private Badge - shows for ALL users to create curiosity */}
+      {canvas.accessType === 'private' && !isExpired && (
+        <View style={[styles.badge, styles.privateBadge]}>
+          <Icon name="lock-closed" size={14} color={COLORS.white} />
+        </View>
       )}
 
       {isExpired && (
@@ -227,6 +245,13 @@ const styles = StyleSheet.create({
   },
   expiredBadge: {
     backgroundColor: COLORS.slate600,
+  },
+  privateBadge: {
+    backgroundColor: COLORS.purple600,
+    shadowColor: COLORS.purple500,
+  },
+  blurredThumbnail: {
+    opacity: 0.3,
   },
 });
 

@@ -4,7 +4,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
 import { APP_ID } from '../context/AuthContext';
 
-export type NotificationType = 'follow' | 'canvas_invite' | 'like' | 'comment';
+export type NotificationType = 'follow' | 'canvas_invite' | 'like' | 'comment' | 'access_request';
 
 interface CreateNotificationParams {
     recipientUserId: string;
@@ -56,6 +56,11 @@ export const createNotification = async (params: CreateNotificationParams) => {
         case 'comment':
             message = `${fromUsername} commented on your post`;
             actionUrl = `fluxx://post/${relatedCanvasId}`;
+            break;
+
+        case 'access_request':
+            message = `${fromUsername} wants access to "${relatedCanvasTitle}"`;
+            actionUrl = `fluxx://canvas/${relatedCanvasId}`;
             break;
 
         default:

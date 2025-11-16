@@ -1,7 +1,7 @@
 import 'react-native-gesture-handler';
 import React, { useState, useEffect } from 'react';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
-import { View } from 'react-native';
+import { View, TouchableOpacity } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'react-native';
@@ -33,6 +33,7 @@ import DiscoveryFeedScreen from './src/screens/DiscoveryFeedScreen';
 import ProfileMenuDrawer from './src/screens/ProfileMenuDrawer';
 import CreateModal from './src/components/CreateModal';
 
+
 import { COLORS } from './src/theme/colors';
 
 const Stack = createNativeStackNavigator();
@@ -42,82 +43,96 @@ const MainTabs = () => {
   const [showCreateModal, setShowCreateModal] = React.useState(false);
   const navigation = useNavigation();
 
+  const handleCreatePost = () => {
+    setShowCreateModal(false);
+    setTimeout(() => {
+      navigation.navigate('CreatePost' as never);
+    }, 100);
+  };
+
+  const handleCreateCanvas = () => {
+    setShowCreateModal(false);
+    setTimeout(() => {
+      navigation.navigate('Canvas' as never);
+    }, 100);
+  };
+
   return (
     <>
       <Tab.Navigator
-    id={undefined}
-    screenOptions={{
-      headerShown: false,
-      tabBarStyle: {
-        backgroundColor: COLORS.slate900,
-        borderTopColor: COLORS.slate800,
-        height: 120,
-        paddingBottom: 25,
-        paddingTop: 10,
-      },
-      tabBarActiveTintColor: COLORS.cyan400,
-      tabBarInactiveTintColor: COLORS.slate500,
-      tabBarLabelStyle: {
-        fontSize: 11,
-        fontWeight: '600',
-        marginBottom: 5,
-      },
-      tabBarIconStyle: {
-        marginTop: 5,
-      },
-    }}>
-    <Tab.Screen
-      name="Feed"
-      component={FeedScreen}
-      options={{
-        tabBarIcon: ({ color, focused }) => (
-          <Ionicons name="home-outline" size={focused ? 28 : 24} color={color} />
-        ),
-      }}
-    />
-    <Tab.Screen
-      name="Discovery"
-      component={DiscoveryFeedScreen}
-      options={{
-        tabBarIcon: ({ color, focused }) => (
-          <Ionicons name="compass-outline" size={focused ? 28 : 24} color={color} />
-        ),
-      }}
-    />
-    <Tab.Screen
-      name="Create"
-      component={() => null}
-      listeners={{
-        tabPress: () => {
-          setShowCreateModal(true);
-        },
-      }}
-      options={{
-        tabBarIcon: ({ color, focused }) => (
-          <Ionicons name="add-circle" size={focused ? 32 : 28} color={color} />
-        ),
-      }}
-    />
-    <Tab.Screen
-      name="Menu"
-      component={ProfileMenuDrawer}
-      options={{
-        tabBarIcon: ({ color, focused }) => (
-          <Ionicons name="menu-outline" size={focused ? 28 : 24} color={color} />
-        ),
-      }}
-    />
-  </Tab.Navigator>
+        id={undefined}
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: {
+            backgroundColor: COLORS.slate900,
+            borderTopColor: COLORS.slate800,
+            height: 120,
+            paddingBottom: 25,
+            paddingTop: 10,
+          },
+          tabBarActiveTintColor: COLORS.cyan400,
+          tabBarInactiveTintColor: COLORS.slate500,
+          tabBarLabelStyle: {
+            fontSize: 11,
+            fontWeight: '600',
+            marginBottom: 5,
+          },
+          tabBarIconStyle: {
+            marginTop: 5,
+          },
+        }}>
+        <Tab.Screen
+          name="Feed"
+          component={FeedScreen}
+          options={{
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name="home-outline" size={focused ? 28 : 24} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Discovery"
+          component={DiscoveryFeedScreen}
+          options={{
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name="compass-outline" size={focused ? 28 : 24} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Create"
+          component={() => null}
+          listeners={{
+            tabPress: () => {
+              setShowCreateModal(true);
+            },
+          }}
+          options={{
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name="add-circle" size={focused ? 32 : 28} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Menu"
+          component={ProfileMenuDrawer}
+          options={{
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name="menu-outline" size={focused ? 28 : 24} color={color} />
+            ),
+          }}
+        />
+      </Tab.Navigator>
 
-{/* Create Modal */}
-<CreateModal
-  visible={showCreateModal}
-  onClose={() => setShowCreateModal(false)}
-  onCreatePost={() => navigation.navigate('CreatePost' as never)}
-  onCreateCanvas={() => navigation.navigate('Canvas' as never)}
-/>
-</>
-);
+      {/* Create Modal */}
+      <CreateModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreatePost={handleCreatePost}
+        onCreateCanvas={handleCreateCanvas}
+      />
+    </>
+  );
 };
 
 const AppNavigator = () => {
@@ -187,16 +202,16 @@ const AppContent = () => {
   const handleDeepLink = (url: string) => {
     try {
       const { path } = Linking.parse(url);
-      
+
       console.log('🔗 Deep link received:', url);
       console.log('📍 Parsed path:', path);
       console.log('👤 User ID:', userId);
       console.log('✅ Profile setup:', isProfileSetup);
-      
+
       if (path?.startsWith('canvas/')) {
         const canvasId = path.replace('canvas/', '');
         console.log('🎨 Canvas ID extracted:', canvasId);
-        
+
         if (userId && isProfileSetup) {
           console.log('✅ Navigating to canvas...');
           (navigationRef.current as any)?.navigate('CanvasEditor', { canvasId });

@@ -1,6 +1,6 @@
 // src/screens/ProfileMenuDrawer.tsx
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,14 +11,41 @@ import {
   Alert,
   SafeAreaView,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { doc, getDoc } from 'firebase/firestore';
+import { firestore } from '../config/firebase';
+import { db } from '../config/firebase';
 import { COLORS } from '../theme/colors';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, APP_ID } from '../context/AuthContext';
+import { signOut } from 'firebase/auth';
+import { auth } from '../config/firebase';
 
 const ProfileMenuDrawer = () => {
   const navigation = useNavigation();
-  const { userId, userChannel, logout } = useAuth();
+  const { userId, userChannel } = useAuth();
+  const [profileData, setProfileData] = useState<any>(null);
+
+  // Fetch user profile data including avatar
+  const fetchProfileData = async () => {
+    if (!userId) return;
+    
+    try {
+      const userDoc = await getDoc(doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'profiles', userId));
+      if (userDoc.exists()) {
+        setProfileData(userDoc.data());
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
+
+  // Refresh profile data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchProfileData();
+    }, [userId])
+  );
 
   const menuItems = [
     {
@@ -114,7 +141,7 @@ const ProfileMenuDrawer = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await logout();
+              await signOut(auth);
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'Auth' as never }],
@@ -158,27 +185,34 @@ const ProfileMenuDrawer = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
+      {/* Header with Back Button */}
       <View style={styles.header}>
         <TouchableOpacity
-          style={styles.closeButton}
+          style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="close" size={24} color={COLORS.white} />
+          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Menu</Text>
         <View style={styles.placeholder} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* User Profile Section */}
+        {/* User Profile Section with Updated Avatar */}
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {userChannel ? userChannel.charAt(1).toUpperCase() : 'U'}
-              </Text>
-            </View>
+            {profileData?.photoURL ? (
+              <Image 
+                source={{ uri: profileData.photoURL }} 
+                style={styles.avatar}
+              />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {userChannel ? userChannel.charAt(0).toUpperCase() : 'U'}
+                </Text>
+              </View>
+            )}
           </View>
           
           <View style={styles.userInfo}>
@@ -243,7 +277,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.slate800,
   },
-  closeButton: {
+  backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,

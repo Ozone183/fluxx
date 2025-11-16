@@ -399,6 +399,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 20,
+    paddingBottom: 80,  // Add this - pushes the footer (and button inside it) UP
     borderTopWidth: 1,
     borderTopColor: COLORS.slate800,
   },

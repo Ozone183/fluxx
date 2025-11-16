@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -29,38 +30,56 @@ const CreateModal: React.FC<CreateModalProps> = ({
   onCreatePost,
   onCreateCanvas,
 }) => {
+  const navigation = useNavigation();
 
   const handleCreatePost = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Close modal first, then navigate
     onClose();
-    onCreatePost();
+    // Small delay to let modal animation finish
+    setTimeout(() => {
+      onCreatePost();
+    }, 100);
   };
 
   const handleCreateCanvas = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Close modal first, then navigate
     onClose();
-    onCreateCanvas();
+    // Small delay to let modal animation finish
+    setTimeout(() => {
+      onCreateCanvas();
+    }, 100);
   };
 
   const handleClose = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onClose();
+    // Force navigation back to ensure we're on a valid screen
+    setTimeout(() => {
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      }
+    }, 100);
   };
 
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="slide"
       statusBarTranslucent
+      onRequestClose={handleClose}
     >
       <TouchableWithoutFeedback onPress={handleClose}>
         <View style={styles.overlay}>
           <TouchableWithoutFeedback onPress={() => {}}>
             <View style={styles.modalContainer}>
-              {/* Header */}
+              {/* Handle */}
+              <View style={styles.handle} />
+              
+              {/* Header - REDUCED PADDING */}
               <View style={styles.header}>
-                <View style={styles.handle} />
                 <Text style={styles.title}>Create Something Amazing</Text>
                 <Text style={styles.subtitle}>
                   Share your creativity with the world
@@ -114,7 +133,7 @@ const CreateModal: React.FC<CreateModalProps> = ({
                 </TouchableOpacity>
               </View>
 
-              {/* Feature Highlights */}
+              {/* Feature Highlights - REDUCED PADDING */}
               <View style={styles.featuresContainer}>
                 <Text style={styles.featuresTitle}>Why create on Fluxx?</Text>
                 
@@ -162,21 +181,23 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.slate900,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingBottom: 40,
-    maxHeight: '80%',
-  },
-  header: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
+    paddingBottom: 150,
+    maxHeight: '100%',
   },
   handle: {
     width: 40,
     height: 4,
     backgroundColor: COLORS.slate600,
     borderRadius: 2,
-    marginBottom: 20,
+    alignSelf: 'center',
+    marginTop: 8,        // ← Change from 12 to 8
+    marginBottom: 20,    // ← Change from 16 to 12
+  },
+  header: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 8,       // ← Add this line
+    paddingBottom: 16,   // ← Change from 20 to 16
   },
   title: {
     fontSize: 24,
@@ -231,19 +252,19 @@ const styles = StyleSheet.create({
   },
   featuresContainer: {
     paddingHorizontal: 20,
-    paddingTop: 32,
-    paddingBottom: 24,
+    paddingTop: 20, // Reduced from 32
+    paddingBottom: 20, // Reduced from 24
   },
   featuresTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.white,
-    marginBottom: 16,
+    marginBottom: 12, // Reduced from 16
   },
   feature: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10, // Reduced from 12
     gap: 12,
   },
   featureText: {

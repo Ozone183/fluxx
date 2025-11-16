@@ -18,6 +18,7 @@ import { firestore } from '../config/firebase';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
+import { ScrollView } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 30) / 2; // 2 columns with margins
@@ -64,17 +65,12 @@ const DiscoveryFeedScreen = () => {
     const canvasesRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases');
     let q;
 
-    // Base filter: only public canvases that haven't expired
-    const baseConstraints = [
-      where('accessType', '==', 'public'),
-      where('expiresAt', '>', Date.now()),
-    ];
-
     switch (activeFilter) {
       case 'trending':
         q = query(
           canvasesRef,
-          ...baseConstraints,
+          where('accessType', '==', 'public'),
+          where('expiresAt', '>', Date.now()),
           orderBy('likeCount', 'desc'),
           orderBy('createdAt', 'desc'), // Secondary sort for ties
           limit(20)
@@ -83,8 +79,9 @@ const DiscoveryFeedScreen = () => {
       case 'popular':
         q = query(
           canvasesRef,
-          ...baseConstraints,
-          orderBy('viewCount', 'desc'),
+          where('accessType', '==', 'public'),
+          where('expiresAt', '>', Date.now()),
+          orderBy('likeCount', 'desc'),
           orderBy('createdAt', 'desc'),
           limit(20)
         );
@@ -92,23 +89,26 @@ const DiscoveryFeedScreen = () => {
       case 'new':
         q = query(
           canvasesRef,
-          ...baseConstraints,
-          orderBy('createdAt', 'desc'),
+          where('accessType', '==', 'public'),
+          where('expiresAt', '>', Date.now()),
+          orderBy('likeCount', 'desc'),
           limit(20)
         );
         break;
       case 'expiring':
         q = query(
           canvasesRef,
-          ...baseConstraints,
-          orderBy('expiresAt', 'asc'),
+          where('accessType', '==', 'public'),
+          where('expiresAt', '>', Date.now()),
+          orderBy('likeCount', 'desc'),
           limit(20)
         );
         break;
       default:
         q = query(
           canvasesRef,
-          ...baseConstraints,
+          where('accessType', '==', 'public'),
+          where('expiresAt', '>', Date.now()),
           orderBy('likeCount', 'desc'),
           orderBy('createdAt', 'desc'),
           limit(20)
@@ -138,7 +138,7 @@ const DiscoveryFeedScreen = () => {
 
       const newCanvases = snapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data(),
+        ...(doc.data() as Omit<Canvas, 'id'>),
       })) as Canvas[];
 
       if (isInitial) {
@@ -184,7 +184,7 @@ const DiscoveryFeedScreen = () => {
   };
 
   const navigateToCanvas = (canvasId: string) => {
-    navigation.navigate('CanvasEditor' as never, { canvasId } as never);
+    (navigation as any).navigate('CanvasEditor', { canvasId });
   };
 
   const renderCanvasCard = ({ item }: { item: Canvas }) => (
@@ -274,6 +274,47 @@ const DiscoveryFeedScreen = () => {
     </View>
   );
 
+  const renderEmptyState = () => {
+    let emptyMessage = '';
+    let emptyIcon = '';
+    
+    switch (activeFilter) {
+      case 'trending':
+        emptyMessage = 'No trending canvases yet. Be the first to create something amazing!';
+        emptyIcon = 'flame-outline';
+        break;
+      case 'popular':
+        emptyMessage = 'No popular canvases found. Start creating and get noticed!';
+        emptyIcon = 'eye-outline';
+        break;
+      case 'new':
+        emptyMessage = 'No new canvases available. Create the first one!';
+        emptyIcon = 'sparkles-outline';
+        break;
+      case 'expiring':
+        emptyMessage = 'No canvases expiring soon. All creations are still fresh!';
+        emptyIcon = 'time-outline';
+        break;
+    }
+
+    return (
+      <View style={styles.emptyContainer}>
+        <View style={styles.emptyIconContainer}>
+          <Ionicons name={emptyIcon as any} size={64} color={COLORS.slate600} />
+        </View>
+        <Text style={styles.emptyTitle}>Nothing Here Yet</Text>
+        <Text style={styles.emptyMessage}>{emptyMessage}</Text>
+        <TouchableOpacity 
+          style={styles.createButton}
+          onPress={() => navigation.navigate('Canvas' as never)}
+        >
+          <Ionicons name="add-circle" size={20} color={COLORS.white} />
+          <Text style={styles.createButtonText}>Create Canvas</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   const renderFooter = () => {
     if (!loadingMore) return null;
     return (
@@ -301,6 +342,7 @@ const DiscoveryFeedScreen = () => {
         keyExtractor={(item) => item.id}
         numColumns={2}
         ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmptyState}
         ListFooterComponent={renderFooter}
         onEndReached={loadMore}
         onEndReachedThreshold={0.1}
@@ -313,7 +355,7 @@ const DiscoveryFeedScreen = () => {
           />
         }
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={canvases.length === 0 ? styles.emptyListContent : styles.listContent}
       />
     </View>
   );
@@ -379,6 +421,9 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 10,
     paddingBottom: 100,
+  },
+  emptyListContent: {
+    flexGrow: 1,
   },
   canvasCard: {
     width: CARD_WIDTH,
@@ -458,6 +503,50 @@ const styles = StyleSheet.create({
   loadingMore: {
     padding: 20,
     alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingVertical: 60,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: COLORS.slate800,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  emptyMessage: {
+    fontSize: 16,
+    color: COLORS.slate400,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  createButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.cyan500,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  createButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.white,
   },
 });
 

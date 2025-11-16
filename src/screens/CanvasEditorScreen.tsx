@@ -41,6 +41,7 @@ import CanvasLayerComponent from '../components/CanvasLayerComponent';
 import CollaboratorsBar from '../components/CollaboratorsBar';
 import LayerListPanel from '../components/LayerListPanel'; // ← ADD THIS LINE
 import AnimationSelectorModal from '../components/AnimationSelectorModal';
+import VideoExportButton from '../components/VideoExportButton';
 import PrivateCanvasMembersModal from '../components/PrivateCanvasMembersModal';
 import ShareModal from '../components/ShareModal';
 
@@ -804,7 +805,14 @@ const CanvasEditorScreen = () => {
                 <Icon name="grid-outline" size={22} color={COLORS.amber400} />
               </TouchableOpacity>
 
-              {/* Export Button */}
+              {/* Video Export Button */}
+              <VideoExportButton
+                canvasId={canvasId}
+                canvasTitle={canvas.title}
+                canvasRef={viewShotRef}
+              />
+
+              {/* Export Button (Image) */}
               <TouchableOpacity onPress={exportCanvas} disabled={exporting} style={styles.actionButton}>
                 {exporting ? (
                   <ActivityIndicator size="small" color={COLORS.cyan400} />

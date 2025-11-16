@@ -3,6 +3,7 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getDatabase } from 'firebase/database';
+import { getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD2og-Zlqhkc15vqphHaVLW8E3k_wpfwJU",
@@ -22,5 +23,6 @@ export const db = getFirestore(app);          // ← Changed from 'firestore' to
 export const firestore = getFirestore(app);   // ← Keep this for backward compatibility
 export const storage = getStorage(app);
 export const database = getDatabase(app);
+export const functions = getFunctions(app);
 
 export default app;

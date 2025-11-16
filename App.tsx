@@ -1,6 +1,7 @@
 import 'react-native-gesture-handler';
 import React, { useState, useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'react-native';
@@ -28,14 +29,22 @@ import CreateCanvasScreen from './src/screens/CreateCanvasScreen';
 import CanvasEditorScreen from './src/screens/CanvasEditorScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import UserProfileScreen from './src/screens/UserProfileScreen';
+import DiscoveryFeedScreen from './src/screens/DiscoveryFeedScreen';
+import ProfileMenuDrawer from './src/screens/ProfileMenuDrawer';
+import CreateModal from './src/components/CreateModal';
 
 import { COLORS } from './src/theme/colors';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const MainTabs = () => (
-  <Tab.Navigator
+const MainTabs = () => {
+  const [showCreateModal, setShowCreateModal] = React.useState(false);
+  const navigation = useNavigation();
+
+  return (
+    <>
+      <Tab.Navigator
     id={undefined}
     screenOptions={{
       headerShown: false,
@@ -67,45 +76,49 @@ const MainTabs = () => (
       }}
     />
     <Tab.Screen
-      name="Search"
-      component={SearchScreen}
+      name="Discovery"
+      component={DiscoveryFeedScreen}
       options={{
         tabBarIcon: ({ color, focused }) => (
-          <Ionicons name="search-outline" size={focused ? 28 : 24} color={color} />
+          <Ionicons name="compass-outline" size={focused ? 28 : 24} color={color} />
         ),
       }}
     />
     <Tab.Screen
-      name="Canvas"
-      component={CreateCanvasScreen}
+      name="Create"
+      component={() => null}
+      listeners={{
+        tabPress: () => {
+          setShowCreateModal(true);
+        },
+      }}
       options={{
         tabBarIcon: ({ color, focused }) => (
-          <Ionicons name="color-palette-outline" size={focused ? 30 : 26} color={color} />
+          <Ionicons name="add-circle" size={focused ? 32 : 28} color={color} />
         ),
-        tabBarLabel: 'Canvas',
       }}
     />
     <Tab.Screen
-      name="CreatePost"
-      component={CreatePostScreen}
+      name="Menu"
+      component={ProfileMenuDrawer}
       options={{
         tabBarIcon: ({ color, focused }) => (
-          <Ionicons name="add-circle-outline" size={focused ? 32 : 28} color={color} />
-        ),
-        tabBarLabel: 'Post',
-      }}
-    />
-    <Tab.Screen
-      name="Profile"
-      component={ProfileScreen}
-      options={{
-        tabBarIcon: ({ color, focused }) => (
-          <Ionicons name="person-outline" size={focused ? 28 : 24} color={color} />
+          <Ionicons name="menu-outline" size={focused ? 28 : 24} color={color} />
         ),
       }}
     />
   </Tab.Navigator>
+
+{/* Create Modal */}
+<CreateModal
+  visible={showCreateModal}
+  onClose={() => setShowCreateModal(false)}
+  onCreatePost={() => navigation.navigate('CreatePost' as never)}
+  onCreateCanvas={() => navigation.navigate('Canvas' as never)}
+/>
+</>
 );
+};
 
 const AppNavigator = () => {
   const { isAuthReady, userId, isProfileSetup } = useAuth();
@@ -124,6 +137,10 @@ const AppNavigator = () => {
       ) : (
         <>
           <Stack.Screen name="MainTabs" component={MainTabs} />
+          <Stack.Screen name="Canvas" component={CreateCanvasScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="Search" component={SearchScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="Profile" component={ProfileScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="CanvasEditor" component={CanvasEditorScreen} />
           <Stack.Screen name="Comments" component={CommentsScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen

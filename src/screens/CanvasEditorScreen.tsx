@@ -705,7 +705,7 @@ const CanvasEditorScreen = () => {
     );
   }
 
-  const handleSelectAnimation = async (animationType: string) => {
+  const handleSelectAnimation = async (animationConfig: { type: string; duration: number; delay: number; loop: boolean }) => {
     if (!animatingLayerId || !canvas) return;
 
     try {
@@ -717,14 +717,14 @@ const CanvasEditorScreen = () => {
           };
 
           // Remove animation or set new one
-          if (animationType === 'none') {
-            delete updatedLayer.animation; // DELETE instead of undefined
+          if (animationConfig.type === 'none') {
+            delete updatedLayer.animation;
           } else {
             updatedLayer.animation = {
-              type: animationType,
-              duration: 1000,
-              delay: 0,
-              loop: false,
+              type: animationConfig.type,
+              duration: animationConfig.duration,
+              delay: animationConfig.delay,
+              loop: animationConfig.loop,
             };
           }
 
@@ -737,7 +737,7 @@ const CanvasEditorScreen = () => {
       await updateDoc(canvasRef, { layers: updatedLayers });
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      console.log('🎬 Animation applied:', animationType);
+      console.log('🎬 Animation applied:', animationConfig);
     } catch (error) {
       console.error('Animation error:', error);
       Alert.alert('Error', 'Could not apply animation');
@@ -1177,8 +1177,8 @@ const CanvasEditorScreen = () => {
         onSelectAnimation={handleSelectAnimation}
         currentAnimation={
           animatingLayerId
-            ? canvas?.layers.find(l => l.id === animatingLayerId)?.animation?.type || 'none'
-            : 'none'
+            ? canvas?.layers.find(l => l.id === animatingLayerId)?.animation
+            : undefined
         }
       />
 

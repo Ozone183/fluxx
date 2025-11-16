@@ -18,7 +18,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import { useNavigation, useIsFocused, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useIsFocused, useFocusEffect, useNavigationState } from '@react-navigation/native';
 
 import { COLORS, GRADIENTS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';

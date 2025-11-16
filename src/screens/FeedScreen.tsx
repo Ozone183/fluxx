@@ -166,7 +166,6 @@ useEffect(() => {
               fromUsername: userChannel || '@unknown',
               fromProfilePic: null,
               relatedCanvasId: postId,
-              relatedCanvasTitle: 'your post',
             });
           }
         } catch (notifError) {

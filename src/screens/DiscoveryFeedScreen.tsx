@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
+  ScrollView,  // ADD THIS
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { collection, query, orderBy, limit, where, onSnapshot, startAfter, getDocs } from 'firebase/firestore';
@@ -38,16 +39,19 @@ interface Canvas {
 
 type FilterType = 'trending' | 'popular' | 'new' | 'expiring';
 
+const ITEMS_PER_PAGE = 20;
+
 const DiscoveryFeedScreen = () => {
   const navigation = useNavigation();
   const { userId } = useAuth();
-  
+
   const [canvases, setCanvases] = useState<Canvas[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>('trending');
   const [lastDoc, setLastDoc] = useState<any>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   const FILTERS = [
     { key: 'trending' as FilterType, label: '🔥 Trending', icon: 'flame' },
@@ -72,47 +76,56 @@ const DiscoveryFeedScreen = () => {
 
     switch (activeFilter) {
       case 'trending':
+        const last24Hours = Date.now() - (24 * 60 * 60 * 1000);
         q = query(
           canvasesRef,
-          ...baseConstraints,
-          orderBy('likeCount', 'desc'),
-          orderBy('createdAt', 'desc'), // Secondary sort for ties
-          limit(20)
-        );
-        break;
-      case 'popular':
-        q = query(
-          canvasesRef,
-          ...baseConstraints,
+          where('accessType', '==', 'public'),
+          where('expiresAt', '>', Date.now()),
+          where('createdAt', '>', last24Hours),
+          where('viewCount', '>=', 10), // Change from > 0 to >= 10
           orderBy('viewCount', 'desc'),
           orderBy('createdAt', 'desc'),
           limit(20)
         );
         break;
-      case 'new':
+
+      case 'popular':
         q = query(
           canvasesRef,
-          ...baseConstraints,
+          where('accessType', '==', 'public'),
+          where('expiresAt', '>', Date.now()),
+          where('viewCount', '>=', 20), // Must have significant views
+          orderBy('viewCount', 'desc'),
+          orderBy('likeCount', 'desc'), // Secondary sort by likes
+          limit(20)
+        );
+        break;
+
+      case 'new':
+        // New: Created in last 3 hours
+        const last3Hours = Date.now() - (3 * 60 * 60 * 1000);
+        q = query(
+          canvasesRef,
+          where('accessType', '==', 'public'),
+          where('expiresAt', '>', Date.now()),
+          where('createdAt', '>', last3Hours),
           orderBy('createdAt', 'desc'),
           limit(20)
         );
         break;
+
       case 'expiring':
+        // Expiring: Less than 2 hours left
+        const twoHoursFromNow = Date.now() + (2 * 60 * 60 * 1000);
         q = query(
           canvasesRef,
-          ...baseConstraints,
+          where('accessType', '==', 'public'),
+          where('expiresAt', '>', Date.now()),
+          where('expiresAt', '<', twoHoursFromNow),
           orderBy('expiresAt', 'asc'),
           limit(20)
         );
         break;
-      default:
-        q = query(
-          canvasesRef,
-          ...baseConstraints,
-          orderBy('likeCount', 'desc'),
-          orderBy('createdAt', 'desc'),
-          limit(20)
-        );
     }
 
     // Add pagination if not initial load
@@ -138,7 +151,7 @@ const DiscoveryFeedScreen = () => {
 
       const newCanvases = snapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data(),
+        ...(doc.data() as Omit<Canvas, 'id'>),
       })) as Canvas[];
 
       if (isInitial) {
@@ -150,6 +163,13 @@ const DiscoveryFeedScreen = () => {
       // Set last document for pagination
       if (snapshot.docs.length > 0) {
         setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+      } else {
+        setLastDoc(null); // No more docs to load
+      }
+
+      // Check if we've reached the end
+      if (snapshot.docs.length < ITEMS_PER_PAGE) {
+        setHasMore(false); // No more canvases to load
       }
 
     } catch (error) {
@@ -167,7 +187,7 @@ const DiscoveryFeedScreen = () => {
   };
 
   const loadMore = () => {
-    if (!loadingMore && lastDoc) {
+    if (!loadingMore && lastDoc && hasMore) {
       loadCanvases(false);
     }
   };
@@ -176,7 +196,7 @@ const DiscoveryFeedScreen = () => {
     const remaining = expiresAt - Date.now();
     const hours = Math.floor(remaining / (1000 * 60 * 60));
     const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-    
+
     if (hours < 1) {
       return `${minutes}m`;
     }
@@ -184,7 +204,7 @@ const DiscoveryFeedScreen = () => {
   };
 
   const navigateToCanvas = (canvasId: string) => {
-    navigation.navigate('CanvasEditor' as never, { canvasId } as never);
+    (navigation as any).navigate('CanvasEditor', { canvasId });
   };
 
   const renderCanvasCard = ({ item }: { item: Canvas }) => (
@@ -203,7 +223,7 @@ const DiscoveryFeedScreen = () => {
             <Text style={styles.layerCount}>{item.layers?.length || 0} layers</Text>
           </View>
         )}
-        
+
         {/* Time remaining overlay */}
         <View style={styles.timeOverlay}>
           <Ionicons name="time-outline" size={12} color={COLORS.white} />
@@ -216,10 +236,17 @@ const DiscoveryFeedScreen = () => {
         <Text style={styles.canvasTitle} numberOfLines={1}>
           {item.title}
         </Text>
-        
+
         <Text style={styles.creatorText} numberOfLines={1}>
           by @{item.creatorUsername}
         </Text>
+
+        {/* Canvas Info */}
+        <View style={styles.canvasInfo}>
+          <Text style={styles.layersText}>
+            {item.layers?.length || 0} layers • {Object.keys(item.collaborators || {}).length} creators
+          </Text>
+        </View>
 
         {/* Stats Row */}
         <View style={styles.statsRow}>
@@ -227,7 +254,7 @@ const DiscoveryFeedScreen = () => {
             <Ionicons name="heart" size={12} color={COLORS.red400} />
             <Text style={styles.statText}>{item.likeCount || 0}</Text>
           </View>
-          
+
           <View style={styles.stat}>
             <Ionicons name="eye" size={12} color={COLORS.cyan400} />
             <Text style={styles.statText}>{item.viewCount || 0}</Text>
@@ -243,18 +270,23 @@ const DiscoveryFeedScreen = () => {
       <Text style={styles.headerSubtitle}>
         Explore collaborative art from the Fluxx community
       </Text>
-      
+
       {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
-        {FILTERS.map((filter) => (
-          <TouchableOpacity
-            key={filter.key}
-            style={[
-              styles.filterTab,
-              activeFilter === filter.key && styles.activeFilterTab,
-            ]}
-            onPress={() => setActiveFilter(filter.key)}
-          >
+<ScrollView 
+  horizontal 
+  showsHorizontalScrollIndicator={false}
+  style={styles.filterContainer}
+  contentContainerStyle={styles.filterContentContainer}
+>
+  {FILTERS.map((filter) => (
+    <TouchableOpacity
+      key={filter.key}
+      style={[
+        styles.filterTab,
+        activeFilter === filter.key && styles.activeFilterTab,
+      ]}
+      onPress={() => setActiveFilter(filter.key)}
+    >
             <Ionicons
               name={filter.icon as any}
               size={16}
@@ -270,7 +302,7 @@ const DiscoveryFeedScreen = () => {
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 
@@ -293,6 +325,39 @@ const DiscoveryFeedScreen = () => {
     );
   }
 
+  const renderEmptyState = () => {
+    if (loading) return null;
+
+    let message = '';
+    let icon = '';
+
+    switch (activeFilter) {
+      case 'trending':
+        message = 'No trending canvases right now.\nBe the first to create something viral!';
+        icon = 'flame-outline';
+        break;
+      case 'popular':
+        message = 'No popular canvases yet.\nCreate amazing art to get featured here!';
+        icon = 'eye-outline';
+        break;
+      case 'new':
+        message = 'No new canvases in the last 3 hours.\nStart creating fresh content!';
+        icon = 'sparkles-outline';
+        break;
+      case 'expiring':
+        message = 'No canvases expiring soon.\nEverything is still fresh!';
+        icon = 'time-outline';
+        break;
+    }
+
+    return (
+      <View style={styles.emptyState}>
+        <Ionicons name={icon as any} size={64} color={COLORS.slate600} />
+        <Text style={styles.emptyMessage}>{message}</Text>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <FlatList
@@ -301,6 +366,7 @@ const DiscoveryFeedScreen = () => {
         keyExtractor={(item) => item.id}
         numColumns={2}
         ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmptyState}  // ADD THIS LINE
         ListFooterComponent={renderFooter}
         onEndReached={loadMore}
         onEndReachedThreshold={0.1}
@@ -458,6 +524,31 @@ const styles = StyleSheet.create({
   loadingMore: {
     padding: 20,
     alignItems: 'center',
+  },
+  canvasInfo: {
+    marginBottom: 6,
+  },
+  layersText: {
+    fontSize: 11,
+    color: COLORS.slate500,
+    fontWeight: '500',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 80,
+    paddingHorizontal: 40,
+  },
+  emptyMessage: {
+    fontSize: 16,
+    color: COLORS.slate400,
+    textAlign: 'center',
+    marginTop: 16,
+    lineHeight: 24,
+  },
+  filterContentContainer: {
+    paddingRight: 20, // Extra padding at the end
   },
 });
 

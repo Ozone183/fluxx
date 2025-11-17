@@ -12,12 +12,13 @@ import {
   Switch,
   ScrollView,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { collection, addDoc, doc, updateDoc, increment } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { BackHandler } from 'react-native';
 
 import { COLORS, GRADIENTS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
@@ -27,6 +28,19 @@ import { CANVAS_TEMPLATES } from '../data/canvasTemplates';
 const CreateCanvasScreen = () => {
   const navigation = useNavigation();
   const { userId, userChannel } = useAuth();
+
+  // Intercept hardware back button
+useFocusEffect(
+  React.useCallback(() => {
+    const onBackPress = () => {
+      (navigation as any).navigate('MainTabs', { screen: 'Feed' });
+      return true; // Prevent default back behavior
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [navigation])
+);
 
   const [title, setTitle] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
@@ -132,7 +146,7 @@ const CreateCanvasScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+      <TouchableOpacity onPress={() => (navigation as any).navigate('MainTabs', { screen: 'Feed' })} style={styles.backButton}>
           <Icon name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Canvas</Text>
@@ -399,6 +413,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 20,
+    paddingBottom: 80,  // ADD THIS LINE
     borderTopWidth: 1,
     borderTopColor: COLORS.slate800,
   },
@@ -426,6 +441,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginTop: 8,
+    marginBottom: 120,  // ADD THIS LINE
   },
   featuresTitle: {
     fontSize: 14,

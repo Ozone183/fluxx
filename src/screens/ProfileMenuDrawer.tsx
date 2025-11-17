@@ -176,7 +176,7 @@ const ProfileMenuDrawer = () => {
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
-                {userChannel ? userChannel.charAt(1).toUpperCase() : 'U'}
+                {userChannel ? userChannel.charAt(0).toUpperCase() : 'U'}
               </Text>
             </View>
           </View>
@@ -239,7 +239,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 50,        // ADD THIS - pushes entire header down
+    paddingBottom: 16,     // Change paddingVertical to separate values
     borderBottomWidth: 1,
     borderBottomColor: COLORS.slate800,
   },

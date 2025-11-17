@@ -24,13 +24,27 @@ import axios from 'axios';
 
 import { COLORS, GRADIENTS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { BackHandler } from 'react-native';
 
 const GEMINI_API_KEY = 'AIzaSyCg_HIe7ajHyWtCXMhx9YwOVHWX_qHBjBQ';
 
 const CreatePostScreen = () => {
   const navigation = useNavigation();
   const { userId, userChannel } = useAuth();
+
+  // Intercept hardware back button
+useFocusEffect(
+  React.useCallback(() => {
+    const onBackPress = () => {
+      (navigation as any).navigate('MainTabs', { screen: 'Feed' });
+      return true; // Prevent default back behavior
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [navigation])
+);
 
   const [content, setContent] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -50,7 +64,7 @@ const CreatePostScreen = () => {
       allowsEditing: false, // Removed forced crop
       quality: 0.7,
     });
-  
+
     if (!result.canceled && result.assets[0].uri) {
       setImageUri(result.assets[0].uri);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -67,16 +81,16 @@ const CreatePostScreen = () => {
       Alert.alert('No Image', 'Add an image first!');
       return;
     }
-  
+
     setIsGeneratingCaption(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  
+
     try {
       // Convert image to base64
       const response = await fetch(imageUri);
       const blob = await response.blob();
       const reader = new FileReader();
-      
+
       const base64Promise = new Promise<string>((resolve, reject) => {
         reader.onloadend = () => {
           const base64 = (reader.result as string).split(',')[1];
@@ -85,11 +99,11 @@ const CreatePostScreen = () => {
         reader.onerror = reject;
         reader.readAsDataURL(blob);
       });
-  
+
       const base64Image = await base64Promise;
-  
+
       const systemPrompt = 'You are a creative social media caption writer. Analyze the image and generate 3 diverse, engaging caption options that match the actual content. Make them varied: one witty, one inspirational, one casual. Keep each short (max 2 sentences). Use relevant emojis. Format EXACTLY as:\n\n1) [caption text here]\n2) [caption text here]\n3) [caption text here]';
-  
+
       const payload = {
         contents: [{
           parts: [
@@ -104,20 +118,20 @@ const CreatePostScreen = () => {
         }],
         systemInstruction: { parts: [{ text: systemPrompt }] },
       };
-  
+
       const apiResponse = await axios.post(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
         payload,
       );
-  
+
       const rawCaptions = apiResponse.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  
+
       // Parse captions into array
       const captionsArray = rawCaptions
         .split('\n')
         .filter((line: string) => line.match(/^\d+\)/))
         .map((line: string) => line.replace(/^\d+\)\s*/, '').trim());
-  
+
       if (captionsArray.length > 0) {
         setCaptionOptions(captionsArray);
         setShowCaptionOptions(true);
@@ -258,6 +272,16 @@ const CreatePostScreen = () => {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Header with Back Button */}
+          <View style={styles.headerWithBack}>
+          <TouchableOpacity 
+  onPress={() => (navigation as any).navigate('MainTabs', { screen: 'Feed' })} 
+  style={styles.backButton}
+>
+              <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+            </TouchableOpacity>
+          </View>
+
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Create Flux</Text>
@@ -441,6 +465,14 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 60,
     paddingBottom: 120, // Extra padding for keyboard
+  },
+  headerWithBack: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  backButton: {
+    padding: 8,
+    alignSelf: 'flex-start',
   },
   header: {
     marginBottom: 24,

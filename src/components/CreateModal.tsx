@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
 import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -29,6 +30,7 @@ const CreateModal: React.FC<CreateModalProps> = ({
   onCreatePost,
   onCreateCanvas,
 }) => {
+  const navigation = useNavigation();
 
   const handleCreatePost = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -45,6 +47,7 @@ const CreateModal: React.FC<CreateModalProps> = ({
   const handleClose = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onClose();
+    (navigation as any).navigate('MainTabs', { screen: 'Feed' });
   };
 
   return (
@@ -56,7 +59,7 @@ const CreateModal: React.FC<CreateModalProps> = ({
     >
       <TouchableWithoutFeedback onPress={handleClose}>
         <View style={styles.overlay}>
-          <TouchableWithoutFeedback onPress={() => {}}>
+          <TouchableWithoutFeedback onPress={() => { }}>
             <View style={styles.modalContainer}>
               {/* Header */}
               <View style={styles.header}>
@@ -78,14 +81,14 @@ const CreateModal: React.FC<CreateModalProps> = ({
                   <View style={[styles.iconContainer, { backgroundColor: COLORS.purple500 }]}>
                     <Ionicons name="image-outline" size={28} color={COLORS.white} />
                   </View>
-                  
+
                   <View style={styles.optionContent}>
                     <Text style={styles.optionTitle}>Create Post</Text>
                     <Text style={styles.optionDescription}>
                       Share photos, thoughts, or moments with your followers
                     </Text>
                   </View>
-                  
+
                   <View style={styles.arrowContainer}>
                     <Ionicons name="chevron-forward" size={20} color={COLORS.slate400} />
                   </View>
@@ -100,14 +103,14 @@ const CreateModal: React.FC<CreateModalProps> = ({
                   <View style={[styles.iconContainer, { backgroundColor: COLORS.cyan500 }]}>
                     <Ionicons name="color-palette-outline" size={28} color={COLORS.white} />
                   </View>
-                  
+
                   <View style={styles.optionContent}>
                     <Text style={styles.optionTitle}>Create Canvas</Text>
                     <Text style={styles.optionDescription}>
                       Start a collaborative art project that others can join
                     </Text>
                   </View>
-                  
+
                   <View style={styles.arrowContainer}>
                     <Ionicons name="chevron-forward" size={20} color={COLORS.slate400} />
                   </View>
@@ -117,21 +120,21 @@ const CreateModal: React.FC<CreateModalProps> = ({
               {/* Feature Highlights */}
               <View style={styles.featuresContainer}>
                 <Text style={styles.featuresTitle}>Why create on Fluxx?</Text>
-                
+
                 <View style={styles.feature}>
                   <Ionicons name="people-outline" size={16} color={COLORS.cyan400} />
                   <Text style={styles.featureText}>
                     Collaborate with creators worldwide
                   </Text>
                 </View>
-                
+
                 <View style={styles.feature}>
                   <Ionicons name="sparkles-outline" size={16} color={COLORS.amber400} />
                   <Text style={styles.featureText}>
                     Express creativity through ephemeral art
                   </Text>
                 </View>
-                
+
                 <View style={styles.feature}>
                   <Ionicons name="share-outline" size={16} color={COLORS.green600} />
                   <Text style={styles.featureText}>
@@ -156,7 +159,7 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',  // Change from 'flex-end' to 'center'
   },
   modalContainer: {
     backgroundColor: COLORS.slate900,

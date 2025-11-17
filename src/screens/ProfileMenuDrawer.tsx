@@ -15,10 +15,11 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
+import { CommonActions } from '@react-navigation/native';
 
 const ProfileMenuDrawer = () => {
   const navigation = useNavigation();
-  const { userId, userChannel, logout } = useAuth();
+  const { userId, userChannel, signOut } = useAuth();
 
   const menuItems = [
     {
@@ -114,11 +115,13 @@ const ProfileMenuDrawer = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await logout();
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Auth' as never }],
-              });
+              await signOut();
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [{ name: 'Auth' }],
+                })
+              );
             } catch (error) {
               console.error('Logout error:', error);
               Alert.alert('Error', 'Failed to sign out. Please try again.');
@@ -180,7 +183,7 @@ const ProfileMenuDrawer = () => {
               </Text>
             </View>
           </View>
-          
+
           <View style={styles.userInfo}>
             <Text style={styles.username}>
               {userChannel || '@user'}

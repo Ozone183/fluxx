@@ -234,15 +234,45 @@ const CanvasEditorScreen = () => {
     return () => clearInterval(interval);
   }, [canvasId, userId, selectedLayerId]);
 
+  const updateCollaboratorIfNeeded = async () => {
+    if (!canvas || !userId || !userChannel) return;
+
+    // Check if user is already in collaborators object
+    const userInCollaborators = canvas.collaborators && canvas.collaborators[userId];
+
+    // If NOT in collaborators → add them
+    if (!userInCollaborators) {
+      try {
+        const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', canvasId);
+
+        await updateDoc(canvasRef, {
+          [`collaborators.${userId}`]: {
+            userId: userId,
+            username: userChannel,
+            profilePicUrl: null,
+            joinedAt: Date.now(),
+            isActive: true,
+            lastSeen: Date.now(),
+          }
+        });
+
+        console.log('✅ Added user to collaborators:', userChannel);
+      } catch (error) {
+        console.error('❌ Failed to update collaborators:', error);
+      }
+    }
+  };
+
   const addImageLayer = async () => {
     try {
       // ← ADD THIS CHECK HERE
-      if (canvas && canvas.layers.length >= canvas.maxCollaborators) {
-        Alert.alert(
-          'Canvas Full',
-          `This canvas can only hold ${canvas.maxCollaborators} layers. Delete a layer to add new content.`,
-          [{ text: 'OK' }]
-        );
+      const currentPageLayers = canvas.layers.filter(l => (l.pageIndex ?? 0) === currentPage);
+      if (canvas && currentPageLayers.length >= canvas.maxCollaborators) {
+        const message = canvas.totalPages > 1
+          ? `This page can only hold ${canvas.maxCollaborators} layers. Switch to another page or delete a layer to add new content.`
+          : `This canvas can only hold ${canvas.maxCollaborators} layers. Delete a layer to add new content.`;
+
+        Alert.alert('Page Full', message, [{ text: 'OK' }]);
         return;
       }
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -296,6 +326,8 @@ const CanvasEditorScreen = () => {
           layers: arrayUnion(newLayer),
         });
 
+        await updateCollaboratorIfNeeded();
+
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (error) {
@@ -314,12 +346,13 @@ const CanvasEditorScreen = () => {
 
     try {
       // Check layer limit
-      if (canvas && canvas.layers.length >= canvas.maxCollaborators) {
-        Alert.alert(
-          'Canvas Full',
-          `This canvas can only hold ${canvas.maxCollaborators} layers. Delete a layer to add new content.`,
-          [{ text: 'OK' }]
-        );
+      const currentPageLayers = canvas.layers.filter(l => (l.pageIndex ?? 0) === currentPage);
+      if (canvas && currentPageLayers.length >= canvas.maxCollaborators) {
+        const message = canvas.totalPages > 1
+          ? `This page can only hold ${canvas.maxCollaborators} layers. Switch to another page or delete a layer to add new content.`
+          : `This canvas can only hold ${canvas.maxCollaborators} layers. Delete a layer to add new content.`;
+
+        Alert.alert('Page Full', message, [{ text: 'OK' }]);
         return;
       }
 
@@ -365,6 +398,8 @@ const CanvasEditorScreen = () => {
           layers: [...currentLayers, newLayer]
         });
       }
+
+      await updateCollaboratorIfNeeded();
 
       setTextInput('');
       setShowTextModal(false);

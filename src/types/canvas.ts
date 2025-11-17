@@ -89,6 +89,24 @@ export interface Canvas {
 
   selectedMusicId?: string;
   showAllCaptions?: boolean;
+
+  commentCount?: number;
+  reactions?: {
+    heart: string[];
+    fire: string[];
+    laugh: string[];
+    clap: string[];
+    heart_eyes: string[];
+    sparkles: string[];
+  };
+  reactionCounts?: {
+    heart: number;
+    fire: number;
+    laugh: number;
+    clap: number;
+    heart_eyes: number;
+    sparkles: number;
+  };
 }
 
 export interface ActivePresence {
@@ -100,4 +118,50 @@ export interface ActivePresence {
   lastActive: number;
 }
 
+export interface CanvasComment {
+  id: string;
+  canvasId: string;
+  
+  // Content
+  text: string;
+  
+  // Author
+  userId: string;
+  username: string;
+  userProfilePic: string | null;
+  
+  // Threading
+  parentCommentId: string | null;
+  replyCount: number;
+  
+  // Reactions
+  reactions: {
+    heart: string[];
+    fire: string[];
+    laugh: string[];
+    clap: string[];
+    heart_eyes: string[];
+    sparkles: string[];
+  };
+  reactionCounts: {
+    heart: number;
+    fire: number;
+    laugh: number;
+    clap: number;
+    heart_eyes: number;
+    sparkles: number;
+  };
+  
+  // Metadata
+  createdAt: number;
+  updatedAt: number | null;
+  isEdited: boolean;
+  isDeleted: boolean;
+  
+  // Moderation
+  isReported: boolean;
+  reportCount: number;
+}
+
+export type ReactionType = 'heart' | 'fire' | 'laugh' | 'clap' | 'heart_eyes' | 'sparkles';
 

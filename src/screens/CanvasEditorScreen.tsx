@@ -44,6 +44,7 @@ import AnimationSelectorModal from '../components/AnimationSelectorModal';
 import VideoExportButton from '../components/VideoExportButton';
 import PrivateCanvasMembersModal from '../components/PrivateCanvasMembersModal';
 import ShareModal from '../components/ShareModal';
+import CommentsBottomSheet from '../components/CommentsBottomSheet';
 
 // Base canvas dimensions (reference size - iPhone 14 standard)
 const BASE_CANVAS_WIDTH = 350;
@@ -140,6 +141,7 @@ const CanvasEditorScreen = () => {
   const [animatingLayerId, setAnimatingLayerId] = useState<string | null>(null);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showCommentsSheet, setShowCommentsSheet] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -1034,7 +1036,7 @@ const CanvasEditorScreen = () => {
           <View style={styles.analyticsItem}>
             <Icon name="people-outline" size={16} color={COLORS.purple400} />
             <Text style={styles.analyticsText}>
-              {getTopContributors(canvas).length} contributors
+              {Object.keys(canvas.collaborators || {}).length} contributors
             </Text>
           </View>
         </TouchableOpacity>
@@ -1126,6 +1128,22 @@ const CanvasEditorScreen = () => {
         activeOpacity={0.8}
       >
         <Icon name="add" size={32} color={COLORS.white} />
+      </TouchableOpacity>
+
+      {/* Floating Comments Button */}
+      <TouchableOpacity
+        style={styles.commentsFloatingButton}
+        onPress={() => setShowCommentsSheet(true)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="chatbubble" size={24} color={COLORS.white} />
+        {canvas?.commentCount && canvas.commentCount > 0 && (
+          <View style={styles.commentsBadge}>
+            <Text style={styles.commentsBadgeText}>
+              {canvas.commentCount > 99 ? '99+' : canvas.commentCount}
+            </Text>
+          </View>
+        )}
       </TouchableOpacity>
 
       <Modal visible={showAddMenu} transparent animationType="slide">
@@ -1244,6 +1262,26 @@ const CanvasEditorScreen = () => {
         inviteCode={canvas.inviteCode}
         isPrivate={canvas.accessType === 'private'}
       />
+
+// ADD THIS RIGHT AFTER ShareModal:
+
+      {/* Comments Bottom Sheet */}
+      <CommentsBottomSheet
+        visible={showCommentsSheet}
+        canvasId={canvasId}
+        canvasTitle={canvas?.title || ''}
+        canvasCreatorId={canvas?.creatorId || ''}
+        canvasReactions={canvas?.reactions || {
+          heart: [],
+          fire: [],
+          laugh: [],
+          clap: [],
+          heart_eyes: [],
+          sparkles: [],
+        }}
+        onClose={() => setShowCommentsSheet(false)}
+      />
+
     </View >
   );
 };
@@ -1690,6 +1728,41 @@ const styles = StyleSheet.create({
   memberCountText: {
     fontSize: 10,
     fontWeight: '700',
+    color: COLORS.white,
+  },
+  commentsFloatingButton: {
+    position: 'absolute',
+    bottom: 180,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.purple400,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  commentsBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: COLORS.red500,
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    borderWidth: 2,
+    borderColor: COLORS.slate900,
+  },
+  commentsBadgeText: {
+    fontSize: 11,
+    fontWeight: 'bold',
     color: COLORS.white,
   },
 });

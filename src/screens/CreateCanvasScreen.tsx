@@ -30,17 +30,17 @@ const CreateCanvasScreen = () => {
   const { userId, userChannel } = useAuth();
 
   // Intercept hardware back button
-useFocusEffect(
-  React.useCallback(() => {
-    const onBackPress = () => {
-      (navigation as any).navigate('MainTabs', { screen: 'Feed' });
-      return true; // Prevent default back behavior
-    };
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        (navigation as any).navigate('MainTabs', { screen: 'Feed' });
+        return true; // Prevent default back behavior
+      };
 
-    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => subscription.remove();
-  }, [navigation])
-);
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [navigation])
+  );
 
   const [title, setTitle] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
@@ -84,7 +84,7 @@ useFocusEffect(
         templateId: selectedTemplate.id, // ✅ ADD THIS LINE
 
         accessType: isPrivate ? 'private' : 'public',
-        ...(isPrivate && { 
+        ...(isPrivate && {
           inviteCode: generateInviteCode(),
           allowedUsers: [userId], // Creator has access by default
           pendingRequests: [],
@@ -113,6 +113,23 @@ useFocusEffect(
         viewCount: 0,
         likeCount: 0,
         likedBy: [],
+        commentCount: 0,
+        reactions: {
+          heart: [],
+          fire: [],
+          laugh: [],
+          clap: [],
+          heart_eyes: [],
+          sparkles: [],
+        },
+        reactionCounts: {
+          heart: 0,
+          fire: 0,
+          laugh: 0,
+          clap: 0,
+          heart_eyes: 0,
+          sparkles: 0,
+        },
       };
 
       const canvasRef = await addDoc(
@@ -146,7 +163,7 @@ useFocusEffect(
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-      <TouchableOpacity onPress={() => (navigation as any).navigate('MainTabs', { screen: 'Feed' })} style={styles.backButton}>
+        <TouchableOpacity onPress={() => (navigation as any).navigate('MainTabs', { screen: 'Feed' })} style={styles.backButton}>
           <Icon name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Canvas</Text>

@@ -164,7 +164,7 @@ const CommentsBottomSheet: React.FC<CommentsBottomSheetProps> = ({
       });
 
       setReplies((prev) => ({ ...prev, [commentId]: repliesData }));
-      
+
       const newExpanded = new Set(expandedComments);
       newExpanded.add(commentId);
       setExpandedComments(newExpanded);
@@ -199,9 +199,9 @@ const CommentsBottomSheet: React.FC<CommentsBottomSheetProps> = ({
                     canvasId={canvasId}
                     canvasCreatorId={canvasCreatorId}
                     currentUserId={userId || ''}
-                    onReply={() => {}} // No nested replies
+                    onReply={() => { }} // No nested replies
                     onDelete={handleDeleteComment}
-                    onViewReplies={() => {}} // No nested replies
+                    onViewReplies={() => { }} // No nested replies
                   />
                 </View>
               </View>
@@ -221,7 +221,8 @@ const CommentsBottomSheet: React.FC<CommentsBottomSheetProps> = ({
     >
       <KeyboardAvoidingView
         style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <TouchableOpacity
           style={styles.backdrop}
@@ -235,7 +236,9 @@ const CommentsBottomSheet: React.FC<CommentsBottomSheetProps> = ({
 
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>💬 Comments ({comments.length})</Text>
+            <Text style={styles.title}>
+              💬 Comments ({comments.length})
+            </Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color={COLORS.white} />
             </TouchableOpacity>
@@ -345,8 +348,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.slate900,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '85%',
-    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    height: '85%',
+    paddingBottom: 0,  // Remove padding, let inputContainer handle it
   },
   dragHandle: {
     width: 40,
@@ -437,6 +440,7 @@ const styles = StyleSheet.create({
   commentsList: {
     paddingHorizontal: 20,
     paddingVertical: 16,
+    paddingBottom: 100,  // 🆕 ADD THIS - gives space above input
   },
   repliesContainer: {
     marginLeft: 20,
@@ -456,6 +460,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.slate800,
     backgroundColor: COLORS.slate900,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 60,  // Increased padding
+    marginBottom: Platform.OS === 'android' ? 20 : 0,  // Add margin for Android
   },
   replyingBanner: {
     flexDirection: 'row',

@@ -4,7 +4,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
 import { APP_ID } from '../context/AuthContext';
 
-export type NotificationType = 'follow' | 'canvas_invite' | 'like' | 'comment' | 'access_request' | 'access_approved' | 'access_denied';
+export type NotificationType = 'follow' | 'canvas_invite' | 'like' | 'comment' | 'reply' | 'comment_react' | 'access_request' | 'access_approved' | 'access_denied';
 
 interface CreateNotificationParams {
     recipientUserId: string;
@@ -14,6 +14,8 @@ interface CreateNotificationParams {
     fromProfilePic?: string | null;
     relatedCanvasId?: string;
     relatedCanvasTitle?: string;
+    relatedCommentId?: string;  // 🆕 ADD THIS
+    commentText?: string;        // 🆕 ADD THIS
 }
 
 export const createNotification = async (params: CreateNotificationParams) => {
@@ -25,6 +27,8 @@ export const createNotification = async (params: CreateNotificationParams) => {
         fromProfilePic,
         relatedCanvasId,
         relatedCanvasTitle,
+        relatedCommentId,     // 🆕 ADD THIS
+        commentText,          // 🆕 ADD THIS
     } = params;
 
     // Don't notify yourself
@@ -61,8 +65,18 @@ export const createNotification = async (params: CreateNotificationParams) => {
             break;
 
         case 'comment':
-            message = `${fromUsername} commented on your post`;
-            actionUrl = `fluxx://post/${relatedCanvasId}`;
+            message = `${fromUsername} commented on your canvas "${relatedCanvasTitle}"`;
+            actionUrl = `fluxx://canvas/${relatedCanvasId}`;
+            break;
+
+        case 'reply':  // 🆕 ADD THIS CASE
+            message = `${fromUsername} replied to your comment: "${commentText}"`;
+            actionUrl = `fluxx://canvas/${relatedCanvasId}`;
+            break;
+
+        case 'comment_react':  // 🆕 ADD THIS CASE
+            message = `${fromUsername} reacted to your comment`;
+            actionUrl = `fluxx://canvas/${relatedCanvasId}`;
             break;
 
         case 'access_request':
@@ -83,8 +97,6 @@ export const createNotification = async (params: CreateNotificationParams) => {
         default:
             message = `${fromUsername} interacted with you`;
             actionUrl = `fluxx://profile/${fromUserId}`;
-
-
     }
 
     try {
@@ -113,7 +125,9 @@ export const createNotification = async (params: CreateNotificationParams) => {
             fromProfilePic: fromProfilePic || null,
             message,
             relatedCanvasId: relatedCanvasId || null,
-            timestamp: serverTimestamp(), // ✅ FIXED: Changed from Date.now()
+            relatedCommentId: relatedCommentId || null,  // 🆕 ADD THIS
+            commentText: commentText || null,             // 🆕 ADD THIS
+            timestamp: serverTimestamp(),
             isRead: false,
             actionUrl,
         });

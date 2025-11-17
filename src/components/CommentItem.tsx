@@ -140,7 +140,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
             onPress={() => setShowReactions(!showReactions)}
             style={styles.actionButton}
           >
-            <Ionicons name="heart" size={16} color={COLORS.red400} />
+            <Ionicons name="happy-outline" size={16} color={COLORS.purple400} />
             <Text style={styles.actionText}>{totalReactions}</Text>
           </TouchableOpacity>
         )}
@@ -176,6 +176,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               heart_eyes: '😍',
               sparkles: '✨',
             }[type];
+            console.log('🔍 Reaction:', type, 'emoji:', emoji, 'count:', count);
 
             return (
               <TouchableOpacity

@@ -70,7 +70,7 @@ export interface Canvas {
   totalPages: number;
 
   // Collaboration
-  collaborators: { [userId: string]: CanvasCollaborator };
+  collaborators?: { [userId: string]: CanvasCollaborator };
   maxCollaborators: number;
 
   // Lifecycle

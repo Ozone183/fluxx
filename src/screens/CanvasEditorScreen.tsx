@@ -45,6 +45,7 @@ import VideoExportButton from '../components/VideoExportButton';
 import PrivateCanvasMembersModal from '../components/PrivateCanvasMembersModal';
 import ShareModal from '../components/ShareModal';
 import CommentsBottomSheet from '../components/CommentsBottomSheet';
+import ExportOptionsModal from '../components/ExportOptionsModal';
 
 // Base canvas dimensions (reference size - iPhone 14 standard)
 const BASE_CANVAS_WIDTH = 350;
@@ -142,6 +143,8 @@ const CanvasEditorScreen = () => {
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showCommentsSheet, setShowCommentsSheet] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportingVideo, setExportingVideo] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -539,7 +542,30 @@ const CanvasEditorScreen = () => {
     }
   }, [canvas]);
 
-  const exportCanvas = async () => {
+  const exportCurrentPage = async () => {
+    const exportAllPagesAsVideo = async () => {
+      try {
+        setExportingVideo(true);
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        Alert.alert(
+          '🎬 Video Export',
+          'Creating video from all pages...\n\nThis may take a few moments.',
+          [{ text: 'OK' }]
+        );
+
+        // TODO: Implement video generation
+        console.log('📹 Starting multi-page video export...');
+
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('✅ Success!', 'Video export complete!');
+      } catch (error) {
+        console.error('Video export error:', error);
+        Alert.alert('Error', 'Could not export video');
+      } finally {
+        setExportingVideo(false);
+      }
+    };
     try {
       setExporting(true);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -626,6 +652,50 @@ const CanvasEditorScreen = () => {
       );
     } finally {
       setExporting(false);
+    }
+  };
+
+  const exportAllPagesAsVideo = async () => {
+    try {
+      setShowExportModal(false);
+      
+      // Show loading
+      Alert.alert('Exporting Video', 'Capturing pages and generating video...');
+      
+      const totalPages = canvas?.totalPages || 1;
+      const pageImages: string[] = [];
+      
+      // Step 1: Capture each page as an image
+      for (let i = 1; i <= totalPages; i++) {
+        setCurrentPage(i); // Switch to page
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for render
+        
+        // Capture the canvas
+        const uri = await viewShotRef.current?.capture?.();
+        if (uri) {
+          pageImages.push(uri);
+        }
+      }
+      
+      // Step 2: Create video from images
+      // For now, we'll save each image individually
+      // TODO: Use a library like ffmpeg to combine into video with transitions
+      
+      if (pageImages.length > 0) {
+        // Save first image as proof of concept
+        const asset = await MediaLibrary.createAssetAsync(pageImages[0]);
+        await MediaLibrary.createAlbumAsync('Fluxx', asset, false);
+        
+        Alert.alert(
+          'Export Started!',
+          `Captured ${pageImages.length} pages! Full video generation coming soon. First page saved to gallery.`,
+          [{ text: 'Awesome!' }]
+        );
+      }
+      
+    } catch (error) {
+      console.error('Error exporting video:', error);
+      Alert.alert('Export Failed', 'Could not export video');
     }
   };
 
@@ -736,9 +806,11 @@ const CanvasEditorScreen = () => {
   // ✅ ADD THIS CHECK HERE
   if (loading || !canvas) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.cyan400} />
-        <Text style={styles.loadingText}>Loading canvas...</Text>
+      <View style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#22D3EE" />
+        <Text style={{ color: '#22D3EE', fontSize: 16, marginTop: 16 }}>
+          Loading canvas...
+        </Text>
       </View>
     );
   }
@@ -849,14 +921,19 @@ const CanvasEditorScreen = () => {
                 canvasRef={viewShotRef}
               />
 
-              {/* Export Button (Image) */}
-              <TouchableOpacity onPress={exportCanvas} disabled={exporting} style={styles.actionButton}>
+              {/* Export Button (with options) */}
+              <TouchableOpacity
+                onPress={() => setShowExportModal(true)}
+                disabled={exporting}
+                style={styles.actionButton}
+              >
                 {exporting ? (
                   <ActivityIndicator size="small" color={COLORS.cyan400} />
                 ) : (
                   <Icon name="download-outline" size={22} color={COLORS.cyan400} />
                 )}
               </TouchableOpacity>
+
 
               {/* 🆕 Story Mode Toggle - CREATOR ONLY */}
               {userId === canvas.creatorId && (
@@ -1282,6 +1359,15 @@ const CanvasEditorScreen = () => {
         onClose={() => setShowCommentsSheet(false)}
       />
 
+      {/* Export Options Modal */}
+      <ExportOptionsModal
+        visible={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        onExportCurrentPage={exportCurrentPage}
+        onExportAllPages={exportAllPagesAsVideo}
+        totalPages={canvas?.totalPages || 1}
+      />
+
     </View >
   );
 };
@@ -1320,12 +1406,12 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: COLORS.slate900,
+    backgroundColor: '#0F172A',
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
-    color: COLORS.cyan400,
+    color: '#00D4FF',  // Direct color instead of COLORS.cyan400
     fontSize: 16,
     marginTop: 16,
     fontWeight: '600',

@@ -244,7 +244,7 @@ const DiscoveryFeedScreen = () => {
         {/* Canvas Info */}
         <View style={styles.canvasInfo}>
           <Text style={styles.layersText}>
-            {item.layers?.length || 0} layers • {Object.keys(item.collaborators || {}).length} creators
+          {item.layers?.length || 0} layers • {Object.keys((item as any).collaborators || {}).length} creators
           </Text>
         </View>
 

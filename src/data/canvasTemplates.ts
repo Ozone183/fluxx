@@ -577,6 +577,234 @@ export const CANVAS_TEMPLATES: CanvasTemplate[] = [
     popularity: 10,
     tags: ['blank', 'custom', 'freestyle'],
   },
+
+  // ========================================
+  // CATEGORY: WEEKEND VIBES 🔥
+  // ========================================
+  {
+    id: 'tgif',
+    title: 'TGIF',
+    description: '🎉 Thank God It\'s Friday energy',
+    icon: 'beer',
+    backgroundColor: '#FF6B35',
+    maxLayers: 12,
+    totalPages: 2,
+    suggestedPrompts: [
+      'Weekend plans',
+      'Friday vibes',
+      'Finally free',
+      'Party mode activated',
+    ],
+    category: 'fun',
+    popularity: 10,
+    tags: ['friday', 'weekend', 'tgif', 'party'],
+  },
+  {
+    id: 'weekend_vibes',
+    title: 'Weekend Vibes',
+    description: '😎 Chill weekend mode',
+    icon: 'sunny',
+    backgroundColor: '#FFD93D',
+    maxLayers: 12,
+    totalPages: 2,
+    suggestedPrompts: [
+      'Weekend adventures',
+      'Lazy day plans',
+      'No alarm clock',
+      'Living my best life',
+    ],
+    category: 'lifestyle',
+    popularity: 10,
+    tags: ['weekend', 'chill', 'vibes', 'relaxing'],
+  },
+  {
+    id: 'saturday_night',
+    title: 'Saturday Night',
+    description: '🌙 Party mode activated',
+    icon: 'moon',
+    backgroundColor: '#6C5CE7',
+    maxLayers: 12,
+    totalPages: 2,
+    suggestedPrompts: [
+      'Night out plans',
+      'Squad goals',
+      'Dance floor moments',
+      'Unforgettable vibes',
+    ],
+    category: 'fun',
+    popularity: 9,
+    tags: ['saturday', 'night', 'party', 'clubbing'],
+  },
+  {
+    id: 'sunday_funday',
+    title: 'Sunday Funday',
+    description: '☀️ Lazy Sunday perfection',
+    icon: 'cafe',
+    backgroundColor: '#74B9FF',
+    maxLayers: 12,
+    totalPages: 2,
+    suggestedPrompts: [
+      'Brunch vibes',
+      'Lazy day activities',
+      'Self-care Sunday',
+      'Recharge mode',
+    ],
+    category: 'lifestyle',
+    popularity: 9,
+    tags: ['sunday', 'brunch', 'relaxing', 'self-care'],
+  },
+
+  // ========================================
+  // CATEGORY: WEEKLY MOTIVATION 💪
+  // ========================================
+  {
+    id: 'monday_motivation',
+    title: 'Monday Motivation',
+    description: '💪 Start the week strong',
+    icon: 'rocket',
+    backgroundColor: '#0984E3',
+    maxLayers: 12,
+    totalPages: 2,
+    suggestedPrompts: [
+      'Weekly goals',
+      'Motivational quotes',
+      'Let\'s get it',
+      'New week, new energy',
+    ],
+    category: 'productivity',
+    popularity: 10,
+    tags: ['monday', 'motivation', 'goals', 'hustle'],
+  },
+  {
+    id: 'hump_day',
+    title: 'Hump Day Wednesday',
+    description: '🐫 Midweek power push',
+    icon: 'trending-up',
+    backgroundColor: '#FDCB6E',
+    maxLayers: 12,
+    totalPages: 2,
+    suggestedPrompts: [
+      'Almost there',
+      'Midweek motivation',
+      'Keep pushing',
+      'Halfway victory',
+    ],
+    category: 'productivity',
+    popularity: 8,
+    tags: ['wednesday', 'midweek', 'humpday', 'motivation'],
+  },
+  {
+    id: 'fresh_start',
+    title: 'Fresh Start Friday',
+    description: '✨ End week on high note',
+    icon: 'sparkles',
+    backgroundColor: '#00B894',
+    maxLayers: 12,
+    totalPages: 2,
+    suggestedPrompts: [
+      'Week wins',
+      'Celebrate progress',
+      'Weekend incoming',
+      'Crushing goals',
+    ],
+    category: 'productivity',
+    popularity: 8,
+    tags: ['friday', 'wins', 'progress', 'success'],
+  },
+
+  // ========================================
+  // CATEGORY: TRIVIALS & GAMES 🎮
+  // ========================================
+  {
+    id: 'truth_or_dare',
+    title: 'Truth or Dare',
+    description: '😈 Classic party game',
+    icon: 'skull',
+    backgroundColor: '#E74C3C',
+    maxLayers: 12,
+    totalPages: 2,
+    suggestedPrompts: [
+      'Add dares',
+      'Truth questions',
+      'Spicy challenges',
+      'Tag your victims',
+    ],
+    category: 'fun',
+    popularity: 10,
+    tags: ['truth', 'dare', 'game', 'party', 'challenge'],
+  },
+  {
+    id: 'would_you_rather',
+    title: 'Would You Rather',
+    description: '🤷 Impossible choices',
+    icon: 'help-circle',
+    backgroundColor: '#9B59B6',
+    maxLayers: 12,
+    totalPages: 2,
+    suggestedPrompts: [
+      'Add wild scenarios',
+      'Debate with friends',
+      'Tough decisions',
+      'Vote and discuss',
+    ],
+    category: 'fun',
+    popularity: 9,
+    tags: ['would you rather', 'game', 'choices', 'debate'],
+  },
+  {
+    id: 'hot_takes',
+    title: 'Hot Takes',
+    description: '🔥 Controversial opinions',
+    icon: 'flame',
+    backgroundColor: '#E17055',
+    maxLayers: 12,
+    totalPages: 2,
+    suggestedPrompts: [
+      'Share hot takes',
+      'Unpopular opinions',
+      'Debate time',
+      'Change my mind',
+    ],
+    category: 'fun',
+    popularity: 9,
+    tags: ['hot takes', 'opinions', 'debate', 'controversial'],
+  },
+  {
+    id: 'never_have_i_ever',
+    title: 'Never Have I Ever',
+    description: '🙈 Confession game',
+    icon: 'eye-off',
+    backgroundColor: '#FD79A8',
+    maxLayers: 12,
+    totalPages: 2,
+    suggestedPrompts: [
+      'Add confessions',
+      'Share experiences',
+      'Truth time',
+      'Tag who has',
+    ],
+    category: 'fun',
+    popularity: 9,
+    tags: ['never have i ever', 'game', 'confessions', 'party'],
+  },
+  {
+    id: 'this_or_that_weekend',
+    title: 'Weekend This or That',
+    description: '⚡ Saturday vs Sunday edition',
+    icon: 'swap-horizontal',
+    backgroundColor: '#A29BFE',
+    maxLayers: 12,
+    totalPages: 2,
+    suggestedPrompts: [
+      'Party or chill?',
+      'Brunch or dinner?',
+      'Stay in or go out?',
+      'Friends vote',
+    ],
+    category: 'fun',
+    popularity: 8,
+    tags: ['this or that', 'weekend', 'choices', 'game'],
+  },
 ];
 
 // ========================================
@@ -602,7 +830,7 @@ export const getTrendingTemplates = (): CanvasTemplate[] => {
 
 export const searchTemplates = (query: string): CanvasTemplate[] => {
   const lowerQuery = query.toLowerCase();
-  return CANVAS_TEMPLATES.filter(template => 
+  return CANVAS_TEMPLATES.filter(template =>
     template.title.toLowerCase().includes(lowerQuery) ||
     template.description.toLowerCase().includes(lowerQuery) ||
     template.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))

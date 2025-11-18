@@ -33,6 +33,8 @@ import { MusicTrack } from '../data/musicTracks';
 import MusicPlayerBar from '../components/MusicPlayerBar';
 import { MUSIC_LIBRARY } from '../data/musicTracks';
 import { useFocusEffect } from '@react-navigation/native';
+import { Animated } from 'react-native'; // Add Animated if not already imported
+import { useCanvasEntrance } from '../hooks/useCanvasEntrance';
 
 import { COLORS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
@@ -145,6 +147,7 @@ const CanvasEditorScreen = () => {
   const [showCommentsSheet, setShowCommentsSheet] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportingVideo, setExportingVideo] = useState(false);
+  const { animatedStyle, animationType } = useCanvasEntrance();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -658,44 +661,56 @@ const CanvasEditorScreen = () => {
   const exportAllPagesAsVideo = async () => {
     try {
       setShowExportModal(false);
-      
-      // Show loading
-      Alert.alert('Exporting Video', 'Capturing pages and generating video...');
-      
+
       const totalPages = canvas?.totalPages || 1;
-      const pageImages: string[] = [];
-      
-      // Step 1: Capture each page as an image
+
+      if (totalPages === 1) {
+        await exportCurrentPage();
+        return;
+      }
+
+      Alert.alert('Exporting Pages', `Capturing all ${totalPages} pages...`);
+
+      const originalPage = currentPage;
+      let savedCount = 0;
+
       for (let i = 1; i <= totalPages; i++) {
-        setCurrentPage(i); // Switch to page
-        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for render
-        
-        // Capture the canvas
-        const uri = await viewShotRef.current?.capture?.();
-        if (uri) {
-          pageImages.push(uri);
+        try {
+          // Switch to the page
+          setCurrentPage(i);
+
+          // Wait 2 seconds for ALL pages to render properly
+          await new Promise(resolve => setTimeout(resolve, 2000));
+
+          // Capture the page
+          const uri = await viewShotRef.current?.capture?.();
+
+          if (uri) {
+            const asset = await MediaLibrary.createAssetAsync(uri);
+            await MediaLibrary.createAlbumAsync('Fluxx', asset, false);
+            savedCount++;
+          }
+
+        } catch (error) {
+          console.error(`Error on page ${i}:`, error);
         }
       }
-      
-      // Step 2: Create video from images
-      // For now, we'll save each image individually
-      // TODO: Use a library like ffmpeg to combine into video with transitions
-      
-      if (pageImages.length > 0) {
-        // Save first image as proof of concept
-        const asset = await MediaLibrary.createAssetAsync(pageImages[0]);
-        await MediaLibrary.createAlbumAsync('Fluxx', asset, false);
-        
+
+      setCurrentPage(originalPage);
+
+      if (savedCount > 0) {
         Alert.alert(
-          'Export Started!',
-          `Captured ${pageImages.length} pages! Full video generation coming soon. First page saved to gallery.`,
+          'Export Complete! 🎉',
+          `Successfully saved ${savedCount} of ${totalPages} pages to your gallery.`,
           [{ text: 'Awesome!' }]
         );
+      } else {
+        Alert.alert('Export Failed', 'Could not save any pages.');
       }
-      
+
     } catch (error) {
-      console.error('Error exporting video:', error);
-      Alert.alert('Export Failed', 'Could not export video');
+      console.error('Export error:', error);
+      Alert.alert('Export Failed', 'Something went wrong.');
     }
   };
 
@@ -1161,11 +1176,13 @@ const CanvasEditorScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }}>
-          <View style={[styles.canvas, {
+          {/* CHANGE THIS VIEW TO Animated.View */}
+          <Animated.View style={[styles.canvas, {
             width: ACTUAL_CANVAS_WIDTH,
             height: ACTUAL_CANVAS_HEIGHT,
             backgroundColor: canvas.backgroundColor
-          }]}>
+          }, animatedStyle]}> {/* ADD animatedStyle here */}
+
             {canvas.layers
               .filter(layer => (layer.pageIndex ?? 0) === currentPage)
               .sort((a, b) => a.zIndex - b.zIndex)
@@ -1181,8 +1198,8 @@ const CanvasEditorScreen = () => {
                     setShowAnimationSelector(true);
                   }}
                   canvasId={canvasId}
-                  scaleFactor={SCALE_FACTOR} // 🆕 ADD THIS
-                  showAllCaptions={canvas?.showAllCaptions || false} // 🆕 ADD THIS
+                  scaleFactor={SCALE_FACTOR}
+                  showAllCaptions={canvas?.showAllCaptions || false}
                 />
               ))}
 
@@ -1195,7 +1212,8 @@ const CanvasEditorScreen = () => {
                 </View>
               </View>
             </View>
-          </View>
+
+          </Animated.View> {/* CLOSE Animated.View */}
         </ViewShot>
       </ScrollView>
 

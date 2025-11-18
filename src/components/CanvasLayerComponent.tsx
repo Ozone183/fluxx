@@ -416,10 +416,10 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
       {/* Attribution Badge - only show when selected */}
       {isSelected && (
         <TouchableOpacity style={styles.attributionBadge} onPress={() => setShowProfile(true)}>
-          <Text style={styles.attributionText}>
-            {layer.createdByUsername} • {getTimeAgo(layer.createdAt)}
-          </Text>
-        </TouchableOpacity>
+        <Text style={styles.attributionText}>
+          {`${layer.createdByUsername || 'Unknown'} • ${getTimeAgo(layer.createdAt)}`}
+        </Text>
+      </TouchableOpacity>
       )}
 
       {/* Delete Button (only if selected and user created it) */}

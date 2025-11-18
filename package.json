@@ -28,7 +28,6 @@
     "expo-linking": "~8.0.8",
     "expo-media-library": "~18.2.0",
     "expo-status-bar": "~3.0.8",
-    "ffmpeg-kit-react-native": "^6.0.2",
     "firebase": "^12.4.0",
     "react": "19.1.0",
     "react-native": "0.81.5",
@@ -44,6 +43,6 @@
   "devDependencies": {
     "@types/react": "~19.1.10",
     "babel-preset-expo": "^54.0.6",
-    "typescript": "~5.9.2"
+    "typescript": "^5.9.3"
   }
 }

@@ -14,6 +14,7 @@ import * as Haptics from 'expo-haptics';
 import { COLORS } from '../theme/colors';
 import { CanvasComment, ReactionType } from '../types/canvas';
 import { toggleCommentReaction } from '../utils/commentsApi';
+import VoiceCommentPlayer from './VoiceCommentPlayer';
 
 interface CommentItemProps {
   comment: CanvasComment;
@@ -111,14 +112,26 @@ const CommentItem: React.FC<CommentItemProps> = ({
       </View>
 
       {/* Comment Text */}
-      <Text style={styles.text}>{displayText}</Text>
-      {needsTruncate && (
-        <TouchableOpacity onPress={() => setShowFullText(!showFullText)}>
-          <Text style={styles.readMore}>
-            {showFullText ? 'Show less' : 'Read more'}
-          </Text>
-        </TouchableOpacity>
-      )}
+{comment.text && (
+  <>
+    <Text style={styles.text}>{displayText}</Text>
+    {needsTruncate && (
+      <TouchableOpacity onPress={() => setShowFullText(!showFullText)}>
+        <Text style={styles.readMore}>
+          {showFullText ? 'Show less' : 'Read more'}
+        </Text>
+      </TouchableOpacity>
+    )}
+  </>
+)}
+
+{/* 🎤 Voice Player (if voice comment) */}
+{comment.voiceUrl && comment.voiceDuration && (
+  <VoiceCommentPlayer
+    audioUrl={comment.voiceUrl}
+    duration={comment.voiceDuration}
+  />
+)}
 
       {/* Actions Row */}
       <View style={styles.actions}>

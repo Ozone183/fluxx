@@ -28,7 +28,9 @@ export const addComment = async (
   username: string,
   userProfilePic: string | null,
   text: string,
-  parentCommentId: string | null = null
+  parentCommentId: string | null = null,
+  voiceUrl?: string, // 🎤 NEW
+  voiceDuration?: number // 🎤 NEW
 ): Promise<void> => {
   try {
     const commentsRef = collection(
@@ -45,6 +47,8 @@ export const addComment = async (
     const newComment: Omit<CanvasComment, 'id'> = {
       canvasId,
       text: text.trim(),
+      ...(voiceUrl && { voiceUrl }), // Only add if exists
+      ...(voiceDuration && { voiceDuration }), // Only add if exists
       userId,
       username,
       userProfilePic,

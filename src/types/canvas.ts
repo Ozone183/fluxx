@@ -125,6 +125,10 @@ export interface CanvasComment {
   // Content
   text: string;
   
+  // 🎤 NEW - Voice Comment Fields
+  voiceUrl?: string; // Firebase Storage URL for voice recording
+  voiceDuration?: number; // Duration in seconds
+  
   // Author
   userId: string;
   username: string;

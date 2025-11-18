@@ -29,6 +29,10 @@ import {
 } from '../utils/commentsApi';
 import ReactionPicker from './ReactionPicker';
 import CommentItem from './CommentItem';
+import VoiceRecorder from './VoiceRecorder';
+import VoiceCommentPlayer from './VoiceCommentPlayer';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../config/firebase';
 
 interface CommentsBottomSheetProps {
   visible: boolean;
@@ -63,6 +67,10 @@ const CommentsBottomSheet: React.FC<CommentsBottomSheetProps> = ({
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'popular'>('newest');
   const [replyingTo, setReplyingTo] = useState<{ id: string; username: string } | null>(null);
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [recordedVoiceUri, setRecordedVoiceUri] = useState<string | null>(null);
+  const [recordedVoiceDuration, setRecordedVoiceDuration] = useState<number>(0);
+  const [uploadingVoice, setUploadingVoice] = useState(false);
 
   // Fetch comments with real-time updates
   useEffect(() => {
@@ -103,29 +111,76 @@ const CommentsBottomSheet: React.FC<CommentsBottomSheetProps> = ({
     }
   };
 
-  // Handle post comment
   const handlePostComment = async () => {
-    if (!commentText.trim() || !userId || !userChannel) return;
-
-    setPosting(true);
+    if ((!commentText.trim() && !recordedVoiceUri) || !userId || !userChannel) return;
+  
     try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  
+      let voiceUrl: string | undefined;
+  
+      // Upload voice if exists
+      if (recordedVoiceUri) {
+        voiceUrl = await uploadVoiceToStorage(recordedVoiceUri);
+      }
+  
+      const newComment: CanvasComment = {
+        id: `comment_${Date.now()}_${Math.random()}`,
+        canvasId,
+        text: commentText.trim(),
+        voiceUrl, // 🎤 NEW
+        voiceDuration: recordedVoiceUri ? recordedVoiceDuration : undefined, // 🎤 NEW
+        userId,
+        username: userChannel,
+        userProfilePic: null,
+        parentCommentId: replyingTo ? replyingTo.id : null,
+        replyCount: 0,
+        reactions: {
+          heart: [],
+          fire: [],
+          laugh: [],
+          clap: [],
+          heart_eyes: [],
+          sparkles: [],
+        },
+        reactionCounts: {
+          heart: 0,
+          fire: 0,
+          laugh: 0,
+          clap: 0,
+          heart_eyes: 0,
+          sparkles: 0,
+        },
+        createdAt: Date.now(),
+        updatedAt: null,
+        isEdited: false,
+        isDeleted: false,
+        isReported: false,
+        reportCount: 0,
+      };
+  
       await addComment(
         canvasId,
         userId,
         userChannel,
-        null,
+        null, // userProfilePic
         commentText.trim(),
-        replyingTo?.id || null
+        replyingTo ? replyingTo.id : null,
+        voiceUrl, // 🎤 NEW
+        recordedVoiceDuration // 🎤 NEW
       );
-
+  
+      // Reset input
       setCommentText('');
+      setRecordedVoiceUri(null); // 🎤 NEW
+      setRecordedVoiceDuration(0); // 🎤 NEW
+      setShowVoiceRecorder(false); // 🎤 NEW
       setReplyingTo(null);
+  
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
-      console.error('Post comment error:', error);
+      console.error('Error adding comment:', error);
       Alert.alert('Error', 'Could not post comment');
-    } finally {
-      setPosting(false);
     }
   };
 
@@ -168,6 +223,34 @@ const CommentsBottomSheet: React.FC<CommentsBottomSheetProps> = ({
       const newExpanded = new Set(expandedComments);
       newExpanded.add(commentId);
       setExpandedComments(newExpanded);
+    }
+  };
+
+  const uploadVoiceToStorage = async (localUri: string): Promise<string> => {
+    try {
+      setUploadingVoice(true);
+  
+      // Read the audio file as blob
+      const response = await fetch(localUri);
+      const blob = await response.blob();
+  
+      // Create unique filename
+      const filename = `voice_${canvasId}_${Date.now()}.m4a`;
+      const storageReference = storageRef(storage, `voice-comments/${canvasId}/${filename}`);
+  
+      // Upload to Firebase Storage
+      await uploadBytes(storageReference, blob);
+  
+      // Get download URL
+      const downloadURL = await getDownloadURL(storageReference);
+  
+      console.log('✅ Voice uploaded:', downloadURL);
+      setUploadingVoice(false);
+      return downloadURL;
+    } catch (error) {
+      console.error('❌ Voice upload failed:', error);
+      setUploadingVoice(false);
+      throw error;
     }
   };
 
@@ -291,44 +374,94 @@ const CommentsBottomSheet: React.FC<CommentsBottomSheetProps> = ({
           )}
 
           {/* Input Field */}
-          <View style={styles.inputContainer}>
-            {replyingTo && (
-              <View style={styles.replyingBanner}>
-                <Text style={styles.replyingText}>
-                  Replying to @{replyingTo.username}
-                </Text>
-                <TouchableOpacity onPress={() => setReplyingTo(null)}>
-                  <Ionicons name="close-circle" size={20} color={COLORS.slate400} />
-                </TouchableOpacity>
-              </View>
-            )}
+<View style={styles.inputContainer}>
+  {replyingTo && (
+    <View style={styles.replyingBanner}>
+      <Text style={styles.replyingText}>
+        Replying to @{replyingTo.username}
+      </Text>
+      <TouchableOpacity onPress={() => setReplyingTo(null)}>
+        <Ionicons name="close-circle" size={20} color={COLORS.slate400} />
+      </TouchableOpacity>
+    </View>
+  )}
 
-            <View style={styles.inputRow}>
-              <TextInput
-                style={styles.input}
-                placeholder="Add a comment..."
-                placeholderTextColor={COLORS.slate500}
-                value={commentText}
-                onChangeText={setCommentText}
-                multiline
-                maxLength={500}
-              />
-              <TouchableOpacity
-                onPress={handlePostComment}
-                disabled={!commentText.trim() || posting}
-                style={[
-                  styles.postButton,
-                  (!commentText.trim() || posting) && styles.postButtonDisabled,
-                ]}
-              >
-                {posting ? (
-                  <ActivityIndicator size="small" color={COLORS.white} />
-                ) : (
-                  <Text style={styles.postButtonText}>Post</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+  {/* 🎤 VOICE RECORDER MODE */}
+  {showVoiceRecorder ? (
+    <VoiceRecorder
+      onRecordingComplete={(uri, duration) => {
+        setRecordedVoiceUri(uri);
+        setRecordedVoiceDuration(duration);
+        setShowVoiceRecorder(false);
+      }}
+      onCancel={() => {
+        setShowVoiceRecorder(false);
+        setRecordedVoiceUri(null);
+      }}
+    />
+  ) : (
+    <>
+      {/* 🎤 VOICE PREVIEW (if recorded) */}
+      {recordedVoiceUri && (
+        <View style={styles.voicePreview}>
+          <View style={styles.voicePreviewInfo}>
+            <Ionicons name="mic" size={16} color={COLORS.cyan400} />
+            <Text style={styles.voicePreviewText}>
+              Voice message ({recordedVoiceDuration}s)
+            </Text>
           </View>
+          <TouchableOpacity
+            onPress={() => {
+              setRecordedVoiceUri(null);
+              setRecordedVoiceDuration(0);
+            }}
+          >
+            <Ionicons name="close-circle" size={20} color={COLORS.red400} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* TEXT INPUT ROW */}
+      <View style={styles.inputRow}>
+        <TextInput
+          style={styles.input}
+          placeholder="Add a comment..."
+          placeholderTextColor={COLORS.slate500}
+          value={commentText}
+          onChangeText={setCommentText}
+          multiline
+          maxLength={500}
+        />
+
+        {/* 🎤 MIC BUTTON */}
+        {!recordedVoiceUri && (
+          <TouchableOpacity
+            style={styles.micButton}
+            onPress={() => setShowVoiceRecorder(true)}
+          >
+            <Ionicons name="mic-outline" size={24} color={COLORS.purple400} />
+          </TouchableOpacity>
+        )}
+
+        {/* POST BUTTON */}
+        <TouchableOpacity
+          onPress={handlePostComment}
+          disabled={(!commentText.trim() && !recordedVoiceUri) || posting || uploadingVoice}
+          style={[
+            styles.postButton,
+            ((!commentText.trim() && !recordedVoiceUri) || posting || uploadingVoice) && styles.postButtonDisabled,
+          ]}
+        >
+          {(posting || uploadingVoice) ? (
+            <ActivityIndicator size="small" color={COLORS.white} />
+          ) : (
+            <Text style={styles.postButtonText}>Post</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </>
+  )}
+</View>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -509,6 +642,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.slate900,
+  },
+  voicePreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.purple500 + '20',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  voicePreviewInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  voicePreviewText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.cyan400,
+  },
+  micButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.slate700,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
 });
 

@@ -32,10 +32,27 @@ interface Post {
   timestamp: any;
   likedBy: string[];
   commentsCount: number;
-  canvasId?: string;        // ✅ ADD THIS
-  canvasData?: {            // ✅ ADD THIS
+  canvasId?: string;
+  canvasData?: {
     title?: string;
     thumbnail?: string;
+  };
+  // 🆕 NEW REACTION FIELDS
+  reactions?: {
+    heart: string[];
+    fire: string[];
+    laugh: string[];
+    clap: string[];
+    heart_eyes: string[];
+    sparkles: string[];
+  };
+  reactionCounts?: {
+    heart: number;
+    fire: number;
+    laugh: number;
+    clap: number;
+    heart_eyes: number;
+    sparkles: number;
   };
 }
 
@@ -137,44 +154,84 @@ useEffect(() => {
     setTimeout(() => setRefreshing(false), 1000);
   }, []);
 
-  // Handle like toggle
-  const handleLike = async (postId: string, likedBy: string[]) => {
+  // Handle like toggle (old heart button)
+const handleLike = async (postId: string, likedBy: string[]) => {
+  if (!userId) return;
+
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+  const isLiked = likedBy.includes(userId);
+  const postRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts', postId);
+
+  try {
+    await updateDoc(postRef, {
+      likedBy: isLiked ? arrayRemove(userId) : arrayUnion(userId),
+    });
+
+    if (!isLiked) {
+      try {
+        const post = posts.find(p => p.id === postId);
+
+        if (post && post.userId && post.userId !== userId) {
+          const { createNotification } = await import('../utils/notifications');
+
+          await createNotification({
+            recipientUserId: post.userId,
+            type: 'like',
+            fromUserId: userId,
+            fromUsername: userChannel || '@unknown',
+            fromProfilePic: null,
+            relatedCanvasId: postId,
+          });
+        }
+      } catch (notifError) {
+        console.error('Notification creation failed:', notifError);
+      }
+    }
+  } catch (error) {
+    console.error('Like toggle error:', error);
+  }
+};
+
+  // 🆕 NEW: Handle reaction toggle
+  const handleReact = async (postId: string, reactionType: 'heart' | 'fire' | 'laugh' | 'clap' | 'heart_eyes' | 'sparkles') => {
     if (!userId) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    const isLiked = likedBy.includes(userId);
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    const currentReactions = post.reactions?.[reactionType] || [];
+    const hasReacted = currentReactions.includes(userId);
+    
     const postRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts', postId);
 
     try {
       await updateDoc(postRef, {
-        likedBy: isLiked ? arrayRemove(userId) : arrayUnion(userId),
+        [`reactions.${reactionType}`]: hasReacted ? arrayRemove(userId) : arrayUnion(userId),
+        [`reactionCounts.${reactionType}`]: hasReacted ? (post.reactionCounts?.[reactionType] || 1) - 1 : (post.reactionCounts?.[reactionType] || 0) + 1,
       });
 
-      // CREATE NOTIFICATION FOR LIKE (only when liking, not unliking)
-      if (!isLiked) {
+      // CREATE NOTIFICATION FOR REACTION (only when reacting, not unreacting)
+      if (!hasReacted && post.userId !== userId) {
         try {
-          const post = posts.find(p => p.id === postId);
+          const { createNotification } = await import('../utils/notifications');
 
-          if (post && post.userId && post.userId !== userId) {
-            const { createNotification } = await import('../utils/notifications');
-
-            await createNotification({
-              recipientUserId: post.userId,
-              type: 'like',
-              fromUserId: userId,
-              fromUsername: userChannel || '@unknown',
-              fromProfilePic: null,
-              relatedCanvasId: postId,
-            });
-          }
+          await createNotification({
+            recipientUserId: post.userId,
+            type: 'like', // We can reuse 'like' notification type
+            fromUserId: userId,
+            fromUsername: userChannel || '@unknown',
+            fromProfilePic: null,
+            relatedCanvasId: postId,
+          });
         } catch (notifError) {
           console.error('Notification creation failed:', notifError);
-          // Don't block like action if notification fails
         }
       }
     } catch (error) {
-      console.error('Like toggle error:', error);
+      console.error('React toggle error:', error);
     }
   };
 
@@ -203,6 +260,7 @@ useEffect(() => {
       currentUserId={userId}
       profile={allProfiles[item.userId]}
       onLike={handleLike}
+      onReact={handleReact}
       onComment={handleComments}
       onViewProfile={handleViewProfile}
     />

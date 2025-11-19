@@ -35,6 +35,22 @@ interface Post {
   timestamp: any;
   likedBy: string[];
   commentsCount: number;
+  reactions?: {
+    heart: string[];
+    fire: string[];
+    laugh: string[];
+    clap: string[];
+    heart_eyes: string[];
+    sparkles: string[];
+  };
+  reactionCounts?: {
+    heart: number;
+    fire: number;
+    laugh: number;
+    clap: number;
+    heart_eyes: number;
+    sparkles: number;
+  };
 }
 
 const POSTS_PER_PAGE = 20;
@@ -181,16 +197,38 @@ const ProfileScreen = ({ route }: any) => {
 
   const handleLike = async (postId: string, likedBy: string[]) => {
     if (!currentUserId) return;
-
+  
     const isLiked = likedBy.includes(currentUserId);
     const postRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts', postId);
-
+  
     try {
       await updateDoc(postRef, {
         likedBy: isLiked ? arrayRemove(currentUserId) : arrayUnion(currentUserId),
       });
     } catch (error) {
       console.error('Like toggle error:', error);
+    }
+  };
+
+  const handleReact = async (postId: string, reactionType: 'heart' | 'fire' | 'laugh' | 'clap' | 'heart_eyes' | 'sparkles') => {
+    if (!currentUserId) return;
+  
+    const postRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts', postId);
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+  
+    const currentReactions = post.reactions?.[reactionType] || [];
+    const hasReacted = currentReactions.includes(currentUserId);
+  
+    try {
+      await updateDoc(postRef, {
+        [`reactions.${reactionType}`]: hasReacted ? arrayRemove(currentUserId) : arrayUnion(currentUserId),
+        [`reactionCounts.${reactionType}`]: hasReacted 
+          ? (post.reactionCounts?.[reactionType] || 1) - 1 
+          : (post.reactionCounts?.[reactionType] || 0) + 1,
+      });
+    } catch (error) {
+      console.error('React toggle error:', error);
     }
   };
 
@@ -274,6 +312,7 @@ const ProfileScreen = ({ route }: any) => {
       currentUserId={currentUserId}
       profile={profile}
       onLike={handleLike}
+      onReact={handleReact}
       onComment={() => { }}
       onViewProfile={() => { }}
     />

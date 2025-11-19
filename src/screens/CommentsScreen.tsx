@@ -19,6 +19,10 @@ import * as Haptics from 'expo-haptics';
 import { COLORS, GRADIENTS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
 import { useProfiles } from '../context/ProfileContext';
+import VoiceRecorder from '../components/VoiceRecorder';
+import VoiceCommentPlayer from '../components/VoiceCommentPlayer';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../config/firebase';
 
 interface Comment {
   id: string;
@@ -26,6 +30,8 @@ interface Comment {
   userChannel: string;
   content: string;
   timestamp: any;
+  voiceUrl?: string;
+  voiceDuration?: number;
 }
 
 const CommentsScreen = ({ route, navigation }: any) => {
@@ -60,6 +66,9 @@ const CommentsScreen = ({ route, navigation }: any) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [voiceUrl, setVoiceUrl] = useState<string | null>(null);
+  const [voiceDuration, setVoiceDuration] = useState<number | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
 
   useEffect(() => {
     // Guard: Don't load comments if post ID is missing
@@ -103,76 +112,106 @@ const CommentsScreen = ({ route, navigation }: any) => {
     return () => unsubscribe();
   }, [post?.id]); // ✅ Only run when post.id changes
 
+  const uploadVoiceToStorage = async (uri: string): Promise<string> => {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+
+    const fileName = `voice_${Date.now()}.m4a`;
+    const storageRef = ref(storage, `voice-comments/posts/${post.id}/${fileName}`);
+
+    await uploadBytes(storageRef, blob);
+    const downloadUrl = await getDownloadURL(storageRef);
+
+    return downloadUrl;
+  };
+
   const handleSubmit = async () => {
-    if (!newComment.trim() || !userId || !userChannel) return;
+    if ((!newComment.trim() && !voiceUrl) || !userId || !userChannel) return;
 
     setIsSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
+      let uploadedVoiceUrl = voiceUrl;
+
+      if (voiceUrl && voiceUrl.startsWith('file://')) {
+        uploadedVoiceUrl = await uploadVoiceToStorage(voiceUrl);
+      }
+
       const commentsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts', post.id, 'comments');
 
-      await addDoc(commentsRef, {
+      const commentData: any = {
         userId,
         userChannel,
         content: newComment.trim(),
         timestamp: serverTimestamp(),
-      });
-
-      // ✅ CREATE NOTIFICATION FOR COMMENT
-      if (post.userId && post.userId !== userId) {
-        const { createNotification } = await import('../utils/notifications');
-
-        await createNotification({
-          recipientUserId: post.userId,
-          type: 'comment',
-          fromUserId: userId,
-          fromUsername: userChannel || '@unknown',
-          fromProfilePic: null,
-          relatedCanvasId: post.id, // ✅ Make sure this is post.id, not post.canvasId
-          relatedCanvasTitle: 'your post',
-        });
-      }
-
-      const handleCommentLike = async (commentId: string, likedBy: string[] = []) => {
-        if (!userId) return;
-
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-        const isLiked = likedBy.includes(userId);
-        const commentRef = doc(
-          firestore,
-          'artifacts',
-          APP_ID,
-          'public',
-          'data',
-          'posts',
-          post.id,
-          'comments',
-          commentId
-        );
-
-        try {
-          await updateDoc(commentRef, {
-            likedBy: isLiked ? arrayRemove(userId) : arrayUnion(userId),
-          });
-        } catch (error) {
-          console.error('Comment like error:', error);
-        }
       };
 
-      // Update comments count
-      const postRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts', post.id);
+      if (uploadedVoiceUrl) {
+        commentData.voiceUrl = uploadedVoiceUrl;
+        commentData.voiceDuration = voiceDuration || 0;
+      }
 
+      await addDoc(commentsRef, commentData);
+
+      const postRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts', post.id);
       await updateDoc(postRef, {
         commentsCount: increment(1),
       });
 
+      // CREATE NOTIFICATION FOR COMMENT
+      if (post.userId && post.userId !== userId) {
+        try {
+          const { createNotification } = await import('../utils/notifications');
+
+          await createNotification({
+            recipientUserId: post.userId,
+            type: 'comment',
+            fromUserId: userId,
+            fromUsername: userChannel || '@unknown',
+            fromProfilePic: null,
+            relatedCanvasId: post.id,
+            relatedCanvasTitle: 'your post',
+          });
+        } catch (notifError) {
+          console.error('Notification creation failed:', notifError);
+        }
+      }
+
       setNewComment('');
+      setVoiceUrl(null);
+      setVoiceDuration(null);
     } catch (error) {
       console.error('Comment submit error:', error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleCommentLike = async (commentId: string, likedBy: string[] = []) => {
+    if (!userId) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const isLiked = likedBy.includes(userId);
+    const commentRef = doc(
+      firestore,
+      'artifacts',
+      APP_ID,
+      'public',
+      'data',
+      'posts',
+      post.id,
+      'comments',
+      commentId
+    );
+
+    try {
+      await updateDoc(commentRef, {
+        likedBy: isLiked ? arrayRemove(userId) : arrayUnion(userId),
+      });
+    } catch (error) {
+      console.error('Comment like error:', error);
     }
   };
 
@@ -205,13 +244,20 @@ const CommentsScreen = ({ route, navigation }: any) => {
             <Text style={styles.commentChannel}>{displayChannel}</Text>
             <Text style={styles.commentTime}>{timeString}</Text>
           </View>
-
-
         </View>
-        <Text style={styles.commentContent}>{item.content}</Text>
+
+        {item.voiceUrl && (
+          <View style={{ paddingLeft: 42, marginTop: 8 }}>
+            <VoiceCommentPlayer
+              audioUrl={item.voiceUrl}
+              duration={item.voiceDuration || 0}
+            />
+          </View>
+        )}
+        {item.content ? <Text style={styles.commentContent}>{item.content}</Text> : null}
       </View>
     );
-  }
+  };
 
   return (
     <View style={styles.container}>
@@ -231,13 +277,11 @@ const CommentsScreen = ({ route, navigation }: any) => {
         <View style={styles.headerSpacer} />
       </LinearGradient>
 
-      {/* KeyboardAvoidingView wraps BOTH list and input */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
         keyboardVerticalOffset={0}
       >
-        {/* Comments List */}
         <FlatList
           data={comments}
           renderItem={renderComment}
@@ -254,33 +298,62 @@ const CommentsScreen = ({ route, navigation }: any) => {
           keyboardShouldPersistTaps="handled"
         />
 
-        {/* Input Container */}
         <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={newComment}
-            onChangeText={setNewComment}
-            placeholder="Add a comment..."
-            placeholderTextColor={COLORS.slate500}
-            multiline
-            maxLength={500}
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              (!newComment.trim() || isSubmitting) && styles.sendButtonDisabled,
-            ]}
-            onPress={handleSubmit}
-            disabled={!newComment.trim() || isSubmitting}
-            activeOpacity={0.7}
-          >
-            <LinearGradient
-              colors={newComment.trim() && !isSubmitting ? GRADIENTS.primary : [COLORS.slate700, COLORS.slate700] as const}
-              style={styles.sendGradient}
+          {!isRecording && voiceUrl && (
+            <View style={styles.voicePreview}>
+              <VoiceCommentPlayer audioUrl={voiceUrl} duration={voiceDuration || 0} />
+              <TouchableOpacity
+                onPress={() => {
+                  setVoiceUrl(null);
+                  setVoiceDuration(null);
+                }}
+                style={styles.removeVoiceButton}
+              >
+                <Text style={styles.removeVoiceText}>Remove Voice</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+{!voiceUrl && (
+  <VoiceRecorder
+    onRecordingComplete={(uri, duration) => {
+      setVoiceUrl(uri);
+      setVoiceDuration(duration);
+      setIsRecording(false);
+    }}
+    onCancel={() => {
+      setIsRecording(false);
+    }}
+  />
+)}
+
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              value={newComment}
+              onChangeText={setNewComment}
+              placeholder="Add a comment..."
+              placeholderTextColor={COLORS.slate500}
+              multiline
+              maxLength={500}
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                (!newComment.trim() || isSubmitting) && styles.sendButtonDisabled,
+              ]}
+              onPress={handleSubmit}
+              disabled={(!newComment.trim() && !voiceUrl) || isSubmitting}
+              activeOpacity={0.7}
             >
-              <Icon name="send" size={20} color={COLORS.white} />
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={(newComment.trim() || voiceUrl) && !isSubmitting ? GRADIENTS.primary : [COLORS.slate700, COLORS.slate700] as const}
+                style={styles.sendGradient}
+              >
+                <Icon name="send" size={20} color={COLORS.white} />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -439,6 +512,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.slate400,
     fontWeight: '600',
+  },
+  voicePreview: {
+    marginBottom: 8,
+    marginHorizontal: 16,
+  },
+  removeVoiceButton: {
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  removeVoiceText: {
+    color: COLORS.red400,
+    fontSize: 12,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
 });
 

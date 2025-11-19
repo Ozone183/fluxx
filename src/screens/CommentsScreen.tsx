@@ -24,6 +24,8 @@ import VoiceCommentPlayer from '../components/VoiceCommentPlayer';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../config/firebase';
 import { Ionicons } from '@expo/vector-icons';
+import { query, where } from 'firebase/firestore';
+import { getDocs } from 'firebase/firestore';
 
 interface Comment {
   id: string;
@@ -49,6 +51,8 @@ interface Comment {
     heart_eyes: number;
     sparkles: number;
   };
+  parentCommentId?: string | null;
+  replyCount?: number;
 }
 
 type ReactionType = 'heart' | 'fire' | 'laugh' | 'clap' | 'heart_eyes' | 'sparkles';
@@ -89,9 +93,11 @@ const CommentsScreen = ({ route, navigation }: any) => {
   const [voiceDuration, setVoiceDuration] = useState<number | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [expandedReactions, setExpandedReactions] = useState<Set<string>>(new Set());
+  const [replyingTo, setReplyingTo] = useState<{ id: string; username: string } | null>(null);
+  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
+  const [replies, setReplies] = useState<{ [commentId: string]: Comment[] }>({});
 
   useEffect(() => {
-    // Guard: Don't load comments if post ID is missing
     if (!post?.id) {
       console.error('❌ Cannot load comments - post ID is missing');
       return;
@@ -108,8 +114,11 @@ const CommentsScreen = ({ route, navigation }: any) => {
       'comments'
     );
 
+    // Only fetch parent comments (where parentCommentId is null)
+    const q = query(commentsRef, where('parentCommentId', '==', null));
+
     const unsubscribe = onSnapshot(
-      commentsRef,
+      q,
       (snapshot) => {
         const fetchedComments = snapshot.docs.map(doc => ({
           id: doc.id,
@@ -130,7 +139,7 @@ const CommentsScreen = ({ route, navigation }: any) => {
     );
 
     return () => unsubscribe();
-  }, [post?.id]); // ✅ Only run when post.id changes
+  }, [post?.id]);
 
   const uploadVoiceToStorage = async (uri: string): Promise<string> => {
     const response = await fetch(uri);
@@ -164,6 +173,24 @@ const CommentsScreen = ({ route, navigation }: any) => {
         userId,
         userChannel,
         content: newComment.trim(),
+        parentCommentId: replyingTo ? replyingTo.id : null,
+        replyCount: 0,
+        reactions: {
+          heart: [],
+          fire: [],
+          laugh: [],
+          clap: [],
+          heart_eyes: [],
+          sparkles: [],
+        },
+        reactionCounts: {
+          heart: 0,
+          fire: 0,
+          laugh: 0,
+          clap: 0,
+          heart_eyes: 0,
+          sparkles: 0,
+        },
         timestamp: serverTimestamp(),
       };
 
@@ -173,6 +200,24 @@ const CommentsScreen = ({ route, navigation }: any) => {
       }
 
       await addDoc(commentsRef, commentData);
+
+      // If replying, increment parent comment reply count
+      if (replyingTo) {
+        const parentCommentRef = doc(
+          firestore,
+          'artifacts',
+          APP_ID,
+          'public',
+          'data',
+          'posts',
+          post.id,
+          'comments',
+          replyingTo.id
+        );
+        await updateDoc(parentCommentRef, {
+          replyCount: increment(1),
+        });
+      }
 
       const postRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts', post.id);
       await updateDoc(postRef, {
@@ -201,6 +246,7 @@ const CommentsScreen = ({ route, navigation }: any) => {
       setNewComment('');
       setVoiceUrl(null);
       setVoiceDuration(null);
+      setReplyingTo(null);
     } catch (error) {
       console.error('Comment submit error:', error);
     } finally {
@@ -210,10 +256,10 @@ const CommentsScreen = ({ route, navigation }: any) => {
 
   const handleCommentReact = async (commentId: string, reactionType: ReactionType) => {
     if (!userId) return;
-  
+
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  
+
       const commentRef = doc(
         firestore,
         'artifacts',
@@ -225,10 +271,10 @@ const CommentsScreen = ({ route, navigation }: any) => {
         'comments',
         commentId
       );
-  
+
       const commentDoc = await getDoc(commentRef);
       if (!commentDoc.exists()) return;
-  
+
       const commentData = commentDoc.data();
       const currentReactions = commentData.reactions || {
         heart: [],
@@ -238,9 +284,9 @@ const CommentsScreen = ({ route, navigation }: any) => {
         heart_eyes: [],
         sparkles: [],
       };
-  
+
       const hasReacted = currentReactions[reactionType]?.includes(userId);
-  
+
       // Toggle reaction
       if (hasReacted) {
         // Remove reaction
@@ -254,7 +300,7 @@ const CommentsScreen = ({ route, navigation }: any) => {
         }
         currentReactions[reactionType].push(userId);
       }
-  
+
       // Calculate counts
       const reactionCounts = {
         heart: currentReactions.heart?.length || 0,
@@ -264,15 +310,73 @@ const CommentsScreen = ({ route, navigation }: any) => {
         heart_eyes: currentReactions.heart_eyes?.length || 0,
         sparkles: currentReactions.sparkles?.length || 0,
       };
-  
+
       await updateDoc(commentRef, {
         reactions: currentReactions,
         reactionCounts: reactionCounts,
       });
-  
+
       console.log(`✅ ${hasReacted ? 'Removed' : 'Added'} ${reactionType} reaction`);
     } catch (error) {
       console.error('Reaction error:', error);
+    }
+  };
+
+  const handleReply = (commentId: string, username: string) => {
+    setReplyingTo({ id: commentId, username });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleViewReplies = async (commentId: string) => {
+    const isExpanded = expandedReplies.has(commentId);
+
+    if (isExpanded) {
+      // Collapse
+      const newExpanded = new Set(expandedReplies);
+      newExpanded.delete(commentId);
+      setExpandedReplies(newExpanded);
+    } else {
+      // Expand - fetch replies
+      try {
+        const repliesRef = collection(
+          firestore,
+          'artifacts',
+          APP_ID,
+          'public',
+          'data',
+          'posts',
+          post.id,
+          'comments'
+        );
+
+        const q = query(
+          repliesRef,
+          where('parentCommentId', '==', commentId)
+        );
+
+        const snapshot = await getDocs(q);
+        const repliesData: Comment[] = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Comment[];
+
+        // Sort by oldest first (replies chronological)
+        repliesData.sort(
+          (a, b) =>
+            (a.timestamp?.toMillis?.() || a.timestamp?.seconds * 1000 || 0) -
+            (b.timestamp?.toMillis?.() || b.timestamp?.seconds * 1000 || 0),
+        );
+
+        setReplies((prev) => ({ ...prev, [commentId]: repliesData }));
+
+        const newExpanded = new Set(expandedReplies);
+        newExpanded.add(commentId);
+        setExpandedReplies(newExpanded);
+
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch (error) {
+        console.error('Fetch replies error:', error);
+      }
     }
   };
 
@@ -333,7 +437,7 @@ const CommentsScreen = ({ route, navigation }: any) => {
             <Text style={styles.commentTime}>{timeString}</Text>
           </View>
         </View>
-    
+
         {item.voiceUrl && (
           <View style={{ paddingLeft: 42, marginTop: 8 }}>
             <VoiceCommentPlayer
@@ -344,90 +448,173 @@ const CommentsScreen = ({ route, navigation }: any) => {
         )}
         {item.content ? <Text style={styles.commentContent}>{item.content}</Text> : null}
 
-{/* Actions Row (Reply + React buttons) */}
-<View style={styles.commentActions}>
-  {/* Total Reactions Count */}
-  {item.reactionCounts && Object.values(item.reactionCounts).reduce((a, b) => a + b, 0) > 0 && (
-    <TouchableOpacity
-      onPress={() => {
-        const newExpanded = new Set(expandedReactions);
-        if (expandedReactions.has(item.id)) {
-          newExpanded.delete(item.id);
-        } else {
-          newExpanded.add(item.id);
-        }
-        setExpandedReactions(newExpanded);
-      }}
-      style={styles.actionButton}
-    >
-      <Ionicons name="happy-outline" size={16} color={COLORS.purple400} />
-      <Text style={styles.actionText}>
-        {Object.values(item.reactionCounts).reduce((a, b) => a + b, 0)}
-      </Text>
-    </TouchableOpacity>
-  )}
+        {/* Actions Row (Reply + React buttons) */}
+        <View style={styles.commentActions}>
+          {/* Reply Button */}
+          <TouchableOpacity
+            onPress={() => handleReply(item.id, item.userChannel)}
+            style={styles.actionButton}
+          >
+            <Ionicons name="chatbubble-outline" size={16} color={COLORS.cyan400} />
+            <Text style={styles.actionText}>Reply</Text>
+            {item.replyCount && item.replyCount > 0 && (
+              <Text style={styles.actionCount}>({item.replyCount})</Text>
+            )}
+          </TouchableOpacity>
 
-  {/* React Button */}
-  <TouchableOpacity
-    onPress={() => {
-      const newExpanded = new Set(expandedReactions);
-      if (expandedReactions.has(item.id)) {
-        newExpanded.delete(item.id);
-      } else {
-        newExpanded.add(item.id);
-      }
-      setExpandedReactions(newExpanded);
-    }}
-    style={styles.actionButton}
-  >
-    <Ionicons
-      name={expandedReactions.has(item.id) ? "close-circle-outline" : "add-circle-outline"}
-      size={16}
-      color={COLORS.purple400}
-    />
-    <Text style={styles.actionText}>
-      {expandedReactions.has(item.id) ? 'Close' : 'React'}
-    </Text>
-  </TouchableOpacity>
-</View>
-
-{/* Reaction Buttons (Expandable) */}
-{expandedReactions.has(item.id) && (
-  <View style={styles.reactionsRow}>
-    {(['heart', 'fire', 'laugh', 'clap', 'heart_eyes', 'sparkles'] as ReactionType[]).map((type) => {
-      const emoji = {
-        heart: '❤️',
-        fire: '🔥',
-        laugh: '😂',
-        clap: '👏',
-        heart_eyes: '😍',
-        sparkles: '✨',
-      }[type];
-      
-      const count = item.reactionCounts?.[type] || 0;
-      const hasReacted = item.reactions?.[type]?.includes(userId || '');
-
-      return (
-        <TouchableOpacity
-          key={type}
-          onPress={() => handleCommentReact(item.id, type)}
-          style={[
-            styles.reactionButton,
-            hasReacted && styles.reactionButtonActive,
-          ]}
-        >
-          <Text style={styles.reactionEmoji}>{emoji}</Text>
-          {count > 0 && (
-            <Text style={[styles.reactionCount, hasReacted && styles.reactionCountActive]}>
-              {count}
-            </Text>
+          {/* Total Reactions Count */}
+          {item.reactionCounts && Object.values(item.reactionCounts).reduce((a, b) => a + b, 0) > 0 && (
+            <TouchableOpacity
+              onPress={() => {
+                const newExpanded = new Set(expandedReactions);
+                if (expandedReactions.has(item.id)) {
+                  newExpanded.delete(item.id);
+                } else {
+                  newExpanded.add(item.id);
+                }
+                setExpandedReactions(newExpanded);
+              }}
+              style={styles.actionButton}
+            >
+              <Ionicons name="happy-outline" size={16} color={COLORS.purple400} />
+              <Text style={styles.actionText}>
+                {Object.values(item.reactionCounts).reduce((a, b) => a + b, 0)}
+              </Text>
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
-      );
-    })}
-  </View>
-)}
-    
+
+          {/* React Button */}
+          <TouchableOpacity
+            onPress={() => {
+              const newExpanded = new Set(expandedReactions);
+              if (expandedReactions.has(item.id)) {
+                newExpanded.delete(item.id);
+              } else {
+                newExpanded.add(item.id);
+              }
+              setExpandedReactions(newExpanded);
+            }}
+            style={styles.actionButton}
+          >
+            <Ionicons
+              name={expandedReactions.has(item.id) ? "close-circle-outline" : "add-circle-outline"}
+              size={16}
+              color={COLORS.purple400}
+            />
+            <Text style={styles.actionText}>
+              {expandedReactions.has(item.id) ? 'Close' : 'React'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Reaction Buttons (Expandable) */}
+        {expandedReactions.has(item.id) && (
+          <View style={styles.reactionsRow}>
+            {(['heart', 'fire', 'laugh', 'clap', 'heart_eyes', 'sparkles'] as ReactionType[]).map((type) => {
+              const emoji = {
+                heart: '❤️',
+                fire: '🔥',
+                laugh: '😂',
+                clap: '👏',
+                heart_eyes: '😍',
+                sparkles: '✨',
+              }[type];
+
+              const count = item.reactionCounts?.[type] || 0;
+              const hasReacted = item.reactions?.[type]?.includes(userId || '');
+
+              return (
+                <TouchableOpacity
+                  key={type}
+                  onPress={() => handleCommentReact(item.id, type)}
+                  style={[
+                    styles.reactionButton,
+                    hasReacted && styles.reactionButtonActive,
+                  ]}
+                >
+                  <Text style={styles.reactionEmoji}>{emoji}</Text>
+                  {count > 0 && (
+                    <Text style={[styles.reactionCount, hasReacted && styles.reactionCountActive]}>
+                      {count}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* View Replies Button */}
+        {item.replyCount && item.replyCount > 0 && (
+          <TouchableOpacity
+            onPress={() => handleViewReplies(item.id)}
+            style={styles.viewRepliesButton}
+          >
+            <Ionicons
+              name="return-down-forward"
+              size={14}
+              color={COLORS.cyan400}
+            />
+            <Text style={styles.viewRepliesText}>
+              {expandedReplies.has(item.id) ? 'Hide' : 'View'} {item.replyCount} {item.replyCount === 1 ? 'reply' : 'replies'}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Render Replies (if expanded) */}
+        {expandedReplies.has(item.id) && replies[item.id] && replies[item.id].length > 0 && (
+          <View style={styles.repliesContainer}>
+            {replies[item.id].map((reply) => {
+              const replyProfile = allProfiles[reply.userId];
+              const replyDisplayChannel = replyProfile?.channel || reply.userChannel;
+              const replyProfilePic = replyProfile?.profilePictureUrl;
+              const replyInitials = replyDisplayChannel.replace('@', '').substring(0, 2).toUpperCase();
+
+              const replyTimestamp = reply.timestamp?.toDate ? reply.timestamp.toDate() : new Date(reply.timestamp?.seconds * 1000 || Date.now());
+              const replyTimeString = replyTimestamp.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+
+              return (
+                <View key={reply.id} style={styles.replyItem}>
+                  <View style={styles.replyLine} />
+                  <View style={styles.replyContent}>
+                    <View style={styles.commentCard}>
+                      <View style={styles.commentHeader}>
+                        {replyProfilePic ? (
+                          <Image source={{ uri: replyProfilePic }} style={styles.commentAvatar} />
+                        ) : (
+                          <LinearGradient
+                            colors={getGradientForChannel(replyDisplayChannel)}
+                            style={styles.commentAvatar}
+                          >
+                            <Text style={styles.avatarInitials}>{replyInitials}</Text>
+                          </LinearGradient>
+                        )}
+                        <View style={styles.commentMeta}>
+                          <Text style={styles.commentChannel}>{replyDisplayChannel}</Text>
+                          <Text style={styles.commentTime}>{replyTimeString}</Text>
+                        </View>
+                      </View>
+
+                      {reply.voiceUrl && (
+                        <View style={{ paddingLeft: 42, marginTop: 8 }}>
+                          <VoiceCommentPlayer
+                            audioUrl={reply.voiceUrl}
+                            duration={reply.voiceDuration || 0}
+                          />
+                        </View>
+                      )}
+                      {reply.content ? <Text style={styles.commentContent}>{reply.content}</Text> : null}
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
       </View>
     );
   };
@@ -487,18 +674,18 @@ const CommentsScreen = ({ route, navigation }: any) => {
             </View>
           )}
 
-{!voiceUrl && (
-  <VoiceRecorder
-    onRecordingComplete={(uri, duration) => {
-      setVoiceUrl(uri);
-      setVoiceDuration(duration);
-      setIsRecording(false);
-    }}
-    onCancel={() => {
-      setIsRecording(false);
-    }}
-  />
-)}
+          {!voiceUrl && (
+            <VoiceRecorder
+              onRecordingComplete={(uri, duration) => {
+                setVoiceUrl(uri);
+                setVoiceDuration(duration);
+                setIsRecording(false);
+              }}
+              onCancel={() => {
+                setIsRecording(false);
+              }}
+            />
+          )}
 
           <View style={styles.inputRow}>
             <TextInput
@@ -750,6 +937,42 @@ const styles = StyleSheet.create({
   },
   reactionCountActive: {
     color: COLORS.cyan400,
+  },
+  actionCount: {
+    fontSize: 13,
+    color: COLORS.slate500,
+  },
+  viewRepliesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingTop: 8,
+    paddingLeft: 42,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.slate700,
+  },
+  viewRepliesText: {
+    fontSize: 13,
+    color: COLORS.cyan400,
+    fontWeight: '500',
+  },
+  repliesContainer: {
+    marginLeft: 20,
+    marginTop: 8,
+  },
+  replyItem: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  replyLine: {
+    width: 2,
+    backgroundColor: COLORS.cyan400,
+    marginRight: 12,
+    borderRadius: 1,
+  },
+  replyContent: {
+    flex: 1,
   },
 });
 

@@ -446,7 +446,9 @@ const CommentsScreen = ({ route, navigation }: any) => {
             />
           </View>
         )}
-        {item.content ? <Text style={styles.commentContent}>{item.content}</Text> : null}
+        {item.content && item.content.trim() && (
+          <Text style={styles.commentContent}>{item.content}</Text>
+        )}
 
         {/* Actions Row (Reply + React buttons) */}
         <View style={styles.commentActions}>
@@ -565,6 +567,11 @@ const CommentsScreen = ({ route, navigation }: any) => {
         {expandedReplies.has(item.id) && replies[item.id] && replies[item.id].length > 0 && (
           <View style={styles.repliesContainer}>
             {replies[item.id].map((reply) => {
+              // Skip invalid replies (defensive check)
+              if (!reply || (!reply.content && !reply.voiceUrl)) {
+                return null;
+              }
+
               const replyProfile = allProfiles[reply.userId];
               const replyDisplayChannel = replyProfile?.channel || reply.userChannel;
               const replyProfilePic = replyProfile?.profilePictureUrl;
@@ -606,7 +613,9 @@ const CommentsScreen = ({ route, navigation }: any) => {
                           />
                         </View>
                       )}
-                      {reply.content ? <Text style={styles.commentContent}>{reply.content}</Text> : null}
+                      {reply.content && reply.content.trim() && (
+                        <Text style={styles.commentContent}>{reply.content}</Text>
+                      )}
                     </View>
                   </View>
                 </View>

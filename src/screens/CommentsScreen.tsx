@@ -21,6 +21,8 @@ import { useAuth, APP_ID } from '../context/AuthContext';
 import { useProfiles } from '../context/ProfileContext';
 import VoiceRecorder from '../components/VoiceRecorder';
 import VoiceCommentPlayer from '../components/VoiceCommentPlayer';
+import MentionDropdown from '../components/MentionDropdown';
+import { useMentions } from '../hooks/useMentions';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../config/firebase';
 import { Ionicons } from '@expo/vector-icons';
@@ -97,6 +99,8 @@ const CommentsScreen = ({ route, navigation }: any) => {
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
   const [replies, setReplies] = useState<{ [commentId: string]: Comment[] }>({});
   const inputRef = React.useRef<TextInput>(null);  // ✅ ADD THIS LINE
+  const mentionSystem = useMentions();
+
 
   useEffect(() => {
     if (!post?.id) {
@@ -673,76 +677,82 @@ const CommentsScreen = ({ route, navigation }: any) => {
           keyboardShouldPersistTaps="handled"
         />
 
-<View style={styles.inputContainer}>
-  {replyingTo && (
-    <View style={styles.replyingBanner}>
-      <Text style={styles.replyingText}>
-        Replying to @{replyingTo.username}
-      </Text>
-      <TouchableOpacity onPress={() => setReplyingTo(null)}>
-        <Ionicons name="close-circle" size={20} color={COLORS.slate400} />
-      </TouchableOpacity>
-    </View>
-  )}
+        <View style={styles.inputContainer}>
+          <MentionDropdown
+            visible={mentionSystem.showMentionDropdown}
+            users={mentionSystem.mentionResults}
+            onSelectUser={(user) => mentionSystem.handleSelectMention(user, newComment, setNewComment)}
+          />
 
-  {!isRecording && voiceUrl && (
-    <View style={styles.voicePreview}>
-      <VoiceCommentPlayer audioUrl={voiceUrl} duration={voiceDuration || 0} />
-      <TouchableOpacity
-        onPress={() => {
-          setVoiceUrl(null);
-          setVoiceDuration(null);
-        }}
-        style={styles.removeVoiceButton}
-      >
-        <Text style={styles.removeVoiceText}>Remove Voice</Text>
-      </TouchableOpacity>
-    </View>
-  )}
+          {replyingTo && (
+            <View style={styles.replyingBanner}>
+              <Text style={styles.replyingText}>
+                Replying to @{replyingTo.username}
+              </Text>
+              <TouchableOpacity onPress={() => setReplyingTo(null)}>
+                <Ionicons name="close-circle" size={20} color={COLORS.slate400} />
+              </TouchableOpacity>
+            </View>
+          )}
 
-  <View style={styles.inputRow}>
-    {!voiceUrl && (
-      <VoiceRecorder
-        onRecordingComplete={(uri, duration) => {
-          setVoiceUrl(uri);
-          setVoiceDuration(duration);
-          setIsRecording(false);
-        }}
-        onCancel={() => {
-          setIsRecording(false);
-        }}
-      />
-    )}
+          {!isRecording && voiceUrl && (
+            <View style={styles.voicePreview}>
+              <VoiceCommentPlayer audioUrl={voiceUrl} duration={voiceDuration || 0} />
+              <TouchableOpacity
+                onPress={() => {
+                  setVoiceUrl(null);
+                  setVoiceDuration(null);
+                }}
+                style={styles.removeVoiceButton}
+              >
+                <Text style={styles.removeVoiceText}>Remove Voice</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
-    <TextInput
-      ref={inputRef}
-      style={styles.input}
-      value={newComment}
-      onChangeText={setNewComment}
-      placeholder="Add a comment..."
-      placeholderTextColor={COLORS.slate500}
-      multiline
-      maxLength={500}
-    />
-    
-    <TouchableOpacity
-      style={[
-        styles.sendButton,
-        (!newComment.trim() || isSubmitting) && styles.sendButtonDisabled,
-      ]}
-      onPress={handleSubmit}
-      disabled={(!newComment.trim() && !voiceUrl) || isSubmitting}
-      activeOpacity={0.7}
-    >
-      <LinearGradient
-        colors={(newComment.trim() || voiceUrl) && !isSubmitting ? GRADIENTS.primary : [COLORS.slate700, COLORS.slate700] as const}
-        style={styles.sendGradient}
-      >
-        <Icon name="send" size={20} color={COLORS.white} />
-      </LinearGradient>
-    </TouchableOpacity>
-  </View>
-</View>
+          <View style={styles.inputRow}>
+            {!voiceUrl && (
+              <VoiceRecorder
+                onRecordingComplete={(uri, duration) => {
+                  setVoiceUrl(uri);
+                  setVoiceDuration(duration);
+                  setIsRecording(false);
+                }}
+                onCancel={() => {
+                  setIsRecording(false);
+                }}
+              />
+            )}
+
+            <TextInput
+              ref={inputRef}
+              style={styles.input}
+              value={newComment}
+              onChangeText={(text) => mentionSystem.handleTextChange(text, setNewComment)}
+              placeholder="Add a comment..."
+              placeholderTextColor={COLORS.slate500}
+              multiline
+              maxLength={500}
+            />
+
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                (!newComment.trim() || isSubmitting) && styles.sendButtonDisabled,
+              ]}
+              onPress={handleSubmit}
+              disabled={(!newComment.trim() && !voiceUrl) || isSubmitting}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={(newComment.trim() || voiceUrl) && !isSubmitting ? GRADIENTS.primary : [COLORS.slate700, COLORS.slate700] as const}
+                style={styles.sendGradient}
+              >
+                <Icon name="send" size={20} color={COLORS.white} />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
       </KeyboardAvoidingView>
     </View>
   );

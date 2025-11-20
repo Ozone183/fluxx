@@ -96,6 +96,7 @@ const CommentsScreen = ({ route, navigation }: any) => {
   const [replyingTo, setReplyingTo] = useState<{ id: string; username: string } | null>(null);
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
   const [replies, setReplies] = useState<{ [commentId: string]: Comment[] }>({});
+  const inputRef = React.useRef<TextInput>(null);  // ✅ ADD THIS LINE
 
   useEffect(() => {
     if (!post?.id) {
@@ -325,6 +326,11 @@ const CommentsScreen = ({ route, navigation }: any) => {
   const handleReply = (commentId: string, username: string) => {
     setReplyingTo({ id: commentId, username });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // Focus the input to open keyboard
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
   };
 
   const handleViewReplies = async (commentId: string) => {
@@ -667,63 +673,76 @@ const CommentsScreen = ({ route, navigation }: any) => {
           keyboardShouldPersistTaps="handled"
         />
 
-        <View style={styles.inputContainer}>
-          {!isRecording && voiceUrl && (
-            <View style={styles.voicePreview}>
-              <VoiceCommentPlayer audioUrl={voiceUrl} duration={voiceDuration || 0} />
-              <TouchableOpacity
-                onPress={() => {
-                  setVoiceUrl(null);
-                  setVoiceDuration(null);
-                }}
-                style={styles.removeVoiceButton}
-              >
-                <Text style={styles.removeVoiceText}>Remove Voice</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+<View style={styles.inputContainer}>
+  {replyingTo && (
+    <View style={styles.replyingBanner}>
+      <Text style={styles.replyingText}>
+        Replying to @{replyingTo.username}
+      </Text>
+      <TouchableOpacity onPress={() => setReplyingTo(null)}>
+        <Ionicons name="close-circle" size={20} color={COLORS.slate400} />
+      </TouchableOpacity>
+    </View>
+  )}
 
-          {!voiceUrl && (
-            <VoiceRecorder
-              onRecordingComplete={(uri, duration) => {
-                setVoiceUrl(uri);
-                setVoiceDuration(duration);
-                setIsRecording(false);
-              }}
-              onCancel={() => {
-                setIsRecording(false);
-              }}
-            />
-          )}
+  {!isRecording && voiceUrl && (
+    <View style={styles.voicePreview}>
+      <VoiceCommentPlayer audioUrl={voiceUrl} duration={voiceDuration || 0} />
+      <TouchableOpacity
+        onPress={() => {
+          setVoiceUrl(null);
+          setVoiceDuration(null);
+        }}
+        style={styles.removeVoiceButton}
+      >
+        <Text style={styles.removeVoiceText}>Remove Voice</Text>
+      </TouchableOpacity>
+    </View>
+  )}
 
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.input}
-              value={newComment}
-              onChangeText={setNewComment}
-              placeholder="Add a comment..."
-              placeholderTextColor={COLORS.slate500}
-              multiline
-              maxLength={500}
-            />
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                (!newComment.trim() || isSubmitting) && styles.sendButtonDisabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={(!newComment.trim() && !voiceUrl) || isSubmitting}
-              activeOpacity={0.7}
-            >
-              <LinearGradient
-                colors={(newComment.trim() || voiceUrl) && !isSubmitting ? GRADIENTS.primary : [COLORS.slate700, COLORS.slate700] as const}
-                style={styles.sendGradient}
-              >
-                <Icon name="send" size={20} color={COLORS.white} />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </View>
+  <View style={styles.inputRow}>
+    {!voiceUrl && (
+      <VoiceRecorder
+        onRecordingComplete={(uri, duration) => {
+          setVoiceUrl(uri);
+          setVoiceDuration(duration);
+          setIsRecording(false);
+        }}
+        onCancel={() => {
+          setIsRecording(false);
+        }}
+      />
+    )}
+
+    <TextInput
+      ref={inputRef}
+      style={styles.input}
+      value={newComment}
+      onChangeText={setNewComment}
+      placeholder="Add a comment..."
+      placeholderTextColor={COLORS.slate500}
+      multiline
+      maxLength={500}
+    />
+    
+    <TouchableOpacity
+      style={[
+        styles.sendButton,
+        (!newComment.trim() || isSubmitting) && styles.sendButtonDisabled,
+      ]}
+      onPress={handleSubmit}
+      disabled={(!newComment.trim() && !voiceUrl) || isSubmitting}
+      activeOpacity={0.7}
+    >
+      <LinearGradient
+        colors={(newComment.trim() || voiceUrl) && !isSubmitting ? GRADIENTS.primary : [COLORS.slate700, COLORS.slate700] as const}
+        style={styles.sendGradient}
+      >
+        <Icon name="send" size={20} color={COLORS.white} />
+      </LinearGradient>
+    </TouchableOpacity>
+  </View>
+</View>
       </KeyboardAvoidingView>
     </View>
   );
@@ -837,13 +856,11 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    padding: 16,
-    paddingBottom: 60,
+    flexDirection: 'column',  // ← Changed from 'row' to 'column'
     backgroundColor: COLORS.slate800,
     borderTopWidth: 1,
     borderTopColor: COLORS.slate700,
+    paddingBottom: 60,
   },
   input: {
     flex: 1,
@@ -896,8 +913,10 @@ const styles = StyleSheet.create({
   },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+    alignItems: 'flex-end',
+    paddingHorizontal: 10,  // ← Increased from 20 to 40
+    paddingVertical: 12,
+    gap: 0,
   },
   commentActions: {
     flexDirection: 'row',
@@ -982,6 +1001,18 @@ const styles = StyleSheet.create({
   },
   replyContent: {
     flex: 1,
+  },
+  replyingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: COLORS.slate800,
+  },
+  replyingText: {
+    fontSize: 13,
+    color: COLORS.cyan400,
   },
 });
 

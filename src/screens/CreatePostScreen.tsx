@@ -243,6 +243,20 @@ useFocusEffect(
         commentsCount: 0,
       });
 
+      // AWARD TOKENS FOR POST CREATION
+      try {
+        const { awardTokens } = await import('../utils/tokens');
+        await awardTokens({
+          userId,
+          amount: 8,
+          type: 'post',
+          description: 'Created a new post',
+        });
+        console.log('🪙 Awarded 8 tokens for post creation');
+      } catch (tokenError) {
+        console.error('Token award error:', tokenError);
+      }
+
       setContent('');
       setImageUri(null);
       setCritique('');

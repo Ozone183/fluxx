@@ -113,10 +113,10 @@ const PostCard: React.FC<PostCardProps> = ({
   const profilePicUrl = profile?.profilePictureUrl;
   const initials = getInitials(displayChannel);
 
-  // Share function with deep link
+  // Share function with deep link + token reward
   const handleShare = async () => {
     try {
-      const postUrl = `fluxx://post/${post.id}`; // ✅ FIXED: Use fluxx:// scheme
+      const postUrl = `fluxx://post/${post.id}`;
       const message = `Check out this post by ${displayChannel} on Fluxx!\n\n"${post.content}"\n\n${postUrl}`;
 
       const result = await Share.share({
@@ -124,8 +124,26 @@ const PostCard: React.FC<PostCardProps> = ({
         title: `Post from ${displayChannel}`,
       });
 
-      if (result.action === Share.sharedAction) {
+      if (result.action === Share.sharedAction && currentUserId) {
         console.log('Post shared successfully');
+        
+        // AWARD TOKENS FOR SHARING
+        try {
+          const { awardTokens } = await import('../utils/tokens');
+          await awardTokens({
+            userId: currentUserId,
+            amount: 3,
+            type: 'share',
+            description: 'Shared a post',
+            relatedId: post.id,
+          });
+          console.log('🪙 Awarded 3 tokens for sharing post');
+          
+          // Show success feedback
+          Alert.alert('Tokens Earned! 💎', 'You earned 3 tokens for sharing!');
+        } catch (tokenError) {
+          console.error('Token award error:', tokenError);
+        }
       }
     } catch (error: any) {
       Alert.alert('Share Failed', error.message);

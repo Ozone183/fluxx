@@ -137,15 +137,26 @@ const CreateCanvasScreen = () => {
         canvasData
       );
 
-      // ✅ ADD THIS BLOCK HERE
+      // Update canvas count AND award tokens
       try {
         const profileRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'profiles', userId);
         await updateDoc(profileRef, {
           canvasesCreated: increment(1)
         });
         console.log('✅ Canvas count incremented');
+
+        // AWARD TOKENS FOR CANVAS CREATION
+        const { awardTokens } = await import('../utils/tokens');
+        await awardTokens({
+          userId,
+          amount: 15,
+          type: 'post',
+          description: 'Created a new canvas',
+          relatedId: canvasRef.id,
+        });
+        console.log('🪙 Awarded 15 tokens for canvas creation');
       } catch (error) {
-        console.error('⚠️ Canvas count update failed:', error);
+        console.error('⚠️ Canvas count/token update failed:', error);
       }
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

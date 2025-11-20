@@ -304,6 +304,27 @@ const CommentsScreen = ({ route, navigation }: any) => {
 
       await addDoc(commentsRef, commentData);
 
+      // AWARD TOKENS FOR COMMENTING
+      try {
+        const { awardTokens } = await import('../utils/tokens');
+        
+        // Voice comment = 5 tokens, Regular comment = 2 tokens
+        const tokenAmount = uploadedVoiceUrl ? 5 : 2;
+        const tokenType = uploadedVoiceUrl ? 'voice_comment' : 'comment';
+        const tokenDesc = uploadedVoiceUrl ? 'Posted a voice comment' : 'Posted a comment';
+        
+        await awardTokens({
+          userId,
+          amount: tokenAmount,
+          type: tokenType,
+          description: tokenDesc,
+        });
+        
+        console.log(`🪙 Awarded ${tokenAmount} tokens for ${tokenType}`);
+      } catch (tokenError) {
+        console.error('Token award error:', tokenError);
+      }
+
       // If replying, increment parent comment reply count
       if (replyingTo) {
         const parentCommentRef = doc(

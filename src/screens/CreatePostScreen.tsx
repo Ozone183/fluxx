@@ -26,6 +26,7 @@ import { COLORS, GRADIENTS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { BackHandler } from 'react-native';
+import TokenToast from '../components/TokenToast';
 
 const GEMINI_API_KEY = 'AIzaSyCg_HIe7ajHyWtCXMhx9YwOVHWX_qHBjBQ';
 
@@ -53,6 +54,8 @@ useFocusEffect(
   const [critique, setCritique] = useState('');
   const [isCritiquing, setIsCritiquing] = useState(false);
   const [isGeneratingCaption, setIsGeneratingCaption] = useState(false);
+  const [showTokenToast, setShowTokenToast] = useState(false);
+  const [tokenToastData, setTokenToastData] = useState({ amount: 0, message: '' });
 
   // Caption options state
   const [captionOptions, setCaptionOptions] = useState<string[]>([]);
@@ -253,6 +256,10 @@ useFocusEffect(
           description: 'Created a new post',
         });
         console.log('🪙 Awarded 8 tokens for post creation');
+        
+        // Show toast notification
+        setTokenToastData({ amount: 8, message: 'Post created!' });
+        setShowTokenToast(true);
       } catch (tokenError) {
         console.error('Token award error:', tokenError);
       }
@@ -462,8 +469,16 @@ useFocusEffect(
               )}
             </LinearGradient>
           </TouchableOpacity>
-        </ScrollView>
+          </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Token Toast */}
+      <TokenToast
+        visible={showTokenToast}
+        amount={tokenToastData.amount}
+        message={tokenToastData.message}
+        onHide={() => setShowTokenToast(false)}
+      />
     </LinearGradient>
   );
 };

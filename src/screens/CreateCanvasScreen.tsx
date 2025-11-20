@@ -19,6 +19,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { BackHandler } from 'react-native';
+import TokenToast from '../components/TokenToast';
 
 import { COLORS, GRADIENTS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
@@ -46,6 +47,8 @@ const CreateCanvasScreen = () => {
   const [isPrivate, setIsPrivate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(CANVAS_TEMPLATES[0]);
+  const [showTokenToast, setShowTokenToast] = useState(false);
+  const [tokenToastData, setTokenToastData] = useState({ amount: 0, message: '' });
 
   const generateInviteCode = () => {
     return Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -155,6 +158,10 @@ const CreateCanvasScreen = () => {
           relatedId: canvasRef.id,
         });
         console.log('🪙 Awarded 15 tokens for canvas creation');
+
+        // Show toast notification
+        setTokenToastData({ amount: 15, message: 'Canvas created!' });
+        setShowTokenToast(true);
       } catch (error) {
         console.error('⚠️ Canvas count/token update failed:', error);
       }
@@ -291,11 +298,18 @@ const CreateCanvasScreen = () => {
           </LinearGradient>
         </TouchableOpacity>
       </View>
+
+      {/* Token Toast */}
+      <TokenToast
+        visible={showTokenToast}
+        amount={tokenToastData.amount}
+        message={tokenToastData.message}
+        onHide={() => setShowTokenToast(false)}
+      />
     </View>
   );
 };
 
-// ADD THIS HERE
 const FeatureItem = ({ icon, text }: { icon: string; text: string }) => (
   <View style={styles.featureItem}>
     <Icon name={icon as any} size={18} color={COLORS.cyan400} />

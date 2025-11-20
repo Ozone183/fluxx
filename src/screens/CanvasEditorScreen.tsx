@@ -148,6 +148,8 @@ const CanvasEditorScreen = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportingVideo, setExportingVideo] = useState(false);
   const { animatedStyle, animationType } = useCanvasEntrance();
+  const [showWelcomeHint, setShowWelcomeHint] = useState(true);
+  const [isFirstOpen, setIsFirstOpen] = useState(true);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -171,6 +173,20 @@ const CanvasEditorScreen = () => {
 
     return () => clearTimeout(timer);
   }, [canvasId]);
+
+  // Auto-enter focus mode on first open
+  useEffect(() => {
+    if (canvas && isFirstOpen) {
+      setFocusMode(true);
+      
+      // Hide hint after 3 seconds
+      const timer = setTimeout(() => {
+        setShowWelcomeHint(false);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [canvas, isFirstOpen]);
 
   // ... all your useEffect hooks stay the same ...
 
@@ -766,6 +782,15 @@ const CanvasEditorScreen = () => {
     return imageUri;
   };
 
+  const handleCanvasTap = () => {
+    if (isFirstOpen && focusMode) {
+      setIsFirstOpen(false);
+      setFocusMode(false);
+      setShowWelcomeHint(false);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
   const toggleLike = async () => {
     if (!canvas || !userId) return;
 
@@ -1176,12 +1201,16 @@ const CanvasEditorScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }}>
-          {/* CHANGE THIS VIEW TO Animated.View */}
-          <Animated.View style={[styles.canvas, {
-            width: ACTUAL_CANVAS_WIDTH,
-            height: ACTUAL_CANVAS_HEIGHT,
-            backgroundColor: canvas.backgroundColor
-          }, animatedStyle]}> {/* ADD animatedStyle here */}
+        <TouchableOpacity
+            activeOpacity={1}
+            onPress={handleCanvasTap}
+            disabled={!isFirstOpen || !focusMode}
+          >
+            <Animated.View style={[styles.canvas, {
+              width: ACTUAL_CANVAS_WIDTH,
+              height: ACTUAL_CANVAS_HEIGHT,
+              backgroundColor: canvas.backgroundColor
+            }, animatedStyle]}>
 
             {canvas.layers
               .filter(layer => (layer.pageIndex ?? 0) === currentPage)
@@ -1213,7 +1242,18 @@ const CanvasEditorScreen = () => {
               </View>
             </View>
 
-          </Animated.View> {/* CLOSE Animated.View */}
+          {/* Welcome Hint Overlay */}
+          {showWelcomeHint && isFirstOpen && focusMode && (
+                <View style={styles.welcomeHint} pointerEvents="none">
+                  <View style={styles.hintBubble}>
+                    <Ionicons name="hand-left" size={24} color={COLORS.white} />
+                    <Text style={styles.hintText}>Tap anywhere to edit</Text>
+                  </View>
+                </View>
+              )}
+
+            </Animated.View>
+          </TouchableOpacity>
         </ViewShot>
       </ScrollView>
 
@@ -1720,6 +1760,36 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: '#fff',
+    letterSpacing: 0.5,
+  },
+  welcomeHint: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  hintBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: COLORS.cyan400,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 50,
+    shadowColor: COLORS.cyan400,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  hintText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.white,
     letterSpacing: 0.5,
   },
   musicIndicator: {

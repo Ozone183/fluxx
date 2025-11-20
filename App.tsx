@@ -32,6 +32,7 @@ import UserProfileScreen from './src/screens/UserProfileScreen';
 import DiscoveryFeedScreen from './src/screens/DiscoveryFeedScreen';
 import ProfileMenuDrawer from './src/screens/ProfileMenuDrawer';
 import CreateModal from './src/components/CreateModal';
+import TokenHistoryScreen from './src/screens/TokenHistoryScreen';
 
 import { COLORS } from './src/theme/colors';
 
@@ -135,35 +136,36 @@ const AppNavigator = () => {
 
   return (
     <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
-      {!userId ? (
-        <>
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Signup" component={SignupScreen} />
-        </>
-      ) : !isProfileSetup ? (
-        <Stack.Screen name="ChannelSetup" component={ChannelSetupScreen} />
-      ) : (
-        <>
-          <Stack.Screen name="MainTabs" component={MainTabs} />
-          <Stack.Screen name="Canvas" component={CreateCanvasScreen} options={{ presentation: 'modal' }} />
-          <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ presentation: 'modal' }} />
-          <Stack.Screen name="Search" component={SearchScreen} options={{ presentation: 'modal' }} />
-          <Stack.Screen name="Profile" component={ProfileScreen} options={{ presentation: 'modal' }} />
-          <Stack.Screen name="CanvasEditor" component={CanvasEditorScreen} />
-          <Stack.Screen name="Comments" component={CommentsScreen} options={{ presentation: 'modal' }} />
-          <Stack.Screen
-            name="Notifications"
-            component={NotificationsScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="UserProfile"
-            component={UserProfileScreen}
-            options={{ headerShown: false }}
-          />
-        </>
-      )}
-    </Stack.Navigator>
+  {!userId ? (
+    <>
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Signup" component={SignupScreen} />
+    </>
+  ) : !isProfileSetup ? (
+    <Stack.Screen name="ChannelSetup" component={ChannelSetupScreen} />
+  ) : (
+    <>
+      <Stack.Screen name="MainTabs" component={MainTabs} />
+      <Stack.Screen name="Canvas" component={CreateCanvasScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="Search" component={SearchScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="Profile" component={ProfileScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="TokenHistory" component={TokenHistoryScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="CanvasEditor" component={CanvasEditorScreen} />
+      <Stack.Screen name="Comments" component={CommentsScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="UserProfile"
+        component={UserProfileScreen}
+        options={{ headerShown: false }}
+      />
+    </>
+  )}
+</Stack.Navigator>
   );
 };
 

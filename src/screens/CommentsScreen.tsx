@@ -23,6 +23,7 @@ import VoiceRecorder from '../components/VoiceRecorder';
 import VoiceCommentPlayer from '../components/VoiceCommentPlayer';
 import MentionDropdown from '../components/MentionDropdown';
 import { useMentions } from '../hooks/useMentions';
+import TokenToast from '../components/TokenToast';
 import ClickableText from '../components/ClickableText';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../config/firebase';
@@ -101,16 +102,18 @@ const CommentsScreen = ({ route, navigation }: any) => {
   const [replies, setReplies] = useState<{ [commentId: string]: Comment[] }>({});
   const inputRef = React.useRef<TextInput>(null);  // ✅ ADD THIS LINE
   const mentionSystem = useMentions();
+  const [showTokenToast, setShowTokenToast] = useState(false);
+  const [tokenToastData, setTokenToastData] = useState({ amount: 0, message: '' });
 
   const extractMentions = (text: string): string[] => {
     const mentionRegex = /@([a-zA-Z0-9_]+)/g;
     const mentions: string[] = [];
     let match;
-    
+
     while ((match = mentionRegex.exec(text)) !== null) {
       mentions.push(match[1]); // Username without @
     }
-    
+
     return mentions;
   };
 
@@ -118,7 +121,7 @@ const CommentsScreen = ({ route, navigation }: any) => {
     try {
       const withAt = username.startsWith('@') ? username : `@${username}`;
       const withoutAt = username.startsWith('@') ? username.substring(1) : username;
-      
+
       const profilesRef = collection(
         firestore,
         'artifacts',
@@ -127,21 +130,21 @@ const CommentsScreen = ({ route, navigation }: any) => {
         'data',
         'profiles'
       );
-      
+
       // Try with @ first
       let q = query(profilesRef, where('channel', '==', withAt));
       let snapshot = await getDocs(q);
-      
+
       // If not found, try without @
       if (snapshot.empty) {
         q = query(profilesRef, where('channel', '==', withoutAt));
         snapshot = await getDocs(q);
       }
-      
+
       if (!snapshot.empty) {
         return snapshot.docs[0].id;
       }
-      
+
       return null;
     } catch (error) {
       console.error('getUserIdFromChannel error:', error);
@@ -152,11 +155,11 @@ const CommentsScreen = ({ route, navigation }: any) => {
   const navigateToUserProfile = async (username: string) => {
     try {
       console.log('🔍 Original username received:', username);
-      
+
       // Try both with and without @ symbol
       const withAt = username.startsWith('@') ? username : `@${username}`;
       const withoutAt = username.startsWith('@') ? username.substring(1) : username;
-      
+
       // Search profiles collection for this channel name
       const profilesRef = collection(
         firestore,
@@ -166,27 +169,27 @@ const CommentsScreen = ({ route, navigation }: any) => {
         'data',
         'profiles'
       );
-      
+
       // Try with @ first
       let q = query(profilesRef, where('channel', '==', withAt));
       let snapshot = await getDocs(q);
-      
+
       // If not found, try without @
       if (snapshot.empty) {
         console.log('🔍 Not found with @, trying without...');
         q = query(profilesRef, where('channel', '==', withoutAt));
         snapshot = await getDocs(q);
       }
-      
+
       if (!snapshot.empty) {
         const userDoc = snapshot.docs[0];
         const foundUserId = userDoc.id;
         console.log('✅ Found user:', foundUserId);
-        
+
         navigation.navigate('Profile', { userId: foundUserId });
       } else {
         console.error('❌ User not found with either format:', withAt, withoutAt);
-        
+
         // Debug: Let's see all profiles
         const allProfiles = await getDocs(profilesRef);
         console.log('📋 All channel names in DB:');
@@ -307,20 +310,27 @@ const CommentsScreen = ({ route, navigation }: any) => {
       // AWARD TOKENS FOR COMMENTING
       try {
         const { awardTokens } = await import('../utils/tokens');
-        
+
         // Voice comment = 5 tokens, Regular comment = 2 tokens
         const tokenAmount = uploadedVoiceUrl ? 5 : 2;
         const tokenType = uploadedVoiceUrl ? 'voice_comment' : 'comment';
         const tokenDesc = uploadedVoiceUrl ? 'Posted a voice comment' : 'Posted a comment';
-        
+
         await awardTokens({
           userId,
           amount: tokenAmount,
           type: tokenType,
           description: tokenDesc,
         });
-        
+
         console.log(`🪙 Awarded ${tokenAmount} tokens for ${tokenType}`);
+
+        // Show toast notification
+        setTokenToastData({
+          amount: tokenAmount,
+          message: uploadedVoiceUrl ? 'Voice comment posted!' : 'Comment posted!'
+        });
+        setShowTokenToast(true);
       } catch (tokenError) {
         console.error('Token award error:', tokenError);
       }
@@ -355,21 +365,21 @@ const CommentsScreen = ({ route, navigation }: any) => {
               const { createNotification } = await import('../utils/notifications');
 
               // Get preview of comment text (first 50 chars)
-              const commentPreview = parentCommentData.content 
+              const commentPreview = parentCommentData.content
                 ? parentCommentData.content.substring(0, 50) + (parentCommentData.content.length > 50 ? '...' : '')
                 : 'your comment';
 
-                await createNotification({
-                  recipientUserId: parentCommentAuthorId,
-                  type: 'reply',
-                  fromUserId: userId,
-                  fromUsername: userChannel || '@unknown',
-                  fromProfilePic: null,
-                  relatedCanvasId: post.id,
-                  relatedCanvasTitle: null,  // ← Changed to null
-                  relatedCommentId: replyingTo.id,
-                  commentText: commentPreview,
-                });
+              await createNotification({
+                recipientUserId: parentCommentAuthorId,
+                type: 'reply',
+                fromUserId: userId,
+                fromUsername: userChannel || '@unknown',
+                fromProfilePic: null,
+                relatedCanvasId: post.id,
+                relatedCanvasTitle: null,  // ← Changed to null
+                relatedCommentId: replyingTo.id,
+                commentText: commentPreview,
+              });
 
               console.log('✅ Reply notification sent to:', parentCommentAuthorId);
             }
@@ -407,16 +417,16 @@ const CommentsScreen = ({ route, navigation }: any) => {
       const mentions = extractMentions(newComment);
       if (mentions.length > 0) {
         console.log('📢 Found mentions:', mentions);
-        
+
         try {
           const { createNotification } = await import('../utils/notifications');
-          
+
           for (const mentionedUsername of mentions) {
             const mentionedUserId = await getUserIdFromChannel(mentionedUsername);
-            
+
             if (mentionedUserId && mentionedUserId !== userId) {
               console.log('📢 Sending mention notification to:', mentionedUserId);
-              
+
               await createNotification({
                 recipientUserId: mentionedUserId,
                 type: 'mention',
@@ -642,8 +652,8 @@ const CommentsScreen = ({ route, navigation }: any) => {
           </View>
         )}
         {item.content && item.content.trim() && (
-          <ClickableText 
-            text={item.content} 
+          <ClickableText
+            text={item.content}
             style={styles.commentContent}
             onMentionPress={navigateToUserProfile}
           />
@@ -813,8 +823,8 @@ const CommentsScreen = ({ route, navigation }: any) => {
                         </View>
                       )}
                       {reply.content && reply.content.trim() && (
-                        <ClickableText 
-                          text={reply.content} 
+                        <ClickableText
+                          text={reply.content}
                           style={styles.commentContent}
                           onMentionPress={navigateToUserProfile}
                         />
@@ -947,6 +957,14 @@ const CommentsScreen = ({ route, navigation }: any) => {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Token Toast */}
+      <TokenToast
+        visible={showTokenToast}
+        amount={tokenToastData.amount}
+        message={tokenToastData.message}
+        onHide={() => setShowTokenToast(false)}
+      />
     </View>
   );
 };

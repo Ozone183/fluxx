@@ -25,6 +25,7 @@ import { useAuth, APP_ID } from '../context/AuthContext';
 import { useProfiles } from '../context/ProfileContext';
 import PostCard from '../components/PostCard';
 import EmptyState from '../components/EmptyState';
+import { ScrollView } from 'react-native';
 
 interface Post {
   id: string;
@@ -396,7 +397,12 @@ const ProfileScreen = ({ route }: any) => {
           </View>
         )}
 
-        <View style={styles.statsContainer}>
+<ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.statsScrollContent}
+          style={styles.statsContainer}
+        >
           <View style={styles.stat}>
             <Text style={styles.statValue}>{profile?.canvasesCreated || 0}</Text>
             <Text style={styles.statLabel}>Canvases</Text>
@@ -413,7 +419,7 @@ const ProfileScreen = ({ route }: any) => {
             <Text style={styles.statValue}>{profile?.followingCount || 0}</Text>
             <Text style={styles.statLabel}>Following</Text>
           </View>
-        </View>
+        </ScrollView>
 
         {isOwnProfile && (
           <TouchableOpacity
@@ -617,8 +623,11 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   statsContainer: {
-    flexDirection: 'row',
     marginBottom: 16,
+  },
+  statsScrollContent: {
+    paddingHorizontal: 0,
+    alignItems: 'center',
   },
   stat: {
     alignItems: 'center',

@@ -43,6 +43,16 @@ const ProfileMenuDrawer = () => {
       },
     },
     {
+      id: 'tokens',
+      title: 'Token History',
+      subtitle: 'View your earnings and transactions',
+      icon: 'diamond-outline',
+      color: COLORS.yellow500,
+      onPress: () => {
+        navigation.navigate('TokenHistory' as never);
+      },
+    },
+    {
       id: 'saved',
       title: 'Saved Canvases',
       subtitle: 'Your bookmarked creations',

@@ -23,6 +23,7 @@ import VoiceRecorder from '../components/VoiceRecorder';
 import VoiceCommentPlayer from '../components/VoiceCommentPlayer';
 import MentionDropdown from '../components/MentionDropdown';
 import { useMentions } from '../hooks/useMentions';
+import ClickableText from '../components/ClickableText';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../config/firebase';
 import { Ionicons } from '@expo/vector-icons';
@@ -100,6 +101,103 @@ const CommentsScreen = ({ route, navigation }: any) => {
   const [replies, setReplies] = useState<{ [commentId: string]: Comment[] }>({});
   const inputRef = React.useRef<TextInput>(null);  // ✅ ADD THIS LINE
   const mentionSystem = useMentions();
+
+  const extractMentions = (text: string): string[] => {
+    const mentionRegex = /@([a-zA-Z0-9_]+)/g;
+    const mentions: string[] = [];
+    let match;
+    
+    while ((match = mentionRegex.exec(text)) !== null) {
+      mentions.push(match[1]); // Username without @
+    }
+    
+    return mentions;
+  };
+
+  const getUserIdFromChannel = async (username: string): Promise<string | null> => {
+    try {
+      const withAt = username.startsWith('@') ? username : `@${username}`;
+      const withoutAt = username.startsWith('@') ? username.substring(1) : username;
+      
+      const profilesRef = collection(
+        firestore,
+        'artifacts',
+        APP_ID,
+        'public',
+        'data',
+        'profiles'
+      );
+      
+      // Try with @ first
+      let q = query(profilesRef, where('channel', '==', withAt));
+      let snapshot = await getDocs(q);
+      
+      // If not found, try without @
+      if (snapshot.empty) {
+        q = query(profilesRef, where('channel', '==', withoutAt));
+        snapshot = await getDocs(q);
+      }
+      
+      if (!snapshot.empty) {
+        return snapshot.docs[0].id;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('getUserIdFromChannel error:', error);
+      return null;
+    }
+  };
+
+  const navigateToUserProfile = async (username: string) => {
+    try {
+      console.log('🔍 Original username received:', username);
+      
+      // Try both with and without @ symbol
+      const withAt = username.startsWith('@') ? username : `@${username}`;
+      const withoutAt = username.startsWith('@') ? username.substring(1) : username;
+      
+      // Search profiles collection for this channel name
+      const profilesRef = collection(
+        firestore,
+        'artifacts',
+        APP_ID,
+        'public',
+        'data',
+        'profiles'
+      );
+      
+      // Try with @ first
+      let q = query(profilesRef, where('channel', '==', withAt));
+      let snapshot = await getDocs(q);
+      
+      // If not found, try without @
+      if (snapshot.empty) {
+        console.log('🔍 Not found with @, trying without...');
+        q = query(profilesRef, where('channel', '==', withoutAt));
+        snapshot = await getDocs(q);
+      }
+      
+      if (!snapshot.empty) {
+        const userDoc = snapshot.docs[0];
+        const foundUserId = userDoc.id;
+        console.log('✅ Found user:', foundUserId);
+        
+        navigation.navigate('Profile', { userId: foundUserId });
+      } else {
+        console.error('❌ User not found with either format:', withAt, withoutAt);
+        
+        // Debug: Let's see all profiles
+        const allProfiles = await getDocs(profilesRef);
+        console.log('📋 All channel names in DB:');
+        allProfiles.forEach(doc => {
+          console.log('  -', doc.data().channel);
+        });
+      }
+    } catch (error) {
+      console.error('Profile lookup error:', error);
+    }
+  };
 
 
   useEffect(() => {
@@ -222,6 +320,42 @@ const CommentsScreen = ({ route, navigation }: any) => {
         await updateDoc(parentCommentRef, {
           replyCount: increment(1),
         });
+
+        // SEND NOTIFICATION TO PARENT COMMENT AUTHOR
+        try {
+          // Get parent comment to find the author
+          const parentCommentDoc = await getDoc(parentCommentRef);
+          if (parentCommentDoc.exists()) {
+            const parentCommentData = parentCommentDoc.data();
+            const parentCommentAuthorId = parentCommentData.userId;
+
+            // Only notify if replying to someone else
+            if (parentCommentAuthorId && parentCommentAuthorId !== userId) {
+              const { createNotification } = await import('../utils/notifications');
+
+              // Get preview of comment text (first 50 chars)
+              const commentPreview = parentCommentData.content 
+                ? parentCommentData.content.substring(0, 50) + (parentCommentData.content.length > 50 ? '...' : '')
+                : 'your comment';
+
+                await createNotification({
+                  recipientUserId: parentCommentAuthorId,
+                  type: 'reply',
+                  fromUserId: userId,
+                  fromUsername: userChannel || '@unknown',
+                  fromProfilePic: null,
+                  relatedCanvasId: post.id,
+                  relatedCanvasTitle: null,  // ← Changed to null
+                  relatedCommentId: replyingTo.id,
+                  commentText: commentPreview,
+                });
+
+              console.log('✅ Reply notification sent to:', parentCommentAuthorId);
+            }
+          }
+        } catch (replyNotifError) {
+          console.error('Reply notification error:', replyNotifError);
+        }
       }
 
       const postRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts', post.id);
@@ -241,10 +375,40 @@ const CommentsScreen = ({ route, navigation }: any) => {
             fromUsername: userChannel || '@unknown',
             fromProfilePic: null,
             relatedCanvasId: post.id,
-            relatedCanvasTitle: 'your post',
+            relatedCanvasTitle: null,  // ← Changed from 'your post' to null
           });
         } catch (notifError) {
           console.error('Notification creation failed:', notifError);
+        }
+      }
+
+      // CREATE NOTIFICATIONS FOR MENTIONED USERS
+      const mentions = extractMentions(newComment);
+      if (mentions.length > 0) {
+        console.log('📢 Found mentions:', mentions);
+        
+        try {
+          const { createNotification } = await import('../utils/notifications');
+          
+          for (const mentionedUsername of mentions) {
+            const mentionedUserId = await getUserIdFromChannel(mentionedUsername);
+            
+            if (mentionedUserId && mentionedUserId !== userId) {
+              console.log('📢 Sending mention notification to:', mentionedUserId);
+              
+              await createNotification({
+                recipientUserId: mentionedUserId,
+                type: 'mention',
+                fromUserId: userId,
+                fromUsername: userChannel || '@unknown',
+                fromProfilePic: null,
+                relatedCanvasId: post.id,
+                relatedCanvasTitle: null,  // ← Changed to null
+              });
+            }
+          }
+        } catch (mentionError) {
+          console.error('Mention notification error:', mentionError);
         }
       }
 
@@ -457,7 +621,11 @@ const CommentsScreen = ({ route, navigation }: any) => {
           </View>
         )}
         {item.content && item.content.trim() && (
-          <Text style={styles.commentContent}>{item.content}</Text>
+          <ClickableText 
+            text={item.content} 
+            style={styles.commentContent}
+            onMentionPress={navigateToUserProfile}
+          />
         )}
 
         {/* Actions Row (Reply + React buttons) */}
@@ -624,7 +792,11 @@ const CommentsScreen = ({ route, navigation }: any) => {
                         </View>
                       )}
                       {reply.content && reply.content.trim() && (
-                        <Text style={styles.commentContent}>{reply.content}</Text>
+                        <ClickableText 
+                          text={reply.content} 
+                          style={styles.commentContent}
+                          onMentionPress={navigateToUserProfile}
+                        />
                       )}
                     </View>
                   </View>

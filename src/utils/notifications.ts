@@ -4,7 +4,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
 import { APP_ID } from '../context/AuthContext';
 
-export type NotificationType = 'follow' | 'canvas_invite' | 'like' | 'comment' | 'reply' | 'comment_react' | 'access_request' | 'access_approved' | 'access_denied';
+export type NotificationType = 'follow' | 'canvas_invite' | 'like' | 'comment' | 'reply' | 'comment_react' | 'mention' | 'access_request' | 'access_approved' | 'access_denied';
 
 interface CreateNotificationParams {
     recipientUserId: string;
@@ -65,18 +65,38 @@ export const createNotification = async (params: CreateNotificationParams) => {
             break;
 
         case 'comment':
-            message = `${fromUsername} commented on your canvas "${relatedCanvasTitle}"`;
-            actionUrl = `fluxx://canvas/${relatedCanvasId}`;
+            if (relatedCanvasTitle) {
+                message = `${fromUsername} commented on your canvas "${relatedCanvasTitle}"`;
+                actionUrl = `fluxx://canvas/${relatedCanvasId}`;
+            } else {
+                message = `${fromUsername} commented on your post`;
+                actionUrl = `fluxx://feed/${relatedCanvasId}`;
+            }
             break;
 
-        case 'reply':  // 🆕 ADD THIS CASE
-            message = `${fromUsername} replied to your comment: "${commentText}"`;
-            actionUrl = `fluxx://canvas/${relatedCanvasId}`;
+        case 'reply':
+            if (relatedCanvasTitle) {
+                message = `${fromUsername} replied to your comment: "${commentText}"`;
+                actionUrl = `fluxx://canvas/${relatedCanvasId}`;
+            } else {
+                message = `${fromUsername} replied to your comment`;
+                actionUrl = `fluxx://feed/${relatedCanvasId}`;
+            }
             break;
 
         case 'comment_react':  // 🆕 ADD THIS CASE
             message = `${fromUsername} reacted to your comment`;
             actionUrl = `fluxx://canvas/${relatedCanvasId}`;
+            break;
+
+        case 'mention':
+            if (relatedCanvasTitle) {
+                message = `${fromUsername} mentioned you in "${relatedCanvasTitle}"`;
+                actionUrl = `fluxx://canvas/${relatedCanvasId}`;
+            } else {
+                message = `${fromUsername} mentioned you in a comment`;
+                actionUrl = `fluxx://feed/${relatedCanvasId}`;
+            }
             break;
 
         case 'access_request':

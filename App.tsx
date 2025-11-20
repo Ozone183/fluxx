@@ -35,6 +35,14 @@ import CreateModal from './src/components/CreateModal';
 
 import { COLORS } from './src/theme/colors';
 
+import { LogBox } from 'react-native';
+
+// Suppress harmless animated warnings
+LogBox.ignoreLogs([
+  'Style property \'width\' is not supported by native animated module',
+  'Style property \'left\' is not supported by native animated module',
+]);
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 

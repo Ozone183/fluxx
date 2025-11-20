@@ -20,7 +20,10 @@ import { useAuth, APP_ID } from '../context/AuthContext';
 import { useProfiles } from '../context/ProfileContext';
 import PostCard from '../components/PostCard';
 import EmptyState from '../components/EmptyState';
-import CanvasStoriesBar from '../components/CanvasStoriesBar'; // ← ADD THIS
+import CanvasStoriesBar from '../components/CanvasStoriesBar';
+import DailyCheckInModal from '../components/DailyCheckInModal';
+import TokenClaimedCelebration from '../components/TokenClaimedCelebration';
+import { checkDailyCheckInEligibility, processDailyCheckIn } from '../utils/tokens';
 import { useRef } from 'react';
 
 interface Post {
@@ -62,6 +65,54 @@ const FeedScreen = () => {
   const { userId, userChannel } = useAuth();
   const { allProfiles } = useProfiles();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showCheckInModal, setShowCheckInModal] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [checkInData, setCheckInData] = useState({ tokens: 0, streak: 0 });
+
+  // Daily Check-In Logic (prevent multiple checks per session)
+  const hasCheckedRef = useRef(false);
+
+  useEffect(() => {
+    if (!userId || hasCheckedRef.current) return;
+
+    const checkForDailyCheckIn = async () => {
+      try {
+        const isEligible = await checkDailyCheckInEligibility(userId);
+        
+        if (isEligible) {
+          console.log('🪙 User is eligible for daily check-in');
+          
+          // Mark as checked for this session
+          hasCheckedRef.current = true;
+          
+          // Process check-in
+          const result = await processDailyCheckIn(userId);
+          
+          if (result.success) {
+            console.log('🎉 Setting check-in data:', result);
+            setCheckInData({
+              tokens: result.tokens,
+              streak: result.streak,
+            });
+            
+            console.log('🎉 About to show modal in 1 second...');
+            // Show modal after a short delay
+            setTimeout(() => {
+              console.log('🎉 SHOWING MODAL NOW!');
+              setShowCheckInModal(true);
+            }, 1000);
+          }
+        } else {
+          console.log('🪙 User already checked in today');
+          hasCheckedRef.current = true; // Mark as checked to prevent re-checking
+        }
+      } catch (error) {
+        console.error('Daily check-in error:', error);
+      }
+    };
+
+    checkForDailyCheckIn();
+  }, [userId]);
 
   // ✅ KEEP YOUR NOTIFICATION LISTENER - DON'T DELETE
   useEffect(() => {
@@ -347,6 +398,27 @@ const handleLike = async (postId: string, likedBy: string[]) => {
           { useNativeDriver: false },
         )}
         showsVerticalScrollIndicator={false}
+        />
+
+        {/* Daily Check-In Modal */}
+      <DailyCheckInModal
+        visible={showCheckInModal}
+        onClose={() => {
+          setShowCheckInModal(false);
+          // Show celebration after closing check-in modal
+          setTimeout(() => {
+            setShowCelebration(true);
+          }, 300);
+        }}
+        tokensEarned={checkInData.tokens}
+        streak={checkInData.streak}
+      />
+
+      {/* Token Claimed Celebration */}
+      <TokenClaimedCelebration
+        visible={showCelebration}
+        onComplete={() => setShowCelebration(false)}
+        tokensEarned={checkInData.tokens}
       />
     </View>
   );

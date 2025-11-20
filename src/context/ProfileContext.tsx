@@ -7,12 +7,15 @@ interface Profile {
   userId: string;
   channel: string;
   profilePictureUrl: string | null;
-  bio?: string; // Added bio field (optional)
-  followers?: string[];           // ✅ ADD THIS
-  following?: string[];           // ✅ ADD THIS
-  followerCount?: number;         // ✅ ADD THIS
-  followingCount?: number;        // ✅ ADD THIS
-  canvasesCreated?: number;       // ✅ ADD THIS
+  bio?: string;
+  followers?: string[];
+  following?: string[];
+  followerCount?: number;
+  followingCount?: number;
+  canvasesCreated?: number;
+  tokens?: number;                // 🪙 Token balance
+  lastCheckIn?: any;              // 🪙 Last daily check-in timestamp
+  checkInStreak?: number;         // 🪙 Consecutive days checked in
 }
 
 interface ProfileContextType {

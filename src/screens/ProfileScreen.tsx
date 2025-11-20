@@ -370,6 +370,32 @@ const ProfileScreen = ({ route }: any) => {
           </View>
         )}
 
+        {/* Token Balance - Prominent Display */}
+        {isOwnProfile && (
+          <View style={styles.tokenBanner}>
+            <LinearGradient
+              colors={[COLORS.yellow500, COLORS.orange500]}
+              style={styles.tokenGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.tokenContent}>
+                <Icon name="diamond" size={32} color={COLORS.white} />
+                <View style={styles.tokenInfo}>
+                  <Text style={styles.tokenValue}>{profile?.tokens || 0}</Text>
+                  <Text style={styles.tokenLabel}>TOKENS</Text>
+                </View>
+              </View>
+              {profile?.checkInStreak && profile.checkInStreak > 0 && (
+                <View style={styles.streakBadge}>
+                  <Icon name="flame" size={16} color={COLORS.orange500} />
+                  <Text style={styles.streakText}>{profile.checkInStreak} day streak</Text>
+                </View>
+              )}
+            </LinearGradient>
+          </View>
+        )}
+
         <View style={styles.statsContainer}>
           <View style={styles.stat}>
             <Text style={styles.statValue}>{profile?.canvasesCreated || 0}</Text>
@@ -709,6 +735,61 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 16,
     fontWeight: '700',
+  },
+  tokenBanner: {
+    width: '100%',
+    marginBottom: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: COLORS.yellow500,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  tokenGradient: {
+    padding: 20,
+  },
+  tokenContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  tokenInfo: {
+    alignItems: 'center',
+  },
+  tokenValue: {
+    fontSize: 42,
+    fontWeight: '900',
+    color: COLORS.white,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  tokenLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.white,
+    letterSpacing: 2,
+    marginTop: 2,
+  },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    alignSelf: 'center',
+  },
+  streakText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.white,
   },
 });
 

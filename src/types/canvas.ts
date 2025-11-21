@@ -167,5 +167,5 @@ export interface CanvasComment {
   reportCount: number;
 }
 
-export type ReactionType = 'heart' | 'fire' | 'laugh' | 'clap' | 'heart_eyes' | 'sparkles';
+export type { ReactionType } from '../data/reactions';
 

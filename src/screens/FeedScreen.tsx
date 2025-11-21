@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
 import { COLORS, GRADIENTS } from '../theme/colors';
+import { ReactionType } from '../data/reactions';
 import { useAuth, APP_ID } from '../context/AuthContext';
 import { useProfiles } from '../context/ProfileContext';
 import PostCard from '../components/PostCard';
@@ -40,23 +41,9 @@ interface Post {
     title?: string;
     thumbnail?: string;
   };
-  // 🆕 NEW REACTION FIELDS
-  reactions?: {
-    heart: string[];
-    fire: string[];
-    laugh: string[];
-    clap: string[];
-    heart_eyes: string[];
-    sparkles: string[];
-  };
-  reactionCounts?: {
-    heart: number;
-    fire: number;
-    laugh: number;
-    clap: number;
-    heart_eyes: number;
-    sparkles: number;
-  };
+  // 🆕 NEW REACTION FIELDS - ALL 80 REACTIONS
+  reactions?: Record<string, string[]>;
+  reactionCounts?: Record<string, number>;
 }
 
 const FeedScreen = () => {
@@ -245,7 +232,7 @@ const handleLike = async (postId: string, likedBy: string[]) => {
 };
 
   // 🆕 NEW: Handle reaction toggle
-  const handleReact = async (postId: string, reactionType: 'heart' | 'fire' | 'laugh' | 'clap' | 'heart_eyes' | 'sparkles') => {
+  const handleReact = async (postId: string, reactionType: ReactionType) => {
     if (!userId) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

@@ -12,6 +12,8 @@ import {
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../theme/colors';
+import ReactionPicker from './ReactionPicker';
+import { ReactionType } from '../data/reactions';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -24,23 +26,9 @@ interface Post {
   timestamp: any;
   likedBy: string[];
   commentsCount: number;
-  // 🆕 NEW REACTION FIELDS
-  reactions?: {
-    heart: string[];
-    fire: string[];
-    laugh: string[];
-    clap: string[];
-    heart_eyes: string[];
-    sparkles: string[];
-  };
-  reactionCounts?: {
-    heart: number;
-    fire: number;
-    laugh: number;
-    clap: number;
-    heart_eyes: number;
-    sparkles: number;
-  };
+  // 🆕 NEW REACTION FIELDS - ALL 80 REACTIONS
+  reactions?: Record<string, string[]>;
+  reactionCounts?: Record<string, number>;
 }
 
 interface Profile {
@@ -54,7 +42,7 @@ interface PostCardProps {
   currentUserId: string | null;
   profile: Profile | null;
   onLike: (postId: string, likedBy: string[]) => void;
-  onReact: (postId: string, reactionType: 'heart' | 'fire' | 'laugh' | 'clap' | 'heart_eyes' | 'sparkles') => void;
+  onReact: (postId: string, reactionType: ReactionType) => void;
   onComment: (post: Post) => void;
   onViewProfile: (userId: string) => void;
 }
@@ -74,35 +62,9 @@ const PostCard: React.FC<PostCardProps> = ({
   const likesCount = post.likedBy?.length || 0;
   const commentsCount = post.commentsCount || 0;
 
-  // Reaction calculations
-  const reactionCounts = post.reactionCounts || {
-    heart: 0,
-    fire: 0,
-    laugh: 0,
-    clap: 0,
-    heart_eyes: 0,
-    sparkles: 0,
-  };
-  
-  const totalReactions = Object.values(reactionCounts).reduce((a, b) => a + b, 0);
-  
-  const userReactions = currentUserId ? {
-    heart: post.reactions?.heart?.includes(currentUserId) || false,
-    fire: post.reactions?.fire?.includes(currentUserId) || false,
-    laugh: post.reactions?.laugh?.includes(currentUserId) || false,
-    clap: post.reactions?.clap?.includes(currentUserId) || false,
-    heart_eyes: post.reactions?.heart_eyes?.includes(currentUserId) || false,
-    sparkles: post.reactions?.sparkles?.includes(currentUserId) || false,
-  } : null;
-
-  const reactionEmojis: Record<string, string> = {
-    heart: '❤️',
-    fire: '🔥',
-    laugh: '😂',
-    clap: '👏',
-    heart_eyes: '😍',
-    sparkles: '✨',
-  };
+ // Reaction calculations
+ const reactionCounts = post.reactionCounts || {};
+ const totalReactions = Object.values(reactionCounts).reduce((a, b) => a + b, 0);
 
   const timestamp = post.timestamp?.toDate
     ? post.timestamp.toDate()
@@ -252,36 +214,15 @@ const PostCard: React.FC<PostCardProps> = ({
         </View>
 
         {showReactions && (
-          <View style={styles.reactionsRow}>
-            <TouchableOpacity onPress={() => onReact(post.id, 'heart')} style={[styles.reactionButton, userReactions?.heart && styles.reactionButtonActive]}>
-              <Text style={styles.reactionEmoji}>❤️</Text>
-              {reactionCounts.heart > 0 && <Text style={[styles.reactionCount, userReactions?.heart && styles.reactionCountActive]}>{reactionCounts.heart}</Text>}
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => onReact(post.id, 'fire')} style={[styles.reactionButton, userReactions?.fire && styles.reactionButtonActive]}>
-              <Text style={styles.reactionEmoji}>🔥</Text>
-              {reactionCounts.fire > 0 && <Text style={[styles.reactionCount, userReactions?.fire && styles.reactionCountActive]}>{reactionCounts.fire}</Text>}
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => onReact(post.id, 'laugh')} style={[styles.reactionButton, userReactions?.laugh && styles.reactionButtonActive]}>
-              <Text style={styles.reactionEmoji}>😂</Text>
-              {reactionCounts.laugh > 0 && <Text style={[styles.reactionCount, userReactions?.laugh && styles.reactionCountActive]}>{reactionCounts.laugh}</Text>}
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => onReact(post.id, 'clap')} style={[styles.reactionButton, userReactions?.clap && styles.reactionButtonActive]}>
-              <Text style={styles.reactionEmoji}>👏</Text>
-              {reactionCounts.clap > 0 && <Text style={[styles.reactionCount, userReactions?.clap && styles.reactionCountActive]}>{reactionCounts.clap}</Text>}
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => onReact(post.id, 'heart_eyes')} style={[styles.reactionButton, userReactions?.heart_eyes && styles.reactionButtonActive]}>
-              <Text style={styles.reactionEmoji}>😍</Text>
-              {reactionCounts.heart_eyes > 0 && <Text style={[styles.reactionCount, userReactions?.heart_eyes && styles.reactionCountActive]}>{reactionCounts.heart_eyes}</Text>}
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => onReact(post.id, 'sparkles')} style={[styles.reactionButton, userReactions?.sparkles && styles.reactionButtonActive]}>
-              <Text style={styles.reactionEmoji}>✨</Text>
-              {reactionCounts.sparkles > 0 && <Text style={[styles.reactionCount, userReactions?.sparkles && styles.reactionCountActive]}>{reactionCounts.sparkles}</Text>}
-            </TouchableOpacity>
+          <View style={styles.reactionsContainer}>
+            <ReactionPicker
+              currentReactions={post.reactions || {}}
+              userId={currentUserId || ''}
+              onReact={(reactionType) => {
+                onReact(post.id, reactionType);
+                setShowReactions(false);
+              }}
+            />
           </View>
         )}
 
@@ -428,39 +369,8 @@ const styles = StyleSheet.create({
   hasReactionsText: {
     color: COLORS.cyan400,
   },
-  reactionsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  reactionsContainer: {
     marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.slate700,
-  },
-  reactionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: COLORS.slate700,
-    gap: 4,
-  },
-  reactionButtonActive: {
-    backgroundColor: COLORS.slate600,
-    borderWidth: 1,
-    borderColor: COLORS.cyan400,
-  },
-  reactionEmoji: {
-    fontSize: 16,
-  },
-  reactionCount: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.slate400,
-  },
-  reactionCountActive: {
-    color: COLORS.cyan400,
   },
 });
 

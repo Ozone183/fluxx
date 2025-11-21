@@ -16,7 +16,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.fluxx.app",
-      "associatedDomains": ["applinks:fluxx.app"],
+      "associatedDomains": [
+        "applinks:fluxx.app"
+      ],
       "infoPlist": {
         "NSPhotoLibraryAddUsageDescription": "Fluxx needs access to save your canvas creations to your photo library.",
         "NSPhotoLibraryUsageDescription": "Fluxx needs access to your photo library to save your canvas creations.",
@@ -38,7 +40,10 @@
               "scheme": "fluxx"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "permissions": [
@@ -66,7 +71,8 @@
           "savePhotosPermission": "Allow Fluxx to save your canvas creations to your photos.",
           "isAccessMediaLocationEnabled": true
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "owner": "kunleoni",
     "extra": {

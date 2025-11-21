@@ -29,10 +29,11 @@ interface CanvasLayerProps {
   isSelected: boolean;
   onSelect: () => void;
   onDelete: () => void;
-  onPressAnimation: () => void; // 🎬 NEW
+  onPressAnimation: () => void;
+  onOpenGallery?: () => void;
   canvasId: string;
-  scaleFactor: number; // 🆕 ADD THIS
-  showAllCaptions: boolean; // 🆕 ADD THIS
+  scaleFactor: number;
+  showAllCaptions?: boolean;
 }
 
 const getTimeAgo = (timestamp: number): string => {
@@ -51,9 +52,10 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
   onSelect,
   onDelete,
   onPressAnimation,
+  onOpenGallery,
   canvasId,
-  scaleFactor, // 🆕 ADD THIS
-  showAllCaptions, // 🆕 ADD THIS
+  scaleFactor,
+  showAllCaptions,
 }) => {
   // 🎬 Animation Values
   const animatedOpacity = useRef(new Animated.Value(1)).current;
@@ -121,9 +123,11 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
       });
 
       if (now - lastTap < DOUBLE_TAP_DELAY && layer.type === 'image') {
-        // Double tap detected on image - ZOOM
-        console.log('🔍 ZOOMING!', !isZoomed);
-        setIsZoomed(!isZoomed);
+        // Double tap detected on image - OPEN GALLERY
+        console.log('🎬 Opening gallery!');
+        if (onOpenGallery) {
+          onOpenGallery();
+        }
       } else {
         // Single tap - SELECT/DESELECT
         console.log('✅ Selecting layer');

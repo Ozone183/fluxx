@@ -14,6 +14,7 @@ import {
   TextInput as RNTextInput,
   Clipboard,
 } from 'react-native';
+import LayerGalleryModal from '../components/LayerGalleryModal';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { doc, onSnapshot, updateDoc, arrayUnion, getDoc, increment } from 'firebase/firestore';
 import { ref as dbRef, onValue, set, serverTimestamp } from 'firebase/database';
@@ -150,6 +151,8 @@ const CanvasEditorScreen = () => {
   const { animatedStyle, animationType } = useCanvasEntrance();
   const [showWelcomeHint, setShowWelcomeHint] = useState(true);
   const [isFirstOpen, setIsFirstOpen] = useState(true);
+  const [showLayerGallery, setShowLayerGallery] = useState(false);
+  const [galleryInitialIndex, setGalleryInitialIndex] = useState(0);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -178,7 +181,7 @@ const CanvasEditorScreen = () => {
   useEffect(() => {
     if (canvas && isFirstOpen) {
       setFocusMode(true);
-      
+
       // Hide hint after 3 seconds
       const timer = setTimeout(() => {
         setShowWelcomeHint(false);
@@ -357,6 +360,19 @@ const CanvasEditorScreen = () => {
     } catch (error) {
       console.error('Add image error:', error);
       Alert.alert('Error', 'Could not add image');
+    }
+  };
+
+  const handleLayerPress = (layerId: string) => {
+    if (!canvas) return;
+
+    // Find the index of the tapped layer in the image layers
+    const imageLayers = canvas.layers.filter(layer => layer.type === 'image' && layer.imageUrl);
+    const layerIndex = imageLayers.findIndex(layer => layer.id === layerId);
+
+    if (layerIndex !== -1) {
+      setGalleryInitialIndex(layerIndex);
+      setShowLayerGallery(true);
     }
   };
 
@@ -549,13 +565,28 @@ const CanvasEditorScreen = () => {
     }
   };
 
-  // 👇 ADD THIS NEW ONE:
+  // 🎵 Load music - handles BOTH normal canvases AND FluxxAI canvases
   useEffect(() => {
     if (canvas?.selectedMusicId) {
+      // Normal canvas - uses music library
       const track = MUSIC_LIBRARY.find(t => t.id === canvas.selectedMusicId);
       if (track) {
         setSelectedMusic(track);
+        console.log('🎵 Loaded library music:', track.title);
       }
+    } else if ((canvas as any)?.musicUrl && (canvas as any)?.title) {
+      // FluxxAI canvas - uses direct Firebase URL
+      const aiTrack: MusicTrack = {
+        id: 'fluxxai_custom',
+        title: (canvas as any).title,
+        artist: 'FluxxAI',
+        category: 'cinematic',
+        url: { uri: (canvas as any).musicUrl },
+        duration: 180,
+        isPremium: false
+      };
+      setSelectedMusic(aiTrack);
+      console.log('🎵 Loaded FluxxAI music:', aiTrack.title);
     } else {
       setSelectedMusic(null);
     }
@@ -1201,7 +1232,7 @@ const CanvasEditorScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }}>
-        <TouchableOpacity
+          <TouchableOpacity
             activeOpacity={1}
             onPress={handleCanvasTap}
             disabled={!isFirstOpen || !focusMode}
@@ -1212,38 +1243,39 @@ const CanvasEditorScreen = () => {
               backgroundColor: canvas.backgroundColor
             }, animatedStyle]}>
 
-            {canvas.layers
-              .filter(layer => (layer.pageIndex ?? 0) === currentPage)
-              .sort((a, b) => a.zIndex - b.zIndex)
-              .map((layer) => (
-                <CanvasLayerComponent
-                  key={layer.id}
-                  layer={layer}
-                  isSelected={selectedLayerId === layer.id}
-                  onSelect={() => setSelectedLayerId(selectedLayerId === layer.id ? null : layer.id)}
-                  onDelete={() => deleteLayer(layer.id)}
-                  onPressAnimation={() => {
-                    setAnimatingLayerId(layer.id);
-                    setShowAnimationSelector(true);
-                  }}
-                  canvasId={canvasId}
-                  scaleFactor={SCALE_FACTOR}
-                  showAllCaptions={canvas?.showAllCaptions || false}
-                />
-              ))}
+              {canvas.layers
+                .filter(layer => (layer.pageIndex ?? 0) === currentPage)
+                .sort((a, b) => a.zIndex - b.zIndex)
+                .map((layer) => (
+                  <CanvasLayerComponent
+                    key={layer.id}
+                    layer={layer}
+                    isSelected={selectedLayerId === layer.id}
+                    onSelect={() => setSelectedLayerId(selectedLayerId === layer.id ? null : layer.id)}
+                    onDelete={() => deleteLayer(layer.id)}
+                    onPressAnimation={() => {
+                      setAnimatingLayerId(layer.id);
+                      setShowAnimationSelector(true);
+                    }}
+                    onOpenGallery={() => handleLayerPress(layer.id)}
+                    canvasId={canvasId}
+                    scaleFactor={SCALE_FACTOR}
+                    showAllCaptions={canvas?.showAllCaptions || false}
+                  />
+                ))}
 
-            {/* Fancy Watermark overlay */}
-            <View style={styles.watermark} pointerEvents="none">
-              <View style={styles.watermarkBadge}>
-                <View style={styles.watermarkGradient}>
-                  <Ionicons name="color-palette" size={12} color="#fff" />
-                  <Text style={styles.watermarkText}>Made with Fluxx</Text>
+              {/* Fancy Watermark overlay */}
+              <View style={styles.watermark} pointerEvents="none">
+                <View style={styles.watermarkBadge}>
+                  <View style={styles.watermarkGradient}>
+                    <Ionicons name="color-palette" size={12} color="#fff" />
+                    <Text style={styles.watermarkText}>Made with Fluxx</Text>
+                  </View>
                 </View>
               </View>
-            </View>
 
-          {/* Welcome Hint Overlay */}
-          {showWelcomeHint && isFirstOpen && focusMode && (
+              {/* Welcome Hint Overlay */}
+              {showWelcomeHint && isFirstOpen && focusMode && (
                 <View style={styles.welcomeHint} pointerEvents="none">
                   <View style={styles.hintBubble}>
                     <Ionicons name="hand-left" size={24} color={COLORS.white} />
@@ -1396,6 +1428,18 @@ const CanvasEditorScreen = () => {
         canvasId={canvasId}
         inviteCode={canvas.inviteCode}
         isPrivate={canvas.accessType === 'private'}
+      />
+
+      <LayerGalleryModal
+        visible={showLayerGallery}
+        layers={canvas.layers.filter(l => l.type === 'image')}
+        initialIndex={galleryInitialIndex}
+        creatorInfo={{
+          username: canvas.creatorUsername,
+          displayName: canvas.creatorUsername,
+          profilePictureUrl: undefined
+        }}
+        onClose={() => setShowLayerGallery(false)}
       />
 
 // ADD THIS RIGHT AFTER ShareModal:

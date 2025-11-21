@@ -53,6 +53,38 @@ const ProfileMenuDrawer = () => {
       },
     },
     {
+      id: 'fluxxai',
+      title: 'FluxxAI Generator',
+      subtitle: '🧪 Test AI canvas generation',
+      icon: 'sparkles',
+      color: COLORS.purple400,
+      badge: 'DEV',
+      onPress: () => {
+        Alert.alert(
+          '🤖 FluxxAI Generator',
+          'Generate a full AI canvas with 12 images and music. This takes 2-5 minutes. Continue?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Generate',
+              onPress: async () => {
+                try {
+                  Alert.alert('⏳ Generating...', 'Please wait 2-5 minutes while FluxxAI creates your canvas.');
+                  
+                  const { FluxxAIService } = await import('../services/fluxxAIService');
+                  const result = await FluxxAIService.generateCanvas();
+                  
+                  Alert.alert('✅ Success!', `Canvas "${result.title}" has been posted to the feed!`);
+                } catch (error: any) {
+                  Alert.alert('❌ Error', `Generation failed: ${error.message}`);
+                }
+              },
+            },
+          ]
+        );
+      },
+    },
+    {
       id: 'saved',
       title: 'Saved Canvases',
       subtitle: 'Your bookmarked creations',
@@ -70,7 +102,7 @@ const ProfileMenuDrawer = () => {
       icon: 'settings-outline',
       color: COLORS.slate400,
       onPress: () => {
-        navigation.navigate('Settings' as never);
+        Alert.alert('Coming Soon', 'Settings screen is coming soon!');
       },
     },
     {

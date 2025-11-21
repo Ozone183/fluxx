@@ -23,8 +23,7 @@ const CanvasStoriesBar = () => {
   // Fetch active canvases (not expired)
   useEffect(() => {
     const canvasesRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases');
-    const now = Date.now();
-    
+
     const q = query(
       canvasesRef,
       where('isExpired', '==', false),
@@ -32,16 +31,26 @@ const CanvasStoriesBar = () => {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      const now = Date.now();
+      
+      console.log('📊 Total canvases from Firestore:', snapshot.docs.length);
+      
       const activeCanvases = snapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() } as Canvas))
         .filter(canvas => {
           // Filter out expired canvases
-          if (canvas.expiresAt <= now) return false;
+          if (canvas.expiresAt <= now) {
+            console.log('❌ Filtered out expired:', canvas.title, canvas.id);
+            return false;
+          }
+          
+          console.log('✅ Active canvas:', canvas.title, canvas.creatorUsername);
           
           // ✅ SHOW ALL CANVASES (public + private) for engagement
           return true;
         });
 
+      console.log('📊 Final active canvases count:', activeCanvases.length);
       setCanvases(activeCanvases);
       setLoading(false);
     });
@@ -57,10 +66,10 @@ const CanvasStoriesBar = () => {
 
     canvases.forEach(canvas => {
       const presenceRef = dbRef(database, `canvases/${canvas.id}/presence`);
-      
+
       const unsubscribe = onValue(presenceRef, (snapshot) => {
         const presences = snapshot.val() || {};
-        const activeCount = Object.values(presences).filter((p: any) => 
+        const activeCount = Object.values(presences).filter((p: any) =>
           Date.now() - (p.lastActive || 0) < 10000 // Active in last 10 seconds
         ).length;
 
@@ -86,7 +95,7 @@ const CanvasStoriesBar = () => {
 
     // Check if private and user doesn't have access
     if (canvas.accessType === 'private') {
-      const hasAccess = 
+      const hasAccess =
         canvas.creatorId === userId || // Creator always has access
         canvas.allowedUsers?.includes(userId || '') || // User is in allowed list
         false;
@@ -109,7 +118,7 @@ const CanvasStoriesBar = () => {
 
     try {
       const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', selectedCanvas.id);
-      
+
       await updateDoc(canvasRef, {
         pendingRequests: arrayUnion(userId),
       });
@@ -148,7 +157,7 @@ const CanvasStoriesBar = () => {
     try {
       // Add user to allowedUsers
       const canvasRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'canvases', selectedCanvas.id);
-      
+
       await updateDoc(canvasRef, {
         allowedUsers: arrayUnion(userId),
       });
@@ -178,14 +187,14 @@ const CanvasStoriesBar = () => {
   return (
     <>
       <View style={styles.container}>
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
           {/* Create New Canvas Button */}
-          <CanvasStoryRing 
-            isCreateNew 
+          <CanvasStoryRing
+            isCreateNew
             onPress={handleCreateCanvas}
           />
 

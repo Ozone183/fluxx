@@ -12,7 +12,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Video } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -27,7 +27,7 @@ import VideoPicker from '../components/VideoPicker';
 
 export default function CreateVideoPostScreen() {
   const navigation = useNavigation();
-  const { user } = useAuth();
+  const { userId, userChannel, userProfilePic } = useAuth();
 
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number>(0);
@@ -51,7 +51,7 @@ export default function CreateVideoPostScreen() {
   };
 
   const handlePost = async () => {
-    if (!videoUri || !user) {
+    if (!videoUri || !userId) {
       Alert.alert('Error', 'Please select a video and make sure you are logged in.');
       return;
     }
@@ -73,7 +73,7 @@ export default function CreateVideoPostScreen() {
       const { videoUrl, thumbnailUrl } = await uploadVideo(
         videoUri,
         thumbnailUri,
-        user.uid,
+        userId,
         (progress) => {
           setUploadProgress(progress);
         }
@@ -81,9 +81,9 @@ export default function CreateVideoPostScreen() {
 
       // Create post in Firestore
       await createVideoPost({
-        userId: user.uid,
-        username: user.displayName || 'Anonymous',
-        userAvatar: user.photoURL || '',
+        userId: userId,
+        username: userChannel || 'Anonymous',
+        userAvatar: userProfilePic || '',
         caption: caption.trim(),
         videoUrl,
         thumbnailUrl,
@@ -91,7 +91,14 @@ export default function CreateVideoPostScreen() {
       });
 
       // Award tokens for creating post
-      await awardTokens(user.uid, 8, 'video_post_created');
+      if (userId) {
+        await awardTokens({
+          userId,
+          amount: 8,
+          type: 'post',
+          description: 'Video post created'
+        });
+      }
       
       // Show token toast
       setShowTokenToast(true);
@@ -99,7 +106,7 @@ export default function CreateVideoPostScreen() {
 
       // Navigate back to feed
       setTimeout(() => {
-        navigation.navigate('MainTabs', { screen: 'Feed' });
+        (navigation as any).navigate('MainTabs', { screen: 'Feed' });
       }, 1000);
     } catch (error) {
       console.error('Error posting video:', error);
@@ -178,6 +185,7 @@ export default function CreateVideoPostScreen() {
 
         {showTokenToast && (
           <TokenToast
+            visible={showTokenToast}
             amount={8}
             message="Video posted!"
             onHide={() => setShowTokenToast(false)}
@@ -221,7 +229,7 @@ export default function CreateVideoPostScreen() {
               source={{ uri: videoUri }}
               style={styles.videoPreview}
               useNativeControls
-              resizeMode="contain"
+              resizeMode={ResizeMode.CONTAIN}
               isLooping
             />
             
@@ -300,6 +308,7 @@ export default function CreateVideoPostScreen() {
 
         {showTokenToast && (
           <TokenToast
+            visible={showTokenToast}
             amount={8}
             message="Video posted!"
             onHide={() => setShowTokenToast(false)}

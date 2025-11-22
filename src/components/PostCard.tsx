@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../theme/colors';
 import ReactionPicker from './ReactionPicker';
 import { ReactionType } from '../data/reactions';
+import VideoPlayer from './VideoPlayer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -29,6 +30,11 @@ interface Post {
   // 🆕 NEW REACTION FIELDS - ALL 80 REACTIONS
   reactions?: Record<string, string[]>;
   reactionCounts?: Record<string, number>;
+  // 🎥 VIDEO POST FIELDS
+  type?: 'image' | 'video';
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  duration?: number;
 }
 
 interface Profile {
@@ -45,6 +51,8 @@ interface PostCardProps {
   onReact: (postId: string, reactionType: ReactionType) => void;
   onComment: (post: Post) => void;
   onViewProfile: (userId: string) => void;
+  playingVideoId?: string | null;
+  onVideoPlay?: (postId: string) => void;
 }
 
 const PostCard: React.FC<PostCardProps> = ({
@@ -52,9 +60,11 @@ const PostCard: React.FC<PostCardProps> = ({
   currentUserId,
   profile,
   onLike,
-  onReact,  // ← ADD THIS
+  onReact,
   onComment,
   onViewProfile,
+  playingVideoId,
+  onVideoPlay,
 }) => {
   const [showReactions, setShowReactions] = React.useState(false);  // ← ADD THIS
   const isLiked = currentUserId ? post.likedBy?.includes(currentUserId) : false;
@@ -142,14 +152,26 @@ const PostCard: React.FC<PostCardProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Full Width Image */}
-      {post.image && (
+      {/* Full Width Image or Video */}
+      {post.type === 'video' && post.videoUrl ? (
+        <VideoPlayer
+          videoUrl={post.videoUrl}
+          thumbnailUrl={post.thumbnailUrl}
+          style={styles.videoContainer}
+          isPlaying={playingVideoId === post.id}
+          onPlayingChange={(playing) => {
+            if (playing && onVideoPlay) {
+              onVideoPlay(post.id);
+            }
+          }}
+        />
+      ) : post.image ? (
         <Image
           source={{ uri: post.image }}
           style={styles.fullWidthImage}
           resizeMode={'cover'}
         />
-      )}
+      ) : null}
 
       {/* Content Card */}
       <View style={styles.contentCard}>
@@ -311,6 +333,12 @@ const styles = StyleSheet.create({
     height: SCREEN_WIDTH - 32,
     marginHorizontal: 16,
     backgroundColor: COLORS.slate700,
+  },
+  videoContainer: {
+    width: SCREEN_WIDTH - 32,
+    aspectRatio: 9 / 16,
+    marginHorizontal: 16,
+    backgroundColor: '#000',
   },
   contentCard: {
     backgroundColor: COLORS.slate800,

@@ -133,6 +133,7 @@ const FeedScreen = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null); // ✅ ADD THIS LINE
 
   const scrollY = new Animated.Value(0);
@@ -306,6 +307,8 @@ const handleLike = async (postId: string, likedBy: string[]) => {
       onReact={handleReact}
       onComment={handleComments}
       onViewProfile={handleViewProfile}
+      playingVideoId={playingVideoId}
+      onVideoPlay={(postId) => setPlayingVideoId(postId)}
     />
   );
 

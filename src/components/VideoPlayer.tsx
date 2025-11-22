@@ -18,6 +18,8 @@ interface VideoPlayerProps {
   onView?: () => void;
   style?: ViewStyle;
   autoPlay?: boolean;
+  isPlaying?: boolean;
+  onPlayingChange?: (playing: boolean) => void;
 }
 
 export default function VideoPlayer({
@@ -26,6 +28,8 @@ export default function VideoPlayer({
   onView,
   style,
   autoPlay = false,
+  isPlaying: externalIsPlaying,
+  onPlayingChange,
 }: VideoPlayerProps) {
   const videoRef = useRef<Video>(null);
   const [isPlaying, setIsPlaying] = useState(autoPlay);
@@ -34,6 +38,13 @@ export default function VideoPlayer({
   const [position, setPosition] = useState(0);
   const [isBuffering, setIsBuffering] = useState(true);
   const [hasViewed, setHasViewed] = useState(false);
+
+  // Sync with external playing state
+useEffect(() => {
+  if (externalIsPlaying === false && isPlaying) {
+    videoRef.current?.pauseAsync();
+  }
+}, [externalIsPlaying]);
 
   useEffect(() => {
     if (isPlaying && !hasViewed && onView) {
@@ -51,9 +62,7 @@ export default function VideoPlayer({
 
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (!status.isLoaded) {
-      if (status.error) {
-        console.error('Video error:', status.error);
-      }
+      console.error('Video not loaded');
       return;
     }
 
@@ -77,11 +86,14 @@ export default function VideoPlayer({
 
   const togglePlayPause = async () => {
     if (!videoRef.current) return;
-
+  
     if (isPlaying) {
       await videoRef.current.pauseAsync();
     } else {
       await videoRef.current.playAsync();
+      if (onPlayingChange) {
+        onPlayingChange(true);
+      }
     }
   };
 
@@ -109,7 +121,7 @@ export default function VideoPlayer({
         onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
         usePoster={!!thumbnailUrl}
         posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
-        posterStyle={styles.poster}
+        posterStyle={{ resizeMode: 'cover' } as any}
       />
 
       {/* Buffering Indicator */}
@@ -181,17 +193,11 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 16 / 9,
     backgroundColor: '#000000',
-    borderRadius: 12,
     overflow: 'hidden',
   },
   video: {
     width: '100%',
     height: '100%',
-  },
-  poster: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
   },
   bufferingContainer: {
     ...StyleSheet.absoluteFillObject,

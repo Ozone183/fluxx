@@ -32,6 +32,7 @@ export async function createVideoPost(postData: VideoPostData): Promise<string> 
     const post = {
       ...postData,
       type: 'video',
+      timestamp: serverTimestamp(),  // ← ADD THIS LINE (Feed sorts by timestamp, not createdAt)
       createdAt: serverTimestamp(),
       likes: 0,
       comments: 0,

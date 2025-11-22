@@ -154,6 +154,22 @@ const CanvasEditorScreen = () => {
   const [showLayerGallery, setShowLayerGallery] = useState(false);
   const [galleryInitialIndex, setGalleryInitialIndex] = useState(0);
 
+  const handleViewInAR = () => {
+    // Get the canvas image URL - use exportedImageUrl or first layer's image
+    const canvasImageUrl = canvas?.exportedImageUrl || canvas?.layers[0]?.imageUrl || '';
+    
+    if (!canvasImageUrl) {
+      Alert.alert('Error', 'Canvas image not available for AR view');
+      return;
+    }
+    
+    (navigation as any).navigate('ARViewer', {
+      canvasId: canvas.id,
+      canvasImageUrl: canvasImageUrl,
+      canvasTitle: canvas.title,
+    });
+  };
+
   useFocusEffect(
     React.useCallback(() => {
       // Screen is focused - enable music
@@ -1003,6 +1019,16 @@ const CanvasEditorScreen = () => {
                 ) : (
                   <Icon name="download-outline" size={22} color={COLORS.cyan400} />
                 )}
+              </TouchableOpacity>
+
+              {/* View in AR Button */}
+              <TouchableOpacity
+                onPress={handleViewInAR}
+                style={styles.actionButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="cube-outline" size={22} color={COLORS.cyan400} />
+                <Text style={styles.actionButtonText}>AR</Text>
               </TouchableOpacity>
 
 
@@ -1982,6 +2008,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: 'bold',
     color: COLORS.white,
+  },
+  actionButtonText: {
+    color: COLORS.slate400,
+    fontSize: 11,
+    marginTop: 2,
+    fontFamily: 'Poppins-Medium',
   },
 });
 

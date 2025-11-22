@@ -27,12 +27,14 @@ import SearchScreen from './src/screens/SearchScreen';
 import CommentsScreen from './src/screens/CommentsScreen';
 import CreateCanvasScreen from './src/screens/CreateCanvasScreen';
 import CanvasEditorScreen from './src/screens/CanvasEditorScreen';
+import CreateVideoPostScreen from './src/screens/CreateVideoPost';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import UserProfileScreen from './src/screens/UserProfileScreen';
 import DiscoveryFeedScreen from './src/screens/DiscoveryFeedScreen';
 import ProfileMenuDrawer from './src/screens/ProfileMenuDrawer';
 import CreateModal from './src/components/CreateModal';
 import TokenHistoryScreen from './src/screens/TokenHistoryScreen';
+import ARViewerScreen from './src/screens/ARViewerScreen';
 
 import { COLORS } from './src/theme/colors';
 
@@ -54,79 +56,79 @@ const MainTabs = () => {
   return (
     <>
       <Tab.Navigator
-    id={undefined}
-    screenOptions={{
-      headerShown: false,
-      tabBarStyle: {
-        backgroundColor: COLORS.slate900,
-        borderTopColor: COLORS.slate800,
-        height: 120,
-        paddingBottom: 25,
-        paddingTop: 10,
-      },
-      tabBarActiveTintColor: COLORS.cyan400,
-      tabBarInactiveTintColor: COLORS.slate500,
-      tabBarLabelStyle: {
-        fontSize: 11,
-        fontWeight: '600',
-        marginBottom: 5,
-      },
-      tabBarIconStyle: {
-        marginTop: 5,
-      },
-    }}>
-    <Tab.Screen
-      name="Feed"
-      component={FeedScreen}
-      options={{
-        tabBarIcon: ({ color, focused }) => (
-          <Ionicons name="home-outline" size={focused ? 28 : 24} color={color} />
-        ),
-      }}
-    />
-    <Tab.Screen
-      name="Discovery"
-      component={DiscoveryFeedScreen}
-      options={{
-        tabBarIcon: ({ color, focused }) => (
-          <Ionicons name="compass-outline" size={focused ? 28 : 24} color={color} />
-        ),
-      }}
-    />
-    <Tab.Screen
-      name="Create"
-      component={() => null}
-      listeners={{
-        tabPress: () => {
-          setShowCreateModal(true);
-        },
-      }}
-      options={{
-        tabBarIcon: ({ color, focused }) => (
-          <Ionicons name="add-circle" size={focused ? 32 : 28} color={color} />
-        ),
-      }}
-    />
-    <Tab.Screen
-      name="Menu"
-      component={ProfileMenuDrawer}
-      options={{
-        tabBarIcon: ({ color, focused }) => (
-          <Ionicons name="menu-outline" size={focused ? 28 : 24} color={color} />
-        ),
-      }}
-    />
-  </Tab.Navigator>
+        id={undefined}
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: {
+            backgroundColor: COLORS.slate900,
+            borderTopColor: COLORS.slate800,
+            height: 120,
+            paddingBottom: 25,
+            paddingTop: 10,
+          },
+          tabBarActiveTintColor: COLORS.cyan400,
+          tabBarInactiveTintColor: COLORS.slate500,
+          tabBarLabelStyle: {
+            fontSize: 11,
+            fontWeight: '600',
+            marginBottom: 5,
+          },
+          tabBarIconStyle: {
+            marginTop: 5,
+          },
+        }}>
+        <Tab.Screen
+          name="Feed"
+          component={FeedScreen}
+          options={{
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name="home-outline" size={focused ? 28 : 24} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Discovery"
+          component={DiscoveryFeedScreen}
+          options={{
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name="compass-outline" size={focused ? 28 : 24} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Create"
+          component={() => null}
+          listeners={{
+            tabPress: () => {
+              setShowCreateModal(true);
+            },
+          }}
+          options={{
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name="add-circle" size={focused ? 32 : 28} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Menu"
+          component={ProfileMenuDrawer}
+          options={{
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name="menu-outline" size={focused ? 28 : 24} color={color} />
+            ),
+          }}
+        />
+      </Tab.Navigator>
 
-{/* Create Modal */}
-<CreateModal
-  visible={showCreateModal}
-  onClose={() => setShowCreateModal(false)}
-  onCreatePost={() => navigation.navigate('CreatePost' as never)}
-  onCreateCanvas={() => navigation.navigate('Canvas' as never)}
-/>
-</>
-);
+      {/* Create Modal */}
+      <CreateModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreatePost={() => navigation.navigate('CreatePost' as never)}
+        onCreateCanvas={() => navigation.navigate('Canvas' as never)}
+      />
+    </>
+  );
 };
 
 const AppNavigator = () => {
@@ -136,36 +138,46 @@ const AppNavigator = () => {
 
   return (
     <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
-  {!userId ? (
-    <>
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Signup" component={SignupScreen} />
-    </>
-  ) : !isProfileSetup ? (
-    <Stack.Screen name="ChannelSetup" component={ChannelSetupScreen} />
-  ) : (
-    <>
-      <Stack.Screen name="MainTabs" component={MainTabs} />
-      <Stack.Screen name="Canvas" component={CreateCanvasScreen} options={{ presentation: 'modal' }} />
-      <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ presentation: 'modal' }} />
-      <Stack.Screen name="Search" component={SearchScreen} options={{ presentation: 'modal' }} />
-      <Stack.Screen name="Profile" component={ProfileScreen} options={{ presentation: 'modal' }} />
-      <Stack.Screen name="TokenHistory" component={TokenHistoryScreen} options={{ presentation: 'modal' }} />
-      <Stack.Screen name="CanvasEditor" component={CanvasEditorScreen} />
-      <Stack.Screen name="Comments" component={CommentsScreen} options={{ presentation: 'modal' }} />
-      <Stack.Screen
-        name="Notifications"
-        component={NotificationsScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="UserProfile"
-        component={UserProfileScreen}
-        options={{ headerShown: false }}
-      />
-    </>
-  )}
-</Stack.Navigator>
+      {!userId ? (
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Signup" component={SignupScreen} />
+        </>
+      ) : !isProfileSetup ? (
+        <Stack.Screen name="ChannelSetup" component={ChannelSetupScreen} />
+      ) : (
+        <>
+          <Stack.Screen name="MainTabs" component={MainTabs} />
+          <Stack.Screen name="Canvas" component={CreateCanvasScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="CreateVideoPost" component={CreateVideoPostScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="Search" component={SearchScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="Profile" component={ProfileScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="TokenHistory" component={TokenHistoryScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="CanvasEditor" component={CanvasEditorScreen} />
+          <Stack.Screen
+            name="ARViewer"
+            component={ARViewerScreen}
+            options={{
+              headerShown: false,
+              presentation: 'fullScreenModal',
+              animation: 'fade'
+            }}
+          />
+          <Stack.Screen name="Comments" component={CommentsScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="UserProfile"
+            component={UserProfileScreen}
+            options={{ headerShown: false }}
+          />
+        </>
+      )}
+    </Stack.Navigator>
   );
 };
 
@@ -197,16 +209,16 @@ const AppContent = () => {
   const handleDeepLink = (url: string) => {
     try {
       const { path } = Linking.parse(url);
-      
+
       console.log('🔗 Deep link received:', url);
       console.log('📍 Parsed path:', path);
       console.log('👤 User ID:', userId);
       console.log('✅ Profile setup:', isProfileSetup);
-      
+
       if (path?.startsWith('canvas/')) {
         const canvasId = path.replace('canvas/', '');
         console.log('🎨 Canvas ID extracted:', canvasId);
-        
+
         if (userId && isProfileSetup) {
           console.log('✅ Navigating to canvas...');
           (navigationRef.current as any)?.navigate('CanvasEditor', { canvasId });

@@ -15,6 +15,7 @@ import { COLORS } from '../theme/colors';
 import { CanvasComment, ReactionType } from '../types/canvas';
 import { toggleCommentReaction } from '../utils/commentsApi';
 import VoiceCommentPlayer from './VoiceCommentPlayer';
+import ClickableText from './ClickableText';
 
 interface CommentItemProps {
   comment: CanvasComment;
@@ -24,6 +25,7 @@ interface CommentItemProps {
   onReply: (commentId: string, username: string) => void;
   onDelete: (commentId: string) => void;
   onViewReplies: (commentId: string) => void;
+  onMentionPress: (username: string) => void;
 }
 
 const CommentItem: React.FC<CommentItemProps> = ({
@@ -34,6 +36,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   onReply,
   onDelete,
   onViewReplies,
+  onMentionPress,
 }) => {
   const [showFullText, setShowFullText] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
@@ -62,6 +65,8 @@ const CommentItem: React.FC<CommentItemProps> = ({
     );
   };
 
+
+
   const getTimeAgo = (timestamp: number): string => {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
     if (seconds < 60) return 'just now';
@@ -82,6 +87,10 @@ const CommentItem: React.FC<CommentItemProps> = ({
     : comment.text;
 
   const canDelete = currentUserId === comment.userId || currentUserId === canvasCreatorId;
+
+  const handleMentionPress = (username: string) => {
+    onMentionPress(username);
+  };
 
   return (
     <View style={styles.container}>
@@ -112,26 +121,30 @@ const CommentItem: React.FC<CommentItemProps> = ({
       </View>
 
       {/* Comment Text */}
-{comment.text && (
-  <>
-    <Text style={styles.text}>{displayText}</Text>
-    {needsTruncate && (
-      <TouchableOpacity onPress={() => setShowFullText(!showFullText)}>
-        <Text style={styles.readMore}>
-          {showFullText ? 'Show less' : 'Read more'}
-        </Text>
-      </TouchableOpacity>
-    )}
-  </>
-)}
+      {comment.text && (
+        <>
+          <ClickableText
+            text={displayText}
+            style={styles.text}
+            onMentionPress={handleMentionPress}
+          />
+          {needsTruncate && (
+            <TouchableOpacity onPress={() => setShowFullText(!showFullText)}>
+              <Text style={styles.readMore}>
+                {showFullText ? 'Show less' : 'Read more'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </>
+      )}
 
-{/* 🎤 Voice Player (if voice comment) */}
-{comment.voiceUrl && comment.voiceDuration && (
-  <VoiceCommentPlayer
-    audioUrl={comment.voiceUrl}
-    duration={comment.voiceDuration}
-  />
-)}
+      {/* 🎤 Voice Player (if voice comment) */}
+      {comment.voiceUrl && comment.voiceDuration && (
+        <VoiceCommentPlayer
+          audioUrl={comment.voiceUrl}
+          duration={comment.voiceDuration}
+        />
+      )}
 
       {/* Actions Row */}
       <View style={styles.actions}>

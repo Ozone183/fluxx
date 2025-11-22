@@ -301,6 +301,7 @@ const CommentsBottomSheet: React.FC<CommentsBottomSheetProps> = ({
           onReply={handleReply}
           onDelete={handleDeleteComment}
           onViewReplies={handleViewReplies}
+          onMentionPress={(username) => console.log('Mention tapped:', username)}
         />
 
         {/* Render Replies */}
@@ -318,6 +319,7 @@ const CommentsBottomSheet: React.FC<CommentsBottomSheetProps> = ({
                     onReply={() => { }} // No nested replies
                     onDelete={handleDeleteComment}
                     onViewReplies={() => { }} // No nested replies
+                    onMentionPress={(username) => console.log('Mention tapped:', username)}
                   />
                 </View>
               </View>

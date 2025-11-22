@@ -44,6 +44,11 @@ interface Post {
   // 🆕 NEW REACTION FIELDS - ALL 80 REACTIONS
   reactions?: Record<string, string[]>;
   reactionCounts?: Record<string, number>;
+  // 🎥 VIDEO POST FIELDS
+  type?: 'image' | 'video';
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  duration?: number;
 }
 
 const FeedScreen = () => {

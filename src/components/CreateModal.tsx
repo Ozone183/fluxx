@@ -22,6 +22,7 @@ interface CreateModalProps {
   onClose: () => void;
   onCreatePost: () => void;
   onCreateCanvas: () => void;
+  onCreateVideo?: () => void;
 }
 
 const CreateModal: React.FC<CreateModalProps> = ({
@@ -29,6 +30,7 @@ const CreateModal: React.FC<CreateModalProps> = ({
   onClose,
   onCreatePost,
   onCreateCanvas,
+  onCreateVideo,
 }) => {
   const navigation = useNavigation();
 
@@ -42,6 +44,16 @@ const CreateModal: React.FC<CreateModalProps> = ({
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onClose();
     onCreateCanvas();
+  };
+
+  const handleCreateVideo = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onClose();
+    if (onCreateVideo) {
+      onCreateVideo();
+    } else {
+      (navigation as any).navigate('CreateVideoPost');
+    }
   };
 
   const handleClose = async () => {
@@ -108,6 +120,28 @@ const CreateModal: React.FC<CreateModalProps> = ({
                     <Text style={styles.optionTitle}>Create Canvas</Text>
                     <Text style={styles.optionDescription}>
                       Start a collaborative art project that others can join
+                    </Text>
+                  </View>
+
+                  <View style={styles.arrowContainer}>
+                    <Ionicons name="chevron-forward" size={20} color={COLORS.slate400} />
+                  </View>
+                </TouchableOpacity>
+
+                {/* Create Video Post */}
+                <TouchableOpacity
+                  style={styles.option}
+                  onPress={handleCreateVideo}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.iconContainer, { backgroundColor: COLORS.amber400 }]}>
+                    <Ionicons name="videocam-outline" size={28} color={COLORS.white} />
+                  </View>
+
+                  <View style={styles.optionContent}>
+                    <Text style={styles.optionTitle}>Create Video Post</Text>
+                    <Text style={styles.optionDescription}>
+                      Record or upload a video to share with your followers
                     </Text>
                   </View>
 

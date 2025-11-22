@@ -22,7 +22,8 @@
       "infoPlist": {
         "NSPhotoLibraryAddUsageDescription": "Fluxx needs access to save your canvas creations to your photo library.",
         "NSPhotoLibraryUsageDescription": "Fluxx needs access to your photo library to save your canvas creations.",
-        "NSMicrophoneUsageDescription": "Fluxx needs access to your microphone to record voice comments."
+        "NSMicrophoneUsageDescription": "Fluxx needs access to your microphone to record voice comments.",
+        "NSCameraUsageDescription": "Fluxx needs camera access to display canvases in AR."
       }
     },
     "android": {
@@ -57,7 +58,8 @@
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
         "android.permission.READ_MEDIA_AUDIO",
-        "RECORD_AUDIO"
+        "RECORD_AUDIO",
+        "CAMERA"
       ]
     },
     "web": {
@@ -72,12 +74,13 @@
           "isAccessMediaLocationEnabled": true
         }
       ],
+      
       "expo-asset"
     ],
-    "owner": "kunleoni",
+    "owner": "teejenje",
     "extra": {
       "eas": {
-        "projectId": "ad061a9a-e038-4548-aaf0-b1f5bbc711ad"
+        "projectId": "3d9a7afd-e327-4084-b9a0-d77a75fa4b7c"
       }
     }
   }

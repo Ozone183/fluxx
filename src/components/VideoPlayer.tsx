@@ -38,13 +38,43 @@ export default function VideoPlayer({
   const [position, setPosition] = useState(0);
   const [isBuffering, setIsBuffering] = useState(true);
   const [hasViewed, setHasViewed] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const hideControlsTimeout = useRef<any>(null);
+
+  // Auto-hide controls after 3 seconds
+  const resetHideControlsTimer = () => {
+    if (hideControlsTimeout.current) {
+      clearTimeout(hideControlsTimeout.current);
+    }
+    setShowControls(true);
+    hideControlsTimeout.current = setTimeout(() => {
+      if (isPlaying) {
+        setShowControls(false);
+      }
+    }, 3000);
+  };
 
   // Sync with external playing state
-useEffect(() => {
-  if (externalIsPlaying === false && isPlaying) {
-    videoRef.current?.pauseAsync();
-  }
-}, [externalIsPlaying]);
+  useEffect(() => {
+    if (externalIsPlaying === true && !isPlaying) {
+      // Start playing when told to
+      videoRef.current?.playAsync();
+      setIsPlaying(true);
+    } else if (externalIsPlaying === false && isPlaying) {
+      // Stop playing when told to
+      videoRef.current?.pauseAsync();
+      setIsPlaying(false);
+    }
+  }, [externalIsPlaying]);
+
+  // Hide controls when playing starts
+  useEffect(() => {
+    if (isPlaying) {
+      resetHideControlsTimer();
+    } else {
+      setShowControls(true);
+    }
+  }, [isPlaying]);
 
   useEffect(() => {
     if (isPlaying && !hasViewed && onView) {
@@ -62,7 +92,7 @@ useEffect(() => {
 
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (!status.isLoaded) {
-      console.error('Video not loaded');
+      // Video is still loading, this is normal during autoplay
       return;
     }
 
@@ -132,57 +162,70 @@ useEffect(() => {
       )}
 
       {/* Controls Overlay */}
-      <View style={styles.controlsContainer}>
-        {/* Top Controls */}
-        <View style={styles.topControls}>
-          <TouchableOpacity
-            onPress={toggleMute}
-            style={styles.muteButton}
-            activeOpacity={0.8}
-          >
-            <View style={styles.iconBackground}>
-              <Ionicons
-                name={isMuted ? 'volume-mute' : 'volume-high'}
-                size={24}
-                color="#FFFFFF"
-              />
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={() => {
+          setShowControls(!showControls);
+          if (!showControls) {
+            resetHideControlsTimer();
+          }
+        }}
+        style={styles.controlsContainer}
+      >
+        {showControls && (
+          <>
+            {/* Top Controls */}
+            <View style={styles.topControls}>
+              <TouchableOpacity
+                onPress={toggleMute}
+                style={styles.muteButton}
+                activeOpacity={0.8}
+              >
+                <View style={styles.iconBackground}>
+                  <Ionicons
+                    name={isMuted ? 'volume-mute' : 'volume-high'}
+                    size={24}
+                    color="#FFFFFF"
+                  />
+                </View>
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-        </View>
 
-        {/* Center Play/Pause Button */}
-        <TouchableOpacity
-          onPress={togglePlayPause}
-          style={styles.centerButton}
-          activeOpacity={0.8}
-        >
-          <View style={styles.playButtonBackground}>
-            <Ionicons
-              name={isPlaying ? 'pause' : 'play'}
-              size={48}
-              color="#FFFFFF"
-            />
-          </View>
-        </TouchableOpacity>
+            {/* Center Play/Pause Button */}
+            <TouchableOpacity
+              onPress={togglePlayPause}
+              style={styles.centerButton}
+              activeOpacity={0.8}
+            >
+              <View style={styles.playButtonBackground}>
+                <Ionicons
+                  name={isPlaying ? 'pause' : 'play'}
+                  size={48}
+                  color="#FFFFFF"
+                />
+              </View>
+            </TouchableOpacity>
 
-        {/* Bottom Controls */}
-        <View style={styles.bottomControls}>
-          <View style={styles.progressContainer}>
-            <Text style={styles.timeText}>{formatTime(position)}</Text>
-            <Slider
-              style={styles.slider}
-              minimumValue={0}
-              maximumValue={1}
-              value={duration > 0 ? position / duration : 0}
-              onSlidingComplete={handleSliderValueChange}
-              minimumTrackTintColor={COLORS.cyan400}
-              maximumTrackTintColor="rgba(255, 255, 255, 0.3)"
-              thumbTintColor={COLORS.cyan400}
-            />
-            <Text style={styles.timeText}>{formatTime(duration)}</Text>
-          </View>
-        </View>
-      </View>
+            {/* Bottom Controls */}
+            <View style={styles.bottomControls}>
+              <View style={styles.progressContainer}>
+                <Text style={styles.timeText}>{formatTime(position)}</Text>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={0}
+                  maximumValue={1}
+                  value={duration > 0 ? position / duration : 0}
+                  onSlidingComplete={handleSliderValueChange}
+                  minimumTrackTintColor={COLORS.cyan400}
+                  maximumTrackTintColor="rgba(255, 255, 255, 0.3)"
+                  thumbTintColor={COLORS.cyan400}
+                />
+                <Text style={styles.timeText}>{formatTime(duration)}</Text>
+              </View>
+            </View>
+          </>
+        )}
+      </TouchableOpacity>
     </View>
   );
 }

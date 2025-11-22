@@ -31,14 +31,16 @@ export async function createVideoPost(postData: VideoPostData): Promise<string> 
 
     const post = {
       ...postData,
+      content: postData.caption,  // ✅ ADD THIS - PostCard displays "content" field, not "caption"
       type: 'video',
-      timestamp: serverTimestamp(),  // ← ADD THIS LINE (Feed sorts by timestamp, not createdAt)
+      timestamp: serverTimestamp(),
       createdAt: serverTimestamp(),
       likes: 0,
       comments: 0,
       shares: 0,
       views: 0,
       likedBy: [],
+      commentsCount: 0,  // ✅ ADD THIS - PostCard expects "commentsCount", not "comments"
       tags: [],
     };
 

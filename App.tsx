@@ -150,8 +150,8 @@ const AppNavigator = () => {
           <Stack.Screen name="MainTabs" component={MainTabs} />
           <Stack.Screen name="Canvas" component={CreateCanvasScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ presentation: 'modal' }} />
-          <Stack.Screen name="CreateVideoPost" component={CreateVideoPostScreen} options={{ presentation: 'modal' }} />
-          <Stack.Screen name="Search" component={SearchScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="CreateVideoPost" component={CreateVideoPostScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="Search" component={SearchScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="Profile" component={ProfileScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="TokenHistory" component={TokenHistoryScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="CanvasEditor" component={CanvasEditorScreen} />

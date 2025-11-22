@@ -11,12 +11,13 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { COLORS, GRADIENTS } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { uploadVideo, generateThumbnail } from '../services/videoStorage';
@@ -53,11 +54,6 @@ export default function CreateVideoPostScreen() {
   const handlePost = async () => {
     if (!videoUri || !userId) {
       Alert.alert('Error', 'Please select a video and make sure you are logged in.');
-      return;
-    }
-
-    if (caption.trim().length === 0) {
-      Alert.alert('Caption Required', 'Please add a caption to your video.');
       return;
     }
 
@@ -131,14 +127,52 @@ export default function CreateVideoPostScreen() {
           {
             text: 'Discard',
             style: 'destructive',
-            onPress: () => navigation.goBack(),
+            onPress: () => (navigation as any).navigate('MainTabs', { screen: 'Feed' }),
           },
         ]
       );
     } else {
-      navigation.goBack();
+      (navigation as any).navigate('MainTabs', { screen: 'Feed' });
     }
   };
+
+  // Intercept hardware back button
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        handleCancel();
+        return true;
+      };
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [videoUri])
+  );
+
+  // Intercept hardware back button
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        handleCancel();
+        return true;
+      };
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [videoUri])
+  );
+
+ {/* // Stop video preview when leaving screen
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        // Cleanup: stop video when leaving screen
+        if (videoRef.current) {
+          videoRef.current.stopAsync();
+        }
+      };
+    }, [])
+  ); */}
 
   if (isUploading) {
     return (
@@ -209,14 +243,8 @@ export default function CreateVideoPostScreen() {
           <TouchableOpacity
             onPress={handlePost}
             style={styles.headerButton}
-            disabled={caption.trim().length === 0}
           >
-            <Text
-              style={[
-                styles.postButton,
-                caption.trim().length === 0 && styles.postButtonDisabled,
-              ]}
-            >
+            <Text style={styles.postButton}>
               Post
             </Text>
           </TouchableOpacity>
@@ -292,10 +320,9 @@ export default function CreateVideoPostScreen() {
           <TouchableOpacity
             onPress={handlePost}
             activeOpacity={0.8}
-            disabled={caption.trim().length === 0}
           >
             <LinearGradient
-              colors={caption.trim().length === 0 ? [COLORS.slate700, COLORS.slate700] : GRADIENTS.primary}
+              colors={GRADIENTS.primary}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.postButtonGradient}
@@ -332,7 +359,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 50,  // ✅ Add top padding to push below status bar
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.slate800,
   },
@@ -460,8 +488,10 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     padding: 16,
+    paddingBottom: 60,
     borderTopWidth: 1,
     borderTopColor: COLORS.slate800,
+    backgroundColor: COLORS.slate900,
   },
   postButtonGradient: {
     flexDirection: 'row',

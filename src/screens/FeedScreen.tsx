@@ -138,6 +138,19 @@ const FeedScreen = () => {
 
   const scrollY = new Animated.Value(0);
 
+  // Reset video state when returning to feed
+  useFocusEffect(
+    React.useCallback(() => {
+      // When screen comes into focus, trigger video detection
+      setPlayingVideoId(null);
+      
+      return () => {
+        // When leaving, stop videos
+        setPlayingVideoId(null);
+      };
+    }, [])
+  );
+
   // Real-time posts listener
   useEffect(() => {
     const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
@@ -367,11 +380,11 @@ const handleLike = async (postId: string, likedBy: string[]) => {
     <View style={styles.container}>
       {renderHeader()}
       <FlatList
-        ref={flatListRef} // ✅ ADD THIS
+        ref={flatListRef}
         data={posts}
         renderItem={renderPost}
         keyExtractor={item => item.id}
-        ListHeaderComponent={renderListHeader} // ← ADD THIS
+        ListHeaderComponent={renderListHeader}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
@@ -392,6 +405,21 @@ const handleLike = async (postId: string, likedBy: string[]) => {
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: false },
         )}
+        onViewableItemsChanged={({ viewableItems }) => {
+          // Find the first visible video post
+          const visibleVideo = viewableItems.find(
+            item => item.isViewable && (item.item as Post).type === 'video'
+          );
+          
+          if (visibleVideo) {
+            setPlayingVideoId((visibleVideo.item as Post).id);
+          } else {
+            setPlayingVideoId(null);
+          }
+        }}
+        viewabilityConfig={{
+          itemVisiblePercentThreshold: 50,
+        }}
         showsVerticalScrollIndicator={false}
         />
 

@@ -77,11 +77,11 @@ export default function VideoPicker({
 
   const handleVideoLoad = async (status: any) => {
     console.log('📹 Video status update:', status.isLoaded, status.durationMillis);
-    
+
     if (status.isLoaded && status.durationMillis) {
       const durationSeconds = status.durationMillis / 1000;
       console.log('⏱️ Duration detected:', durationSeconds);
-      
+
       if (durationSeconds > maxDuration) {
         Alert.alert(
           'Video Too Long',
@@ -99,7 +99,7 @@ export default function VideoPicker({
 
   const recordVideo = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
+
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;
 
@@ -125,7 +125,7 @@ export default function VideoPicker({
 
   const pickVideo = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
+
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;
 
@@ -379,7 +379,8 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
-
+    marginTop: 16,
+    marginBottom: 60,
   },
   cancelButton: {
     flex: 1,

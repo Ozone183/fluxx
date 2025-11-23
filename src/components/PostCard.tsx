@@ -269,47 +269,66 @@ const PostCard: React.FC<PostCardProps> = ({
       <Modal
         visible={showOptionsMenu}
         transparent={true}
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setShowOptionsMenu(false)}
       >
-        <TouchableOpacity
+        <TouchableOpacity 
           style={styles.modalOverlay}
           activeOpacity={1}
           onPress={() => setShowOptionsMenu(false)}
         >
-          <View style={styles.optionsModal}>
-            {currentUserId === post.userId && (
+          <TouchableOpacity 
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.optionsModal}>
+              {currentUserId === post.userId && (
+                <>
+                  <TouchableOpacity
+                    style={styles.optionItem}
+                    onPress={() => {
+                      setShowOptionsMenu(false);
+                      onDelete(post);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Icon name="trash-outline" size={22} color={COLORS.red500} />
+                    <Text style={styles.deleteOptionText}>Delete</Text>
+                  </TouchableOpacity>
+                  
+                  <View style={styles.dividerLine} />
+                </>
+              )}
+              
               <TouchableOpacity
-                style={[styles.optionItem, styles.deleteOption]}
-                onPress={() => {
-                  setShowOptionsMenu(false);
-                  onDelete(post);
-                }}
+                style={styles.optionItem}
+                onPress={() => setShowOptionsMenu(false)}
                 activeOpacity={0.7}
               >
-                <Icon name="trash-outline" size={20} color={COLORS.red500} />
-                <Text style={styles.deleteOptionText}>Delete</Text>
+                <Icon name="flag-outline" size={22} color={COLORS.slate300} />
+                <Text style={styles.optionText}>Report</Text>
               </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={styles.optionItem}
-              onPress={() => setShowOptionsMenu(false)}
-              activeOpacity={0.7}
-            >
-              <Icon name="flag-outline" size={20} color={COLORS.slate400} />
-              <Text style={styles.optionText}>Report</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.optionItem}
-              onPress={() => setShowOptionsMenu(false)}
-              activeOpacity={0.7}
-            >
-              <Icon name="link-outline" size={20} color={COLORS.slate400} />
-              <Text style={styles.optionText}>Copy Link</Text>
-            </TouchableOpacity>
-          </View>
+              
+              <TouchableOpacity
+                style={styles.optionItem}
+                onPress={() => setShowOptionsMenu(false)}
+                activeOpacity={0.7}
+              >
+                <Icon name="link-outline" size={22} color={COLORS.slate300} />
+                <Text style={styles.optionText}>Copy Link</Text>
+              </TouchableOpacity>
+              
+              <View style={styles.dividerLine} />
+              
+              <TouchableOpacity
+                style={styles.optionItem}
+                onPress={() => setShowOptionsMenu(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.optionText, { marginLeft: 0 }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
     </View>
@@ -362,6 +381,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   profilePic: {
     width: 44,
@@ -466,7 +486,6 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
   deleteButton: {
     padding: 8,
@@ -482,33 +501,35 @@ const styles = StyleSheet.create({
   },
   optionsModal: {
     backgroundColor: COLORS.slate800,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.slate700,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingVertical: 8,
+    marginHorizontal: 8,
+    marginBottom: 8,
   },
   optionItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
     paddingHorizontal: 20,
-    paddingVertical: 16,
   },
-  deleteOption: {
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.slate700,
+  dividerLine: {
+    height: 1,
+    backgroundColor: COLORS.slate700,
+    marginHorizontal: 16,
   },
   optionText: {
-    fontSize: 16,
+    fontSize: 18,
     color: COLORS.white,
-    marginLeft: 16,
+    marginLeft: 12,
     fontWeight: '500',
   },
   deleteOptionText: {
-    fontSize: 16,
+    fontSize: 18,
     color: COLORS.red500,
-    marginLeft: 16,
-    fontWeight: '600',
+    marginLeft: 12,
+    fontWeight: '700',
   },
 });
 

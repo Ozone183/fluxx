@@ -76,9 +76,12 @@ export default function VideoPicker({
   };
 
   const handleVideoLoad = async (status: any) => {
+    console.log('📹 Video status update:', status.isLoaded, status.durationMillis);
+    
     if (status.isLoaded && status.durationMillis) {
       const durationSeconds = status.durationMillis / 1000;
-
+      console.log('⏱️ Duration detected:', durationSeconds);
+      
       if (durationSeconds > maxDuration) {
         Alert.alert(
           'Video Too Long',
@@ -96,7 +99,7 @@ export default function VideoPicker({
 
   const recordVideo = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
+    
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;
 
@@ -110,12 +113,7 @@ export default function VideoPicker({
       });
 
       if (!result.canceled && result.assets[0]) {
-        const videoUri = result.assets[0].uri;
-        const isValid = await validateVideo(videoUri);
-
-        if (isValid) {
-          setSelectedVideo(videoUri);
-        }
+        setSelectedVideo(result.assets[0].uri);
       }
     } catch (error) {
       console.error('Error recording video:', error);
@@ -127,7 +125,7 @@ export default function VideoPicker({
 
   const pickVideo = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
+    
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;
 
@@ -140,12 +138,7 @@ export default function VideoPicker({
       });
 
       if (!result.canceled && result.assets[0]) {
-        const videoUri = result.assets[0].uri;
-        const isValid = await validateVideo(videoUri);
-
-        if (isValid) {
-          setSelectedVideo(videoUri);
-        }
+        setSelectedVideo(result.assets[0].uri);
       }
     } catch (error) {
       console.error('Error picking video:', error);
@@ -181,11 +174,14 @@ export default function VideoPicker({
     return (
       <View style={styles.previewContainer}>
         <Video
+          key={selectedVideo}
           source={{ uri: selectedVideo }}
           style={styles.videoPreview}
           useNativeControls
           resizeMode={'contain' as any}
           isLooping
+          shouldPlay={false}
+          onLoad={() => console.log('Video loaded successfully')}
           onPlaybackStatusUpdate={handleVideoLoad}
         />
 
@@ -383,10 +379,7 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
-    position: 'absolute',  // ✅ Take buttons out of normal flow
-    bottom: 100,  // ✅ Position 100px from bottom (pushes UP from keyboard area)
-    left: 20,
-    right: 20,
+
   },
   cancelButton: {
     flex: 1,

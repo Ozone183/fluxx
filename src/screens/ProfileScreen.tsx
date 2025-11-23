@@ -52,6 +52,11 @@ interface Post {
     heart_eyes: number;
     sparkles: number;
   };
+  // 🎥 VIDEO POST FIELDS
+  type?: 'image' | 'video';
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  duration?: number;
 }
 
 const POSTS_PER_PAGE = 20;
@@ -233,6 +238,41 @@ const ProfileScreen = ({ route }: any) => {
     }
   };
 
+  const handleDeletePost = async (post: Post) => {
+    if (!currentUserId) return;
+    
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    Alert.alert(
+      'Delete Post',
+      'Are you sure you want to delete this post? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { deletePost } = await import('../services/postsApi-video');
+              await deletePost(post.id, post.videoUrl, post.thumbnailUrl, post.image);
+              
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              
+              // Optimistically remove from UI
+              setPosts(prev => prev.filter(p => p.id !== post.id));
+            } catch (error) {
+              console.error('Error deleting post:', error);
+              Alert.alert('Error', 'Failed to delete post. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleProfilePictureUpload = async () => {
     if (!isOwnProfile || !currentUserId) return;
 
@@ -316,8 +356,10 @@ const ProfileScreen = ({ route }: any) => {
       onReact={handleReact}
       onComment={() => { }}
       onViewProfile={() => { }}
+      onDelete={handleDeletePost}
     />
   );
+
 
   const displayChannel = profile?.channel || userChannel || '@unknown';
   const profilePic = profile?.profilePictureUrl;

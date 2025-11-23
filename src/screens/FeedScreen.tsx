@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Animated,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { collection, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, where, query, orderBy, limit, startAfter, getDocs } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
@@ -71,23 +72,23 @@ const FeedScreen = () => {
     const checkForDailyCheckIn = async () => {
       try {
         const isEligible = await checkDailyCheckInEligibility(userId);
-        
+
         if (isEligible) {
           console.log('🪙 User is eligible for daily check-in');
-          
+
           // Mark as checked for this session
           hasCheckedRef.current = true;
-          
+
           // Process check-in
           const result = await processDailyCheckIn(userId);
-          
+
           if (result.success) {
             console.log('🎉 Setting check-in data:', result);
             setCheckInData({
               tokens: result.tokens,
               streak: result.streak,
             });
-            
+
             console.log('🎉 About to show modal in 1 second...');
             // Show modal after a short delay
             setTimeout(() => {
@@ -150,7 +151,7 @@ const FeedScreen = () => {
     React.useCallback(() => {
       // When screen comes into focus, trigger video detection
       setPlayingVideoId(null);
-      
+
       return () => {
         // When leaving, stop videos
         setPlayingVideoId(null);
@@ -161,7 +162,7 @@ const FeedScreen = () => {
   // Paginated posts loader
   const loadPosts = async (isLoadMore = false) => {
     if (isLoadMore && (!hasMore || isLoadingMore)) return;
-    
+
     try {
       if (isLoadMore) {
         setIsLoadingMore(true);
@@ -172,13 +173,13 @@ const FeedScreen = () => {
       }
 
       const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
-      
+
       let postsQuery = query(
         postsRef,
         orderBy('timestamp', 'desc'),
         limit(POSTS_PER_PAGE)
       );
-      
+
       if (isLoadMore && lastVisible) {
         postsQuery = query(
           postsRef,
@@ -189,7 +190,7 @@ const FeedScreen = () => {
       }
 
       const snapshot = await getDocs(postsQuery);
-      
+
       const fetchedPosts = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
@@ -200,10 +201,10 @@ const FeedScreen = () => {
       } else {
         setPosts(fetchedPosts);
       }
-      
+
       setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
       setHasMore(fetchedPosts.length === POSTS_PER_PAGE);
-      
+
     } catch (error) {
       console.error('Error loading posts:', error);
     } finally {
@@ -219,70 +220,121 @@ const FeedScreen = () => {
   }, []);
 
   // Scroll to specific post if coming from notification
-useEffect(() => {
-  const scrollToPostId = (route.params as any)?.scrollToPostId;
-  
-  if (scrollToPostId && posts.length > 0 && flatListRef.current) {
-    const postIndex = posts.findIndex(p => p.id === scrollToPostId);
-    
-    if (postIndex !== -1) {
-      // Small delay to ensure list is rendered
-      setTimeout(() => {
-        flatListRef.current?.scrollToIndex({
-          index: postIndex,
-          animated: true,
-          viewPosition: 0.5, // Center the post
-        });
-      }, 300);
+  useEffect(() => {
+    const scrollToPostId = (route.params as any)?.scrollToPostId;
+
+    if (scrollToPostId && posts.length > 0 && flatListRef.current) {
+      const postIndex = posts.findIndex(p => p.id === scrollToPostId);
+
+      if (postIndex !== -1) {
+        // Small delay to ensure list is rendered
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({
+            index: postIndex,
+            animated: true,
+            viewPosition: 0.5, // Center the post
+          });
+        }, 300);
+      }
     }
-  }
-}, [(route.params as any)?.scrollToPostId, posts]);
+  }, [(route.params as any)?.scrollToPostId, posts]);
 
   // Pull-to-refresh
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     loadPosts(false); // Reload from start
-  }, []);
+  }, [loadPosts]);
+
+  // Real-time listener for NEW posts and DELETIONS
+  useEffect(() => {
+    if (posts.length === 0) return; // Wait for initial load
+    
+    const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
+    const latestPostTime = posts[0]?.timestamp;
+    
+    if (!latestPostTime) return;
+    
+    // Listen only for posts NEWER than what we have
+    const q = query(
+      postsRef,
+      where('timestamp', '>', latestPostTime),
+      orderBy('timestamp', 'desc')
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const newPosts = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Post[];
+      
+      if (newPosts.length > 0) {
+        // ✅ DEDUPLICATION: Remove any posts with IDs that already exist
+        setPosts(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const uniqueNewPosts = newPosts.filter(p => !existingIds.has(p.id));
+          return [...uniqueNewPosts, ...prev];
+        });
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [posts.length > 0 ? posts[0]?.id : null]);
+
+  // Real-time listener for DELETIONS (all loaded posts)
+  useEffect(() => {
+    if (posts.length === 0) return;
+    
+    const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
+    
+    const unsubscribe = onSnapshot(postsRef, (snapshot) => {
+      const currentPostIds = new Set(snapshot.docs.map(doc => doc.id));
+      
+      // Remove any posts that no longer exist in Firestore
+      setPosts(prev => prev.filter(post => currentPostIds.has(post.id)));
+    });
+    
+    return () => unsubscribe();
+  }, [posts.length > 0]);
 
   // Handle like toggle (old heart button)
-const handleLike = async (postId: string, likedBy: string[]) => {
-  if (!userId) return;
+  const handleLike = async (postId: string, likedBy: string[]) => {
+    if (!userId) return;
 
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-  const isLiked = likedBy.includes(userId);
-  const postRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts', postId);
+    const isLiked = likedBy.includes(userId);
+    const postRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts', postId);
 
-  try {
-    await updateDoc(postRef, {
-      likedBy: isLiked ? arrayRemove(userId) : arrayUnion(userId),
-    });
+    try {
+      await updateDoc(postRef, {
+        likedBy: isLiked ? arrayRemove(userId) : arrayUnion(userId),
+      });
 
-    if (!isLiked) {
-      try {
-        const post = posts.find(p => p.id === postId);
+      if (!isLiked) {
+        try {
+          const post = posts.find(p => p.id === postId);
 
-        if (post && post.userId && post.userId !== userId) {
-          const { createNotification } = await import('../utils/notifications');
+          if (post && post.userId && post.userId !== userId) {
+            const { createNotification } = await import('../utils/notifications');
 
-          await createNotification({
-            recipientUserId: post.userId,
-            type: 'like',
-            fromUserId: userId,
-            fromUsername: userChannel || '@unknown',
-            fromProfilePic: null,
-            relatedCanvasId: postId,
-          });
+            await createNotification({
+              recipientUserId: post.userId,
+              type: 'like',
+              fromUserId: userId,
+              fromUsername: userChannel || '@unknown',
+              fromProfilePic: null,
+              relatedCanvasId: postId,
+            });
+          }
+        } catch (notifError) {
+          console.error('Notification creation failed:', notifError);
         }
-      } catch (notifError) {
-        console.error('Notification creation failed:', notifError);
       }
+    } catch (error) {
+      console.error('Like toggle error:', error);
     }
-  } catch (error) {
-    console.error('Like toggle error:', error);
-  }
-};
+  };
 
   // 🆕 NEW: Handle reaction toggle
   const handleReact = async (postId: string, reactionType: ReactionType) => {
@@ -295,7 +347,7 @@ const handleLike = async (postId: string, likedBy: string[]) => {
 
     const currentReactions = post.reactions?.[reactionType] || [];
     const hasReacted = currentReactions.includes(userId);
-    
+
     const postRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts', postId);
 
     try {
@@ -338,6 +390,40 @@ const handleLike = async (postId: string, likedBy: string[]) => {
     (navigation as any).navigate('Profile', { userId: profileUserId });
   };
 
+  // Handle delete post
+  const handleDeletePost = async (post: Post) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    Alert.alert(
+      'Delete Post',
+      'Are you sure you want to delete this post? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { deletePost } = await import('../services/postsApi-video');
+              await deletePost(post.id, post.videoUrl, post.thumbnailUrl, post.image);
+              
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              
+              // Optimistically remove from UI
+              setPosts(prev => prev.filter(p => p.id !== post.id));
+            } catch (error) {
+              console.error('Error deleting post:', error);
+              Alert.alert('Error', 'Failed to delete post. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Header animation
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 50],
@@ -354,6 +440,7 @@ const handleLike = async (postId: string, likedBy: string[]) => {
       onReact={handleReact}
       onComment={handleComments}
       onViewProfile={handleViewProfile}
+      onDelete={handleDeletePost}
       playingVideoId={playingVideoId}
       onVideoPlay={(postId) => setPlayingVideoId(postId)}
     />
@@ -420,13 +507,13 @@ const handleLike = async (postId: string, likedBy: string[]) => {
         keyExtractor={item => item.id}
         ListHeaderComponent={renderListHeader}
         contentContainerStyle={styles.listContent}
-        
+
         // Memory optimization
         removeClippedSubviews={true}
         maxToRenderPerBatch={3}
         windowSize={5}
         initialNumToRender={3}
-        
+
         // Pagination
         onEndReached={() => loadPosts(true)}
         onEndReachedThreshold={0.5}
@@ -437,7 +524,7 @@ const handleLike = async (postId: string, likedBy: string[]) => {
             </View>
           ) : null
         }
-        
+
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -462,7 +549,7 @@ const handleLike = async (postId: string, likedBy: string[]) => {
           const visibleVideo = viewableItems.find(
             item => item.isViewable && (item.item as Post).type === 'video'
           );
-          
+
           if (visibleVideo) {
             setPlayingVideoId((visibleVideo.item as Post).id);
           } else {
@@ -473,9 +560,9 @@ const handleLike = async (postId: string, likedBy: string[]) => {
           itemVisiblePercentThreshold: 50,
         }}
         showsVerticalScrollIndicator={false}
-        />
+      />
 
-        {/* Daily Check-In Modal */}
+      {/* Daily Check-In Modal */}
       <DailyCheckInModal
         visible={showCheckInModal}
         onClose={() => {

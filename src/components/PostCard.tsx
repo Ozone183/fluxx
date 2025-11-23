@@ -8,6 +8,7 @@ import {
   Image,
   Share,
   Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -51,6 +52,7 @@ interface PostCardProps {
   onReact: (postId: string, reactionType: ReactionType) => void;
   onComment: (post: Post) => void;
   onViewProfile: (userId: string) => void;
+  onDelete: (post: Post) => void;
   playingVideoId?: string | null;
   onVideoPlay?: (postId: string) => void;
 }
@@ -63,18 +65,20 @@ const PostCard: React.FC<PostCardProps> = ({
   onReact,
   onComment,
   onViewProfile,
+  onDelete,
   playingVideoId,
   onVideoPlay,
 }) => {
   const [showReactions, setShowReactions] = React.useState(false);  // ← ADD THIS
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const isLiked = currentUserId ? post.likedBy?.includes(currentUserId) : false;
 
   const likesCount = post.likedBy?.length || 0;
   const commentsCount = post.commentsCount || 0;
 
- // Reaction calculations
- const reactionCounts = post.reactionCounts || {};
- const totalReactions = Object.values(reactionCounts).reduce((a, b) => a + b, 0);
+  // Reaction calculations
+  const reactionCounts = post.reactionCounts || {};
+  const totalReactions = Object.values(reactionCounts).reduce((a, b) => a + b, 0);
 
   const timestamp = post.timestamp?.toDate
     ? post.timestamp.toDate()
@@ -98,7 +102,7 @@ const PostCard: React.FC<PostCardProps> = ({
 
       if (result.action === Share.sharedAction && currentUserId) {
         console.log('Post shared successfully');
-        
+
         // AWARD TOKENS FOR SHARING
         try {
           const { awardTokens } = await import('../utils/tokens');
@@ -110,7 +114,7 @@ const PostCard: React.FC<PostCardProps> = ({
             relatedId: post.id,
           });
           console.log('🪙 Awarded 3 tokens for sharing post');
-          
+
           // Show success feedback
           Alert.alert('Tokens Earned! 💎', 'You earned 3 tokens for sharing!');
         } catch (tokenError) {
@@ -126,30 +130,41 @@ const PostCard: React.FC<PostCardProps> = ({
     <View style={styles.postContainer}>
       {/* Header Card */}
       <View style={styles.headerCard}>
-        <TouchableOpacity
-          style={styles.header}
-          onPress={() => onViewProfile(post.userId)}
-          activeOpacity={0.7}
-        >
-          {profilePicUrl ? (
-            <Image
-              source={{ uri: profilePicUrl }}
-              style={styles.profilePic}
-              resizeMode={'cover'}
-            />
-          ) : (
-            <LinearGradient
-              colors={getGradientForChannel(displayChannel)}
-              style={styles.profilePic}
-            >
-              <Text style={styles.initials}>{initials}</Text>
-            </LinearGradient>
-          )}
-          <View style={styles.headerInfo}>
-            <Text style={styles.channel}>{displayChannel}</Text>
-            <Text style={styles.timestamp}>{timeAgo}</Text>
-          </View>
-        </TouchableOpacity>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.header}
+            onPress={() => onViewProfile(post.userId)}
+            activeOpacity={0.7}
+          >
+            {profilePicUrl ? (
+              <Image
+                source={{ uri: profilePicUrl }}
+                style={styles.profilePic}
+                resizeMode={'cover'}
+              />
+            ) : (
+              <LinearGradient
+                colors={getGradientForChannel(displayChannel)}
+                style={styles.profilePic}
+              >
+                <Text style={styles.initials}>{initials}</Text>
+              </LinearGradient>
+            )}
+            <View style={styles.headerInfo}>
+              <Text style={styles.channel}>{displayChannel}</Text>
+              <Text style={styles.timestamp}>{timeAgo}</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* 3-dot menu - Instagram style */}
+          <TouchableOpacity
+            onPress={() => setShowOptionsMenu(true)}
+            style={styles.optionsButton}
+            activeOpacity={0.7}
+          >
+            <Icon name="ellipsis-horizontal" size={20} color={COLORS.slate400} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Full Width Image or Video */}
@@ -178,30 +193,30 @@ const PostCard: React.FC<PostCardProps> = ({
         <Text style={styles.content}>{post.content}</Text>
 
         {/* Actions */}
-<View style={styles.actions}>
-  {/* React Button */}
-  <TouchableOpacity
-    style={[styles.actionButton, totalReactions > 0 && styles.hasReactionsButton]}
-    onPress={() => setShowReactions(!showReactions)}
-    activeOpacity={0.7}
-  >
-    <Icon
-      name={showReactions ? "close-circle" : "happy-outline"}
-      size={20}
-      color={totalReactions > 0 ? COLORS.cyan400 : COLORS.slate400}
-    />
-    <Text
-      style={[styles.actionText, totalReactions > 0 && styles.hasReactionsText]}
-    >
-      {totalReactions > 0 ? totalReactions : 'React'}
-    </Text>
-  </TouchableOpacity>
+        <View style={styles.actions}>
+          {/* React Button */}
+          <TouchableOpacity
+            style={[styles.actionButton, totalReactions > 0 && styles.hasReactionsButton]}
+            onPress={() => setShowReactions(!showReactions)}
+            activeOpacity={0.7}
+          >
+            <Icon
+              name={showReactions ? "close-circle" : "happy-outline"}
+              size={20}
+              color={totalReactions > 0 ? COLORS.cyan400 : COLORS.slate400}
+            />
+            <Text
+              style={[styles.actionText, totalReactions > 0 && styles.hasReactionsText]}
+            >
+              {totalReactions > 0 ? totalReactions : 'React'}
+            </Text>
+          </TouchableOpacity>
 
-  <TouchableOpacity
-    style={[styles.actionButton, isLiked && styles.likedButton]}
-    onPress={() => onLike(post.id, post.likedBy || [])}
-    activeOpacity={0.7}
-  >
+          <TouchableOpacity
+            style={[styles.actionButton, isLiked && styles.likedButton]}
+            onPress={() => onLike(post.id, post.likedBy || [])}
+            activeOpacity={0.7}
+          >
             <Icon
               name="heart"
               size={20}
@@ -232,7 +247,7 @@ const PostCard: React.FC<PostCardProps> = ({
             onPress={handleShare}
           >
             <Icon name="paper-plane-outline" size={20} color={COLORS.slate400} />
-            </TouchableOpacity>
+          </TouchableOpacity>
         </View>
 
         {showReactions && (
@@ -249,6 +264,54 @@ const PostCard: React.FC<PostCardProps> = ({
         )}
 
       </View>
+
+      {/* Options Modal - Instagram Style */}
+      <Modal
+        visible={showOptionsMenu}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowOptionsMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowOptionsMenu(false)}
+        >
+          <View style={styles.optionsModal}>
+            {currentUserId === post.userId && (
+              <TouchableOpacity
+                style={[styles.optionItem, styles.deleteOption]}
+                onPress={() => {
+                  setShowOptionsMenu(false);
+                  onDelete(post);
+                }}
+                activeOpacity={0.7}
+              >
+                <Icon name="trash-outline" size={20} color={COLORS.red500} />
+                <Text style={styles.deleteOptionText}>Delete</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.optionItem}
+              onPress={() => setShowOptionsMenu(false)}
+              activeOpacity={0.7}
+            >
+              <Icon name="flag-outline" size={20} color={COLORS.slate400} />
+              <Text style={styles.optionText}>Report</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.optionItem}
+              onPress={() => setShowOptionsMenu(false)}
+              activeOpacity={0.7}
+            >
+              <Icon name="link-outline" size={20} color={COLORS.slate400} />
+              <Text style={styles.optionText}>Copy Link</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -399,6 +462,53 @@ const styles = StyleSheet.create({
   },
   reactionsContainer: {
     marginTop: 12,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  deleteButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  optionsButton: {
+    padding: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  optionsModal: {
+    backgroundColor: COLORS.slate800,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.slate700,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  deleteOption: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.slate700,
+  },
+  optionText: {
+    fontSize: 16,
+    color: COLORS.white,
+    marginLeft: 16,
+    fontWeight: '500',
+  },
+  deleteOptionText: {
+    fontSize: 16,
+    color: COLORS.red500,
+    marginLeft: 16,
+    fontWeight: '600',
   },
 });
 

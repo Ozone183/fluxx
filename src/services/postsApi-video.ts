@@ -5,8 +5,10 @@ import {
   doc,
   updateDoc,
   increment,
+  deleteDoc,
 } from 'firebase/firestore';
-import { firestore } from '../config/firebase';
+import { firestore, storage } from '../config/firebase';
+import { ref, deleteObject } from 'firebase/storage';
 import { APP_ID } from '../context/AuthContext';
 
 export interface VideoPostData {
@@ -173,3 +175,50 @@ export async function createMultipleVideoPosts(
     throw new Error('Failed to create multiple video posts');
   }
 }
+
+export const deletePost = async (postId: string, videoUrl?: string, thumbnailUrl?: string, imageUrl?: string) => {
+  try {
+    // Delete from Firestore
+    const postRef = doc(firestore, `artifacts/${APP_ID}/public/data/posts/${postId}`);
+    await deleteDoc(postRef);
+    console.log('✅ Post deleted from Firestore:', postId);
+
+    // Delete video from Storage if exists
+    if (videoUrl) {
+      try {
+        const videoRef = ref(storage, videoUrl);
+        await deleteObject(videoRef);
+        console.log('✅ Video deleted from Storage');
+      } catch (error) {
+        console.warn('⚠️ Video file not found or already deleted:', error);
+      }
+    }
+
+    // Delete thumbnail from Storage if exists
+    if (thumbnailUrl) {
+      try {
+        const thumbnailRef = ref(storage, thumbnailUrl);
+        await deleteObject(thumbnailRef);
+        console.log('✅ Thumbnail deleted from Storage');
+      } catch (error) {
+        console.warn('⚠️ Thumbnail file not found or already deleted:', error);
+      }
+    }
+
+    // Delete image from Storage if exists
+    if (imageUrl) {
+      try {
+        const imageRef = ref(storage, imageUrl);
+        await deleteObject(imageRef);
+        console.log('✅ Image deleted from Storage');
+      } catch (error) {
+        console.warn('⚠️ Image file not found or already deleted:', error);
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Error deleting post:', error);
+    throw error;
+  }
+};

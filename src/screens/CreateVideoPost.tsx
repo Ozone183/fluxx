@@ -84,6 +84,7 @@ export default function CreateVideoPostScreen() {
         videoUrl,
         thumbnailUrl,
         duration: videoDuration,
+        isProcessing: true,  // ← ADD THIS LINE
       });
 
       // Award tokens for creating post

@@ -297,6 +297,36 @@ const FeedScreen = () => {
     return () => unsubscribe();
   }, [posts.length > 0]);
 
+  // Real-time listener for post UPDATES (e.g., isProcessing changes)
+useEffect(() => {
+  if (posts.length === 0) return;
+  
+  const postIds = posts.map(p => p.id);
+  if (postIds.length === 0) return;
+  
+  const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
+  
+  // Listen to changes for all currently loaded posts
+  const unsubscribers = postIds.map(postId => {
+    const postDocRef = doc(postsRef, postId);
+    return onSnapshot(postDocRef, (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const updatedData = docSnapshot.data();
+        // Update the specific post in state
+        setPosts(prev => prev.map(post => 
+          post.id === postId 
+            ? { id: postId, ...updatedData } as Post
+            : post
+        ));
+      }
+    });
+  });
+  
+  return () => {
+    unsubscribers.forEach(unsub => unsub());
+  };
+}, [posts.map(p => p.id).join(',')]); // Only re-subscribe when post IDs change
+
   // Handle like toggle (old heart button)
   const handleLike = async (postId: string, likedBy: string[]) => {
     if (!userId) return;

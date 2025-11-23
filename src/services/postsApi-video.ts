@@ -19,6 +19,7 @@ export interface VideoPostData {
   videoUrl: string;
   thumbnailUrl: string;
   duration: number; // in seconds
+  isProcessing?: boolean
 }
 
 /**

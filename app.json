@@ -17,13 +17,15 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.fluxx.app",
       "associatedDomains": [
+        "applinks:fluxx.app",
         "applinks:fluxx.app"
       ],
       "infoPlist": {
         "NSPhotoLibraryAddUsageDescription": "Fluxx needs access to save your canvas creations to your photo library.",
         "NSPhotoLibraryUsageDescription": "Fluxx needs access to your photo library to save your canvas creations.",
         "NSMicrophoneUsageDescription": "Fluxx needs access to your microphone to record voice comments.",
-        "NSCameraUsageDescription": "Fluxx needs camera access to display canvases in AR."
+        "NSCameraUsageDescription": "Fluxx needs camera access to display canvases in AR.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -74,7 +76,6 @@
           "isAccessMediaLocationEnabled": true
         }
       ],
-      
       "expo-asset"
     ],
     "owner": "teejenje",

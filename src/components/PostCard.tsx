@@ -36,6 +36,7 @@ interface Post {
   videoUrl?: string;
   thumbnailUrl?: string;
   duration?: number;
+  isProcessing?: boolean;  // ← ADD THIS
 }
 
 interface Profile {
@@ -168,25 +169,43 @@ const PostCard: React.FC<PostCardProps> = ({
       </View>
 
       {/* Full Width Image or Video */}
-      {post.type === 'video' && post.videoUrl ? (
-        <VideoPlayer
-          videoUrl={post.videoUrl}
-          thumbnailUrl={post.thumbnailUrl}
-          style={styles.videoContainer}
-          isPlaying={playingVideoId === post.id}
-          onPlayingChange={(playing) => {
-            if (playing && onVideoPlay) {
-              onVideoPlay(post.id);
-            }
-          }}
-        />
-      ) : post.image ? (
+{post.type === 'video' && post.videoUrl ? (
+  post.isProcessing ? (
+    // Show processing indicator
+    <View style={styles.processingContainer}>
+      <View style={styles.processingContent}>
+        <Icon name="hourglass-outline" size={48} color={COLORS.cyan400} />
+        <Text style={styles.processingText}>Processing video...</Text>
+        <Text style={styles.processingSubtext}>This will take a moment</Text>
+      </View>
+      {post.thumbnailUrl && (
         <Image
-          source={{ uri: post.image }}
-          style={styles.fullWidthImage}
-          resizeMode={'cover'}
+          source={{ uri: post.thumbnailUrl }}
+          style={styles.processingThumbnail}
+          blurRadius={10}
         />
-      ) : null}
+      )}
+    </View>
+  ) : (
+    <VideoPlayer
+      videoUrl={post.videoUrl}
+      thumbnailUrl={post.thumbnailUrl}
+      style={styles.videoContainer}
+      isPlaying={playingVideoId === post.id}
+      onPlayingChange={(playing) => {
+        if (playing && onVideoPlay) {
+          onVideoPlay(post.id);
+        }
+      }}
+    />
+  )
+) : post.image ? (
+  <Image
+    source={{ uri: post.image }}
+    style={styles.fullWidthImage}
+    resizeMode={'cover'}
+  />
+) : null}
 
       {/* Content Card */}
       <View style={styles.contentCard}>
@@ -530,6 +549,38 @@ const styles = StyleSheet.create({
     color: COLORS.red500,
     marginLeft: 12,
     fontWeight: '700',
+  },
+  processingContainer: {
+    width: SCREEN_WIDTH,
+    aspectRatio: 9 / 16,
+    backgroundColor: COLORS.slate900,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  processingThumbnail: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    opacity: 0.3,
+  },
+  processingContent: {
+    alignItems: 'center',
+    zIndex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    padding: 24,
+    borderRadius: 16,
+  },
+  processingText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.cyan400,
+    marginTop: 16,
+  },
+  processingSubtext: {
+    fontSize: 14,
+    color: COLORS.slate400,
+    marginTop: 8,
   },
 });
 

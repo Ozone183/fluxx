@@ -41,6 +41,17 @@ export default function VideoPlayer({
   const [showControls, setShowControls] = useState(true);
   const hideControlsTimeout = useRef<any>(null);
 
+  // Cleanup video from memory when unmounting
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.unloadAsync().catch(() => {
+          // Ignore errors on unmount
+        });
+      }
+    };
+  }, []);
+
   // Auto-hide controls after 3 seconds
   const resetHideControlsTimer = () => {
     if (hideControlsTimeout.current) {

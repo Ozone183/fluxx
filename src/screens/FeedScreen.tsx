@@ -7,8 +7,9 @@ import {
   RefreshControl,
   TouchableOpacity,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
-import { collection, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, where, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, where, query, orderBy, limit, startAfter, getDocs } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -136,6 +137,12 @@ const FeedScreen = () => {
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null); // ✅ ADD THIS LINE
 
+  // Pagination state
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [lastVisible, setLastVisible] = useState<any>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const POSTS_PER_PAGE = 10;
+
   const scrollY = new Animated.Value(0);
 
   // Reset video state when returning to feed
@@ -151,37 +158,64 @@ const FeedScreen = () => {
     }, [])
   );
 
-  // Real-time posts listener
-  useEffect(() => {
-    const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
+  // Paginated posts loader
+  const loadPosts = async (isLoadMore = false) => {
+    if (isLoadMore && (!hasMore || isLoadingMore)) return;
+    
+    try {
+      if (isLoadMore) {
+        setIsLoadingMore(true);
+      } else {
+        setLoading(true);
+        setLastVisible(null);
+        setHasMore(true);
+      }
 
-    const unsubscribe = onSnapshot(
-      postsRef,
-      (snapshot) => {
-        const fetchedPosts = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Post[];
-
-        // Sort by timestamp (newest first)
-        fetchedPosts.sort(
-          (a, b) =>
-            (b.timestamp?.toMillis?.() || b.timestamp?.seconds * 1000 || 0) -
-            (a.timestamp?.toMillis?.() || a.timestamp?.seconds * 1000 || 0),
+      const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
+      
+      let postsQuery = query(
+        postsRef,
+        orderBy('timestamp', 'desc'),
+        limit(POSTS_PER_PAGE)
+      );
+      
+      if (isLoadMore && lastVisible) {
+        postsQuery = query(
+          postsRef,
+          orderBy('timestamp', 'desc'),
+          startAfter(lastVisible),
+          limit(POSTS_PER_PAGE)
         );
+      }
 
+      const snapshot = await getDocs(postsQuery);
+      
+      const fetchedPosts = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Post[];
+
+      if (isLoadMore) {
+        setPosts(prev => [...prev, ...fetchedPosts]);
+      } else {
         setPosts(fetchedPosts);
-        setLoading(false);
-        setRefreshing(false);
-      },
-      (error) => {
-        console.error('Feed snapshot error:', error);
-        setLoading(false);
-        setRefreshing(false);
-      },
-    );
+      }
+      
+      setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+      setHasMore(fetchedPosts.length === POSTS_PER_PAGE);
+      
+    } catch (error) {
+      console.error('Error loading posts:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setIsLoadingMore(false);
+    }
+  };
 
-    return () => unsubscribe();
+  // Load initial posts
+  useEffect(() => {
+    loadPosts();
   }, []);
 
   // Scroll to specific post if coming from notification
@@ -208,7 +242,7 @@ useEffect(() => {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setTimeout(() => setRefreshing(false), 1000);
+    loadPosts(false); // Reload from start
   }, []);
 
   // Handle like toggle (old heart button)
@@ -386,6 +420,24 @@ const handleLike = async (postId: string, likedBy: string[]) => {
         keyExtractor={item => item.id}
         ListHeaderComponent={renderListHeader}
         contentContainerStyle={styles.listContent}
+        
+        // Memory optimization
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={3}
+        windowSize={5}
+        initialNumToRender={3}
+        
+        // Pagination
+        onEndReached={() => loadPosts(true)}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          isLoadingMore ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color={COLORS.cyan400} />
+            </View>
+          ) : null
+        }
+        
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

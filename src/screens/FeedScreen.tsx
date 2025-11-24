@@ -249,25 +249,25 @@ const FeedScreen = () => {
   // Real-time listener for NEW posts and DELETIONS
   useEffect(() => {
     if (posts.length === 0) return; // Wait for initial load
-    
+
     const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
     const latestPostTime = posts[0]?.timestamp;
-    
+
     if (!latestPostTime) return;
-    
+
     // Listen only for posts NEWER than what we have
     const q = query(
       postsRef,
       where('timestamp', '>', latestPostTime),
       orderBy('timestamp', 'desc')
     );
-    
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const newPosts = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
       })) as Post[];
-      
+
       if (newPosts.length > 0) {
         // ✅ DEDUPLICATION: Remove any posts with IDs that already exist
         setPosts(prev => {
@@ -277,55 +277,53 @@ const FeedScreen = () => {
         });
       }
     });
-    
+
     return () => unsubscribe();
   }, [posts.length > 0 ? posts[0]?.id : null]);
 
   // Real-time listener for DELETIONS (all loaded posts)
   useEffect(() => {
     if (posts.length === 0) return;
-    
+
     const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
-    
+
     const unsubscribe = onSnapshot(postsRef, (snapshot) => {
       const currentPostIds = new Set(snapshot.docs.map(doc => doc.id));
-      
+
       // Remove any posts that no longer exist in Firestore
       setPosts(prev => prev.filter(post => currentPostIds.has(post.id)));
     });
-    
+
     return () => unsubscribe();
   }, [posts.length > 0]);
 
-  // Real-time listener for post UPDATES (e.g., isProcessing changes)
-useEffect(() => {
-  if (posts.length === 0) return;
-  
-  const postIds = posts.map(p => p.id);
-  if (postIds.length === 0) return;
-  
-  const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
-  
-  // Listen to changes for all currently loaded posts
-  const unsubscribers = postIds.map(postId => {
-    const postDocRef = doc(postsRef, postId);
-    return onSnapshot(postDocRef, (docSnapshot) => {
-      if (docSnapshot.exists()) {
-        const updatedData = docSnapshot.data();
-        // Update the specific post in state
-        setPosts(prev => prev.map(post => 
-          post.id === postId 
-            ? { id: postId, ...updatedData } as Post
-            : post
-        ));
-      }
+  // Real-time listener for post UPDATES using docChanges()
+  useEffect(() => {
+    if (posts.length === 0) return;
+
+    const postsRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'posts');
+
+    // Listen to the entire posts collection
+    const unsubscribe = onSnapshot(postsRef, (snapshot) => {
+      // Only process modifications (not additions or deletions)
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'modified') {
+          const updatedPost = { id: change.doc.id, ...change.doc.data() } as Post;
+
+          // Only update if this post is in our current feed
+          setPosts(prev =>
+            prev.map(post =>
+              post.id === updatedPost.id ? updatedPost : post
+            )
+          );
+
+          console.log('📝 Post updated in real-time:', updatedPost.id);
+        }
+      });
     });
-  });
-  
-  return () => {
-    unsubscribers.forEach(unsub => unsub());
-  };
-}, [posts.map(p => p.id).join(',')]); // Only re-subscribe when post IDs change
+
+    return () => unsubscribe();
+  }, [posts.length > 0]); // Only re-subscribe when posts go from 0 to >0
 
   // Handle like toggle (old heart button)
   const handleLike = async (postId: string, likedBy: string[]) => {
@@ -423,7 +421,7 @@ useEffect(() => {
   // Handle delete post
   const handleDeletePost = async (post: Post) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
+
     Alert.alert(
       'Delete Post',
       'Are you sure you want to delete this post? This action cannot be undone.',
@@ -439,9 +437,9 @@ useEffect(() => {
             try {
               const { deletePost } = await import('../services/postsApi-video');
               await deletePost(post.id, post.videoUrl, post.thumbnailUrl, post.image);
-              
+
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              
+
               // Optimistically remove from UI
               setPosts(prev => prev.filter(p => p.id !== post.id));
             } catch (error) {
@@ -513,11 +511,6 @@ useEffect(() => {
     </Animated.View>
   );
 
-  // ← ADD THIS: Canvas Stories at top of list
-  const renderListHeader = () => (
-    <CanvasStoriesBar />
-  );
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -530,12 +523,17 @@ useEffect(() => {
   return (
     <View style={styles.container}>
       {renderHeader()}
+
+      {/* ✅ STICKY CANVAS STORIES */}
+      <View style={styles.stickyCanvasBar}>
+        <CanvasStoriesBar />
+      </View>
+
       <FlatList
         ref={flatListRef}
         data={posts}
         renderItem={renderPost}
         keyExtractor={item => item.id}
-        ListHeaderComponent={renderListHeader}
         contentContainerStyle={styles.listContent}
 
         // Memory optimization
@@ -703,6 +701,12 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 11,
     fontWeight: '700',
+  },
+  stickyCanvasBar: {
+    backgroundColor: COLORS.slate900,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.slate800,
+    zIndex: 5,
   },
 });
 

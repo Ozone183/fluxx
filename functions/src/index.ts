@@ -228,10 +228,13 @@ export const compressVideoPost = functions
       // Update Firestore post
       const pathParts = filePath.split('/');
       const userId = pathParts[1];
+      const timestamp = pathParts[2].replace('.mp4', ''); // Extract timestamp: "1763929873257"
+
+      console.log('🔍 Searching for post with userId:', userId, 'and timestamp:', timestamp);
 
       const postsRef = admin.firestore()
         .collection('artifacts')
-        .doc('fluxx')
+        .doc('fluxx-app-2025')  // ✅ CHANGED FROM 'fluxx' to 'fluxx-app-2025'
         .collection('public')
         .doc('data')
         .collection('posts');
@@ -240,32 +243,42 @@ export const compressVideoPost = functions
       const querySnapshot = await postsRef
         .where('userId', '==', userId)
         .where('isProcessing', '==', true)
-        .limit(5)
+        .limit(10)  // Increased limit to find more posts
         .get();
+
+      console.log(`📝 Found ${querySnapshot.docs.length} posts with isProcessing=true for user ${userId}`);
 
       let postUpdated = false;
       for (const doc of querySnapshot.docs) {
         const postData = doc.data();
-        // Match by checking if original video URL is in the post
-        if (postData.videoUrl && postData.videoUrl.includes(pathParts[2].replace('.mp4', ''))) {
+        
+        // Log the videoUrl for debugging
+        console.log('🔗 Checking post:', doc.id, 'videoUrl:', postData.videoUrl);
+        
+        // ✅ IMPROVED MATCHING: Check if videoUrl contains the timestamp
+        if (postData.videoUrl && postData.videoUrl.includes(timestamp)) {
+          console.log('✅ MATCH FOUND! Updating post:', doc.id);
+          
           await doc.ref.update({
             videoUrl: compressedUrl,
-            isProcessing: false,  // ← SET TO FALSE
+            isProcessing: false,
             compressedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
-          console.log('✅ Updated post:', doc.id);
+          
+          console.log('✅ Updated post:', doc.id, 'with compressed URL');
           postUpdated = true;
           break;
         }
       }
 
       if (!postUpdated) {
-        console.log('⚠️ Post not found');
+        console.log('⚠️ No matching post found for timestamp:', timestamp);
+        console.log('⚠️ This might mean the post was created with a different timestamp or the query failed');
       }
 
       fs.unlinkSync(tempFilePath);
       fs.unlinkSync(compressedTempPath);
-      console.log('🧹 Cleaned up');
+      console.log('🧹 Cleaned up temp files');
 
       return null;
     } catch (error) {

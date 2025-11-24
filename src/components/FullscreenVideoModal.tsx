@@ -1,55 +1,56 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
+  Modal,
   View,
   TouchableOpacity,
   StyleSheet,
+  StatusBar,
+  Dimensions,
   Text,
   ActivityIndicator,
-  ViewStyle,
+  Platform,
 } from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { COLORS } from '../theme/colors';
-import FullscreenVideoModal from './FullscreenVideoModal';
 
-interface VideoPlayerProps {
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+interface FullscreenVideoModalProps {
+  visible: boolean;
   videoUrl: string;
   thumbnailUrl?: string;
-  onView?: () => void;
-  style?: ViewStyle;
-  autoPlay?: boolean;
-  isPlaying?: boolean;
-  onPlayingChange?: (playing: boolean) => void;
+  onClose: () => void;
 }
 
-export default function VideoPlayer({
+export default function FullscreenVideoModal({
+  visible,
   videoUrl,
   thumbnailUrl,
-  onView,
-  style,
-  autoPlay = false,
-  isPlaying: externalIsPlaying,
-  onPlayingChange,
-}: VideoPlayerProps) {
+  onClose,
+}: FullscreenVideoModalProps) {
   const videoRef = useRef<Video>(null);
-  const [isPlaying, setIsPlaying] = useState(autoPlay);
+  const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
   const [isBuffering, setIsBuffering] = useState(true);
-  const [hasViewed, setHasViewed] = useState(false);
   const [showControls, setShowControls] = useState(true);
-  const [showFullscreen, setShowFullscreen] = useState(false); // ✅ NEW
   const hideControlsTimeout = useRef<any>(null);
+
+  // Auto-play when modal opens
+  useEffect(() => {
+    if (visible && videoRef.current) {
+      videoRef.current.playAsync();
+    }
+  }, [visible]);
 
   // Cleanup video from memory when unmounting
   useEffect(() => {
     return () => {
       if (videoRef.current) {
-        videoRef.current.unloadAsync().catch(() => {
-          // Ignore errors on unmount
-        });
+        videoRef.current.unloadAsync().catch(() => {});
       }
     };
   }, []);
@@ -67,19 +68,6 @@ export default function VideoPlayer({
     }, 3000);
   };
 
-  // Sync with external playing state
-  useEffect(() => {
-    if (externalIsPlaying === true && !isPlaying) {
-      // Start playing when told to
-      videoRef.current?.playAsync();
-      setIsPlaying(true);
-    } else if (externalIsPlaying === false && isPlaying) {
-      // Stop playing when told to
-      videoRef.current?.pauseAsync();
-      setIsPlaying(false);
-    }
-  }, [externalIsPlaying]);
-
   // Hide controls when playing starts
   useEffect(() => {
     if (isPlaying) {
@@ -89,13 +77,6 @@ export default function VideoPlayer({
     }
   }, [isPlaying]);
 
-  useEffect(() => {
-    if (isPlaying && !hasViewed && onView) {
-      onView();
-      setHasViewed(true);
-    }
-  }, [isPlaying, hasViewed, onView]);
-
   const formatTime = (millis: number) => {
     const totalSeconds = Math.floor(millis / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -104,19 +85,16 @@ export default function VideoPlayer({
   };
 
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-    if (!status.isLoaded) {
-      // Video is still loading, this is normal during autoplay
-      return;
-    }
+    if (!status.isLoaded) return;
 
     setIsBuffering(status.isBuffering);
     setIsPlaying(status.isPlaying);
     setIsMuted(status.isMuted);
-    
+
     if (status.durationMillis) {
       setDuration(status.durationMillis);
     }
-    
+
     if (status.positionMillis !== undefined) {
       setPosition(status.positionMillis);
     }
@@ -129,14 +107,11 @@ export default function VideoPlayer({
 
   const togglePlayPause = async () => {
     if (!videoRef.current) return;
-  
+
     if (isPlaying) {
       await videoRef.current.pauseAsync();
     } else {
       await videoRef.current.playAsync();
-      if (onPlayingChange) {
-        onPlayingChange(true);
-      }
     }
   };
 
@@ -151,45 +126,43 @@ export default function VideoPlayer({
     await videoRef.current.setPositionAsync(seekPosition);
   };
 
-  // ✅ NEW: Open fullscreen
-  const handleFullscreen = async () => {
-    // Pause the current video
+  const handleClose = async () => {
+    // Stop and unload video before closing
     if (videoRef.current) {
-      await videoRef.current.pauseAsync();
+      await videoRef.current.stopAsync();
+      await videoRef.current.unloadAsync();
     }
-    setShowFullscreen(true);
-  };
-
-  // ✅ NEW: Close fullscreen and resume
-  const handleCloseFullscreen = () => {
-    setShowFullscreen(false);
-    // Resume playing in the feed
-    if (videoRef.current) {
-      videoRef.current.playAsync();
-    }
+    onClose();
   };
 
   return (
-    <>
-      <View style={[styles.container, style]}>
+    <Modal
+      visible={visible}
+      animationType="fade"
+      onRequestClose={handleClose}
+      statusBarTranslucent
+    >
+      <StatusBar hidden />
+      <View style={styles.container}>
         <Video
           ref={videoRef}
           source={{ uri: videoUrl }}
           style={styles.video}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay={autoPlay}
+          resizeMode={ResizeMode.CONTAIN}
+          shouldPlay={true}
           isLooping
           isMuted={isMuted}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
           usePoster={!!thumbnailUrl}
           posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
-          posterStyle={{ resizeMode: 'cover' } as any}
+          posterStyle={{ resizeMode: 'contain' } as any}
         />
 
         {/* Buffering Indicator */}
         {isBuffering && (
           <View style={styles.bufferingContainer}>
             <ActivityIndicator size="large" color={COLORS.cyan400} />
+            <Text style={styles.bufferingText}>Loading...</Text>
           </View>
         )}
 
@@ -206,32 +179,29 @@ export default function VideoPlayer({
         >
           {showControls && (
             <>
-              {/* Top Controls */}
+              {/* Top Controls - Close & Mute */}
               <View style={styles.topControls}>
                 <TouchableOpacity
+                  onPress={handleClose}
+                  style={styles.controlButton}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.iconBackground}>
+                    <Ionicons name="close" size={28} color="#FFFFFF" />
+                  </View>
+                </TouchableOpacity>
+
+                <View style={styles.spacer} />
+
+                <TouchableOpacity
                   onPress={toggleMute}
-                  style={styles.muteButton}
+                  style={styles.controlButton}
                   activeOpacity={0.8}
                 >
                   <View style={styles.iconBackground}>
                     <Ionicons
                       name={isMuted ? 'volume-mute' : 'volume-high'}
-                      size={24}
-                      color="#FFFFFF"
-                    />
-                  </View>
-                </TouchableOpacity>
-
-                {/* ✅ NEW: Fullscreen Button */}
-                <TouchableOpacity
-                  onPress={handleFullscreen}
-                  style={styles.fullscreenButton}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.iconBackground}>
-                    <Ionicons
-                      name="expand"
-                      size={24}
+                      size={28}
                       color="#FFFFFF"
                     />
                   </View>
@@ -247,13 +217,13 @@ export default function VideoPlayer({
                 <View style={styles.playButtonBackground}>
                   <Ionicons
                     name={isPlaying ? 'pause' : 'play'}
-                    size={48}
+                    size={64}
                     color="#FFFFFF"
                   />
                 </View>
               </TouchableOpacity>
 
-              {/* Bottom Controls */}
+              {/* Bottom Controls - Progress Bar */}
               <View style={styles.bottomControls}>
                 <View style={styles.progressContainer}>
                   <Text style={styles.timeText}>{formatTime(position)}</Text>
@@ -273,36 +243,40 @@ export default function VideoPlayer({
             </>
           )}
         </TouchableOpacity>
-      </View>
 
-      {/* ✅ NEW: Fullscreen Modal */}
-      <FullscreenVideoModal
-        visible={showFullscreen}
-        videoUrl={videoUrl}
-        thumbnailUrl={thumbnailUrl}
-        onClose={handleCloseFullscreen}
-      />
-    </>
+        {/* Tap to close hint */}
+        {showControls && (
+          <View style={styles.tapHint}>
+            <Text style={styles.tapHintText}>Tap × to close</Text>
+          </View>
+        )}
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    position: 'relative',
-    width: '100%',
-    aspectRatio: 16 / 9,
+    flex: 1,
     backgroundColor: '#000000',
-    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   video: {
-    width: '100%',
-    height: '100%',
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
   },
   bufferingContainer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  bufferingText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    marginTop: 12,
+    fontWeight: '600',
   },
   controlsContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -311,56 +285,67 @@ const styles = StyleSheet.create({
   topControls: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 12,
+    padding: 16,
+    paddingTop: Platform.OS === 'ios' ? 60 : 24,
   },
-  muteButton: {
-    padding: 4,
-  },
-  fullscreenButton: {
+  controlButton: {
     padding: 4,
   },
   iconBackground: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  spacer: {
+    flex: 1,
   },
   centerButton: {
     position: 'absolute',
     top: '50%',
     left: '50%',
-    transform: [{ translateX: -40 }, { translateY: -40 }],
+    transform: [{ translateX: -60 }, { translateY: -60 }],
   },
   playButtonBackground: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   bottomControls: {
-    padding: 12,
+    padding: 16,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 16,
   },
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   slider: {
     flex: 1,
-    marginHorizontal: 8,
+    marginHorizontal: 12,
   },
   timeText: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#FFFFFF',
     fontWeight: '600',
-    minWidth: 40,
+    minWidth: 45,
     textAlign: 'center',
+  },
+  tapHint: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 120 : 100,
+    alignSelf: 'center',
+  },
+  tapHintText: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.6)',
   },
 });

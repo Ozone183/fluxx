@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "b9bc52b7-2cb7-41ce-aa4f-4e2e806e12ce"
+      }
+    },
+    "android": {
+      "package": "com.fluxxstable"
+    }
+  }
+}

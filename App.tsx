@@ -38,6 +38,9 @@ import ARViewerScreen from './src/screens/ARViewerScreen';
 import CreateImageCarouselPost from './src/screens/CreateImageCarouselPost';
 import TestCarouselPost from './src/screens/TestCarouselPost'; // Optional
 import CreatePostTypeScreen from './src/screens/CreatePostTypeScreen';
+import CanvasTypeScreen from './src/screens/CanvasTypeScreen';
+import CreateDrawingCanvasScreen from './src/screens/CreateDrawingCanvasScreen';
+import DrawingEditorScreen from './src/screens/DrawingEditorScreen';
 
 import { COLORS } from './src/theme/colors';
 
@@ -128,7 +131,7 @@ const MainTabs = () => {
         visible={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onCreatePost={() => navigation.navigate('CreatePostType' as never)}
-        onCreateCanvas={() => navigation.navigate('Canvas' as never)}
+        onCreateCanvas={() => navigation.navigate('CanvasTypeScreen' as never)}
       />
     </>
   );
@@ -152,46 +155,49 @@ const AppNavigator = () => {
         <>
           <Stack.Screen name="MainTabs" component={MainTabs} />
           <Stack.Screen name="Canvas" component={CreateCanvasScreen} options={{ presentation: 'modal' }} />
-          
+
           {/* 🆕 ADD THIS - Post Type Chooser */}
-          <Stack.Screen 
-            name="CreatePostType" 
-            component={CreatePostTypeScreen} 
-            options={{ presentation: 'modal' }} 
+          <Stack.Screen
+            name="CreatePostType"
+            component={CreatePostTypeScreen}
+            options={{ presentation: 'modal' }}
           />
-          
+
           <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="CreateVideoPost" component={CreateVideoPostScreen} options={{ presentation: 'modal' }} />
-          
+
           {/* 🎵📸 NEW: Carousel Posts */}
-          <Stack.Screen 
-            name="CreateImageCarouselPost" 
-            component={CreateImageCarouselPost} 
-            options={{ 
+          <Stack.Screen
+            name="CreateImageCarouselPost"
+            component={CreateImageCarouselPost}
+            options={{
               presentation: 'modal',
               headerShown: true,
               title: 'Create Carousel',
               headerStyle: { backgroundColor: '#4A90E2' },
               headerTintColor: '#fff',
               headerTitleStyle: { fontWeight: 'bold' }
-            }} 
+            }}
           />
-          
+
           {/* Optional: Test Screen (remove in production) */}
-          <Stack.Screen 
-            name="TestCarouselPost" 
-            component={TestCarouselPost} 
-            options={{ 
+          <Stack.Screen
+            name="TestCarouselPost"
+            component={TestCarouselPost}
+            options={{
               presentation: 'modal',
               headerShown: true,
               title: 'Test Carousel Posts'
-            }} 
+            }}
           />
-          
+
           <Stack.Screen name="Search" component={SearchScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="Profile" component={ProfileScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="TokenHistory" component={TokenHistoryScreen} options={{ presentation: 'modal' }} />
           <Stack.Screen name="CanvasEditor" component={CanvasEditorScreen} />
+          <Stack.Screen name="CanvasTypeScreen" component={CanvasTypeScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="CreateDrawingCanvasScreen" component={CreateDrawingCanvasScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="DrawingEditorScreen" component={DrawingEditorScreen} />
           <Stack.Screen
             name="ARViewer"
             component={ARViewerScreen}

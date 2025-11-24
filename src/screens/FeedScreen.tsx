@@ -62,6 +62,13 @@ const FeedScreen = () => {
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [checkInData, setCheckInData] = useState({ tokens: 0, streak: 0 });
+  const [visiblePostIds, setVisiblePostIds] = useState<string[]>([]);
+
+  // 🆕 ADD THIS CALLBACK
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    const ids = viewableItems.map(item => item.item.id);
+    setVisiblePostIds(ids);
+  }).current;
 
   // Daily Check-In Logic (prevent multiple checks per session)
   const hasCheckedRef = useRef(false);
@@ -471,6 +478,7 @@ const FeedScreen = () => {
       onDelete={handleDeletePost}
       playingVideoId={playingVideoId}
       onVideoPlay={(postId) => setPlayingVideoId(postId)}
+      pauseCarouselMusic={!visiblePostIds.includes(item.id)}
     />
   );
 
@@ -573,11 +581,15 @@ const FeedScreen = () => {
           { useNativeDriver: false },
         )}
         onViewableItemsChanged={({ viewableItems }) => {
+          // Track visible post IDs for carousel music pause
+          const ids = viewableItems.map(item => item.item.id);
+          setVisiblePostIds(ids);
+        
           // Find the first visible video post
           const visibleVideo = viewableItems.find(
             item => item.isViewable && (item.item as Post).type === 'video'
           );
-
+        
           if (visibleVideo) {
             setPlayingVideoId((visibleVideo.item as Post).id);
           } else {

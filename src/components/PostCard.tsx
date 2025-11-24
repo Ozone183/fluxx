@@ -16,6 +16,7 @@ import { COLORS } from '../theme/colors';
 import ReactionPicker from './ReactionPicker';
 import { ReactionType } from '../data/reactions';
 import VideoPlayer from './VideoPlayer';
+import { ImageCarouselViewer } from './ImageCarouselViewer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -32,17 +33,23 @@ interface Post {
   reactions?: Record<string, string[]>;
   reactionCounts?: Record<string, number>;
   // 🎥 VIDEO POST FIELDS
-  type?: 'image' | 'video';
+  type?: 'image' | 'video' | 'carousel';
   videoUrl?: string;
   thumbnailUrl?: string;
   duration?: number;
   isProcessing?: boolean;  // ← ADD THIS
+  images?: string[];      // Array of image URLs for carousel
+  musicUrl?: string;      // Background music URL for carousel
+  musicTitle?: string;
+  shares?: number;
+  coverImageIndex?: number;
 }
 
 interface Profile {
   userId: string;
   channel: string;
   profilePictureUrl: string | null;
+  userChannel?: string;
 }
 
 interface PostCardProps {
@@ -56,6 +63,7 @@ interface PostCardProps {
   onDelete: (post: Post) => void;
   playingVideoId?: string | null;
   onVideoPlay?: (postId: string) => void;
+  pauseCarouselMusic?: boolean; // 🆕 ADD THIS LINE
 }
 
 const PostCard: React.FC<PostCardProps> = ({
@@ -69,6 +77,7 @@ const PostCard: React.FC<PostCardProps> = ({
   onDelete,
   playingVideoId,
   onVideoPlay,
+  pauseCarouselMusic = false
 }) => {
   const [showReactions, setShowReactions] = React.useState(false);  // ← ADD THIS
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
@@ -168,44 +177,55 @@ const PostCard: React.FC<PostCardProps> = ({
         </View>
       </View>
 
-      {/* Full Width Image or Video */}
-{post.type === 'video' && post.videoUrl ? (
-  post.isProcessing ? (
-    // Show processing indicator
-    <View style={styles.processingContainer}>
-      <View style={styles.processingContent}>
-        <Icon name="hourglass-outline" size={48} color={COLORS.cyan400} />
-        <Text style={styles.processingText}>Processing video...</Text>
-        <Text style={styles.processingSubtext}>This will take a moment</Text>
-      </View>
-      {post.thumbnailUrl && (
-        <Image
-          source={{ uri: post.thumbnailUrl }}
-          style={styles.processingThumbnail}
-          blurRadius={10}
+      {/* Full Width Image, Video, or Carousel */}
+      {post.type === 'carousel' && post.images && post.images.length > 0 ? (
+        <ImageCarouselViewer
+          images={post.images}
+          musicUrl={post.musicUrl}
+          musicTitle={post.musicTitle}
+          autoPlayMusic={true}
+          pauseMusic={pauseCarouselMusic}
+          onImageChange={(index) => {
+            console.log(`Viewing image ${index + 1} of ${post.images?.length}`);
+          }}
         />
-      )}
-    </View>
-  ) : (
-    <VideoPlayer
-      videoUrl={post.videoUrl}
-      thumbnailUrl={post.thumbnailUrl}
-      style={styles.videoContainer}
-      isPlaying={playingVideoId === post.id}
-      onPlayingChange={(playing) => {
-        if (playing && onVideoPlay) {
-          onVideoPlay(post.id);
-        }
-      }}
-    />
-  )
-) : post.image ? (
-  <Image
-    source={{ uri: post.image }}
-    style={styles.fullWidthImage}
-    resizeMode={'cover'}
-  />
-) : null}
+      ) : post.type === 'video' && post.videoUrl ? (
+        post.isProcessing ? (
+          // Show processing indicator
+          <View style={styles.processingContainer}>
+            <View style={styles.processingContent}>
+              <Icon name="hourglass-outline" size={48} color={COLORS.cyan400} />
+              <Text style={styles.processingText}>Processing video...</Text>
+              <Text style={styles.processingSubtext}>This will take a moment</Text>
+            </View>
+            {post.thumbnailUrl && (
+              <Image
+                source={{ uri: post.thumbnailUrl }}
+                style={styles.processingThumbnail}
+                blurRadius={10}
+              />
+            )}
+          </View>
+        ) : (
+          <VideoPlayer
+            videoUrl={post.videoUrl}
+            thumbnailUrl={post.thumbnailUrl}
+            style={styles.videoContainer}
+            isPlaying={playingVideoId === post.id}
+            onPlayingChange={(playing) => {
+              if (playing && onVideoPlay) {
+                onVideoPlay(post.id);
+              }
+            }}
+          />
+        )
+      ) : post.image ? (
+        <Image
+          source={{ uri: post.image }}
+          style={styles.fullWidthImage}
+          resizeMode={'cover'}
+        />
+      ) : null}
 
       {/* Content Card */}
       <View style={styles.contentCard}>
@@ -291,12 +311,12 @@ const PostCard: React.FC<PostCardProps> = ({
         animationType="slide"
         onRequestClose={() => setShowOptionsMenu(false)}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
           onPress={() => setShowOptionsMenu(false)}
         >
-          <TouchableOpacity 
+          <TouchableOpacity
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
           >
@@ -314,11 +334,11 @@ const PostCard: React.FC<PostCardProps> = ({
                     <Icon name="trash-outline" size={22} color={COLORS.red500} />
                     <Text style={styles.deleteOptionText}>Delete</Text>
                   </TouchableOpacity>
-                  
+
                   <View style={styles.dividerLine} />
                 </>
               )}
-              
+
               <TouchableOpacity
                 style={styles.optionItem}
                 onPress={() => setShowOptionsMenu(false)}
@@ -327,7 +347,7 @@ const PostCard: React.FC<PostCardProps> = ({
                 <Icon name="flag-outline" size={22} color={COLORS.slate300} />
                 <Text style={styles.optionText}>Report</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={styles.optionItem}
                 onPress={() => setShowOptionsMenu(false)}
@@ -336,9 +356,9 @@ const PostCard: React.FC<PostCardProps> = ({
                 <Icon name="link-outline" size={22} color={COLORS.slate300} />
                 <Text style={styles.optionText}>Copy Link</Text>
               </TouchableOpacity>
-              
+
               <View style={styles.dividerLine} />
-              
+
               <TouchableOpacity
                 style={styles.optionItem}
                 onPress={() => setShowOptionsMenu(false)}

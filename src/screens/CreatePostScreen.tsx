@@ -35,17 +35,17 @@ const CreatePostScreen = () => {
   const { userId, userChannel } = useAuth();
 
   // Intercept hardware back button
-useFocusEffect(
-  React.useCallback(() => {
-    const onBackPress = () => {
-      (navigation as any).navigate('MainTabs', { screen: 'Feed' });
-      return true; // Prevent default back behavior
-    };
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        (navigation as any).navigate('MainTabs', { screen: 'Feed' });
+        return true; // Prevent default back behavior
+      };
 
-    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => subscription.remove();
-  }, [navigation])
-);
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [navigation])
+  );
 
   const [content, setContent] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -256,7 +256,7 @@ useFocusEffect(
           description: 'Created a new post',
         });
         console.log('🪙 Awarded 8 tokens for post creation');
-        
+
         // Show toast notification
         setTokenToastData({ amount: 8, message: 'Post created!' });
         setShowTokenToast(true);
@@ -295,10 +295,10 @@ useFocusEffect(
         >
           {/* Header with Back Button */}
           <View style={styles.headerWithBack}>
-          <TouchableOpacity 
-  onPress={() => (navigation as any).navigate('MainTabs', { screen: 'Feed' })} 
-  style={styles.backButton}
->
+            <TouchableOpacity
+              onPress={() => (navigation as any).navigate('MainTabs', { screen: 'Feed' })}
+              style={styles.backButton}
+            >
               <Ionicons name="arrow-back" size={24} color={COLORS.white} />
             </TouchableOpacity>
           </View>
@@ -469,7 +469,7 @@ useFocusEffect(
               )}
             </LinearGradient>
           </TouchableOpacity>
-          </ScrollView>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       {/* Token Toast */}
@@ -699,6 +699,43 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 10,
     letterSpacing: 1,
+  },
+  quickCreateContainer: {
+    marginVertical: 16,
+    paddingHorizontal: 20,
+  },
+  quickCreateTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.slate400,
+    marginBottom: 12,
+  },
+  quickCreateButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  quickCreateButton: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  quickCreateGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  quickCreateText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
 

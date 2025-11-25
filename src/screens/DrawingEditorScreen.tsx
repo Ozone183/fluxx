@@ -39,10 +39,15 @@ interface Stroke {
 }
 
 type RouteParams = {
-  DrawingEditorScreen: {
-    template: DrawingTemplate;
+    DrawingEditorScreen: {
+      template: DrawingTemplate;
+    };
+    DrawingEditor: {
+      mode?: 'canvas' | 'layer';
+      canvasId?: string;
+      template?: DrawingTemplate;
+    };
   };
-};
 
 // Preset colors
 const PRESET_COLORS = [
@@ -79,9 +84,21 @@ const pointsToPath = (points: Point[]): string => {
 };
 
 export default function DrawingEditorScreen() {
-  const navigation = useNavigation();
-  const route = useRoute<RouteProp<RouteParams, 'DrawingEditorScreen'>>();
-  const { template } = route.params;
+    const navigation = useNavigation();
+    const route = useRoute<RouteProp<RouteParams, 'DrawingEditorScreen' | 'DrawingEditor'>>();
+    
+    // Support both old route (DrawingEditorScreen) and new route (DrawingEditor)
+    const params = route.params as any;
+    const mode = params?.mode || 'canvas'; // 'canvas' = new canvas, 'layer' = add to existing
+    const canvasId = params?.canvasId;
+    const template = params?.template || {
+      id: 'blank',
+      name: 'Quick Draw',
+      category: 'quick',
+      instructions: 'Draw anything!',
+      background: '#FFFFFF',
+      icon: 'brush',
+    };
 
   // Drawing state
   const [strokes, setStrokes] = useState<Stroke[]>([]);
@@ -234,10 +251,8 @@ export default function DrawingEditorScreen() {
     setIsSaving(true);
   
     try {
-      console.log('📸 Capturing canvas...');
-      console.log('📋 Template:', template.name); // Debug log
+      console.log('🎨 Capturing canvas...');
       
-      // Capture the canvas as image (returns local file URI)
       const uri = await captureRef(canvasViewRef, {
         format: 'png',
         quality: 0.9,
@@ -245,8 +260,7 @@ export default function DrawingEditorScreen() {
   
       console.log('✅ Canvas captured:', uri);
   
-      // Upload to Firebase Storage (pass URI directly)
-      console.log('⬆️ Uploading to Firebase Storage...');
+      console.log('☁️ Uploading to Firebase Storage...');
       const uploadResult = await uploadDrawingImage(
         uri,
         auth.currentUser.uid
@@ -254,50 +268,67 @@ export default function DrawingEditorScreen() {
   
       console.log('✅ Upload successful:', uploadResult.imageUrl);
   
-      // Get user data
       const username = userChannel || auth.currentUser.displayName || 'Anonymous';
       const userAvatar = auth.currentUser.photoURL || '';
   
-      // Create drawing canvas (NOT a post)
-      console.log('📝 Creating drawing canvas...');
-      const canvasId = await createDrawingCanvas(
-        auth.currentUser.uid,
-        username,
-        uploadResult.imageUrl,
-        uploadResult.storagePath,
-        template.name, // Pass the actual template name
-        userAvatar
-      );
+      if (mode === 'layer' && canvasId) {
+        // MODE: Add drawing as layer to existing canvas
+        console.log('📦 Adding drawing as layer to canvas:', canvasId);
+        
+        const { addDrawingLayer } = await import('../services/drawingLayerService');
+        await addDrawingLayer(
+          canvasId,
+          uploadResult.imageUrl,
+          auth.currentUser.uid,
+          username,
+          userAvatar
+        );
+        
+        console.log('✅ Drawing layer added!');
+        
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        navigation.goBack();
+        
+      } else {
+        // MODE: Create new drawing canvas
+        console.log('📦 Creating drawing canvas...');
+        const newCanvasId = await createDrawingCanvas(
+          auth.currentUser.uid,
+          username,
+          uploadResult.imageUrl,
+          uploadResult.storagePath,
+          template.name,
+          userAvatar
+        );
   
-      console.log('✅ Drawing canvas created:', canvasId);
+        console.log('✅ Drawing canvas created:', newCanvasId);
   
-      // Clear the drawing state (no discard dialog after save)
-      setStrokes([]);
-      setHistory([[]]);
-      setHistoryStep(0);
+        setStrokes([]);
+        setHistory([[]]);
+        setHistoryStep(0);
   
-      // Success feedback
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      
-      Alert.alert(
-        'Drawing Saved! 🎨',
-        'Your masterpiece has been saved to canvas stories!',
-        [
-          {
-            text: 'Go to Feed',
-            onPress: () => {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'MainTabs' as never }],
-              });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        
+        Alert.alert(
+          'Drawing Saved! 🎉',
+          'Your masterpiece has been saved to canvas stories!',
+          [
+            {
+              text: 'Go to Feed',
+              onPress: () => {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'MainTabs' as never }],
+                });
+              },
             },
-          },
-          {
-            text: 'Create Another',
-            style: 'cancel',
-          },
-        ]
-      );
+            {
+              text: 'Create Another',
+              style: 'cancel',
+            },
+          ]
+        );
+      }
     } catch (error: any) {
       console.error('❌ Error saving drawing:', error);
       

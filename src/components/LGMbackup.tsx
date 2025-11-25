@@ -25,9 +25,6 @@ interface LayerGalleryModalProps {
   initialIndex: number;
   creatorInfo: User;
   onClose: () => void;
-  // NEW: For drawing canvas support
-  baseImageUrl?: string; // Base drawing image
-  canvasType?: 'photo' | 'drawing';
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -38,43 +35,7 @@ const LayerGalleryModal: React.FC<LayerGalleryModalProps> = ({
   initialIndex,
   creatorInfo,
   onClose,
-  baseImageUrl,
-  canvasType = 'photo',
 }) => {
-  // Prepare display layers: include base image as Layer 0 for drawing canvases
-  const displayLayers = React.useMemo(() => {
-    console.log('🎨 LayerGalleryModal useMemo:', {
-      canvasType,
-      baseImageUrl,
-      layersCount: layers.length,
-    });
-    
-    if (canvasType === 'drawing' && baseImageUrl) {
-      // Create a fake layer for the base drawing
-      const baseLayer: CanvasLayer = {
-        id: 'base-drawing',
-        type: 'image',
-        imageUrl: baseImageUrl,
-        position: { x: 0, y: 0 },
-        size: { width: 350, height: 622 },
-        rotation: 0,
-        zIndex: -1,
-        pageIndex: 0,
-        createdBy: creatorInfo.username,
-        createdByUsername: creatorInfo.username,
-        createdByProfilePic: creatorInfo.profilePictureUrl || null,
-        createdAt: 0,
-        updatedAt: 0,
-      };
-      
-      console.log('✅ Adding base layer, total layers:', [baseLayer, ...layers].length);
-      return [baseLayer, ...layers];
-    }
-    
-    console.log('📷 Photo canvas, layers:', layers.length);
-    return layers;
-  }, [layers, baseImageUrl, canvasType, creatorInfo]);
-
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [showOverlay, setShowOverlay] = useState(true);
   const translateX = useRef(new Animated.Value(0)).current;
@@ -156,7 +117,7 @@ const LayerGalleryModal: React.FC<LayerGalleryModalProps> = ({
         if (tx > 0 && currentIndex > 0) {
           // Swipe right - go to previous
           goToPrevious();
-        } else if (tx < 0 && currentIndex < displayLayers.length - 1) {
+        } else if (tx < 0 && currentIndex < layers.length - 1) {
           // Swipe left - go to next
           goToNext();
         } else {
@@ -176,7 +137,7 @@ const LayerGalleryModal: React.FC<LayerGalleryModalProps> = ({
       duration: 250,
       useNativeDriver: true,
     }).start(() => {
-      setCurrentIndex((prev) => Math.min(prev + 1, displayLayers.length - 1));
+      setCurrentIndex((prev) => Math.min(prev + 1, layers.length - 1));
       translateX.setValue(0);
     });
   };
@@ -201,18 +162,8 @@ const LayerGalleryModal: React.FC<LayerGalleryModalProps> = ({
     }).start();
   };
 
-  const currentLayer = displayLayers[currentIndex];
+  const currentLayer = layers[currentIndex];
   const isImageLayer = currentLayer?.type === 'image' && currentLayer?.imageUrl;
-  const isBaseDrawing = currentLayer?.id === 'base-drawing';
-
-  // Get layer creator info
-  const layerCreator = isBaseDrawing
-    ? creatorInfo
-    : {
-        username: currentLayer?.createdByUsername || 'Unknown',
-        displayName: currentLayer?.createdByUsername || 'Unknown',
-        profilePictureUrl: currentLayer?.createdByProfilePic || undefined,
-      };
 
   if (!visible) return null;
 
@@ -279,11 +230,8 @@ const LayerGalleryModal: React.FC<LayerGalleryModalProps> = ({
               
               <View style={styles.layerInfo}>
                 <Text style={styles.layerNumber}>
-                  {currentIndex + 1} of {displayLayers.length}
+                  {currentIndex + 1} of {layers.length}
                 </Text>
-                {isBaseDrawing && (
-                  <Text style={styles.layerLabel}>Original Drawing</Text>
-                )}
               </View>
 
               <View style={styles.placeholder} />
@@ -293,33 +241,30 @@ const LayerGalleryModal: React.FC<LayerGalleryModalProps> = ({
             <View style={styles.bottomBar}>
               <View style={styles.creatorSection}>
                 <View style={styles.avatarContainer}>
-                  {layerCreator.profilePictureUrl ? (
+                  {creatorInfo.profilePictureUrl ? (
                     <Image
-                      source={{ uri: layerCreator.profilePictureUrl }}
+                      source={{ uri: creatorInfo.profilePictureUrl }}
                       style={styles.avatar}
                     />
                   ) : (
                     <View style={[styles.avatar, styles.avatarPlaceholder]}>
                       <Text style={styles.avatarText}>
-                        {layerCreator.username?.[0]?.toUpperCase() || '?'}
+                        {creatorInfo.username?.[0]?.toUpperCase() || '?'}
                       </Text>
                     </View>
                   )}
                 </View>
                 <View style={styles.creatorTextContainer}>
                   <Text style={styles.creatorName}>
-                    {layerCreator.displayName || layerCreator.username}
+                    {creatorInfo.displayName || creatorInfo.username}
                   </Text>
-                  <Text style={styles.creatorUsername}>
-                    @{layerCreator.username}
-                    {isBaseDrawing && ' · Canvas Creator'}
-                  </Text>
+                  <Text style={styles.creatorUsername}>@{creatorInfo.username}</Text>
                 </View>
               </View>
 
               {/* Progress Dots */}
               <View style={styles.progressDots}>
-                {displayLayers.map((_, index) => (
+                {layers.map((_, index) => (
                   <View
                     key={index}
                     style={[
@@ -343,7 +288,7 @@ const LayerGalleryModal: React.FC<LayerGalleryModalProps> = ({
           </TouchableOpacity>
         )}
 
-        {currentIndex < displayLayers.length - 1 && (
+        {currentIndex < layers.length - 1 && (
           <TouchableOpacity
             style={[styles.navButton, styles.navButtonRight]}
             onPress={goToNext}
@@ -410,12 +355,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  layerLabel: {
-    color: '#22D3EE',
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 4,
   },
   placeholder: {
     width: 48,

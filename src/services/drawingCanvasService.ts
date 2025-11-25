@@ -78,7 +78,7 @@ export const createDrawingCanvas = async (
           lastSeen: now,
         }
       },
-      maxCollaborators: 1, // Only creator
+      maxCollaborators: 12, // Allow collaborative drawing layers
       totalPages: 1,
       type: 'drawing', // Mark as drawing type
     };

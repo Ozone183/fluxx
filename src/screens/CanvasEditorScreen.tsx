@@ -15,7 +15,7 @@ import {
   Clipboard,
   Image,
 } from 'react-native';
-import LayerGalleryModal from '../components/LayerGalleryModal';
+import LayerGalleryModal from '../components/LGMbackup';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { doc, onSnapshot, updateDoc, arrayUnion, getDoc, increment } from 'firebase/firestore';
 import { ref as dbRef, onValue, set, serverTimestamp } from 'firebase/database';
@@ -388,8 +388,56 @@ const CanvasEditorScreen = () => {
     const layerIndex = imageLayers.findIndex(layer => layer.id === layerId);
 
     if (layerIndex !== -1) {
-      setGalleryInitialIndex(layerIndex);
+      // For drawing canvases with base image, the display layers include base at index 0
+      // So we add 1 to show the correct layer (base = 0, first layer = 1, etc.)
+      const adjustedIndex = (canvas.type === 'drawing' && canvas.imageUrl) 
+        ? layerIndex + 1 
+        : layerIndex;
+      
+      // Clamp to valid range
+      const totalLayers = (canvas.type === 'drawing' && canvas.imageUrl)
+        ? imageLayers.length + 1  // Include base image
+        : imageLayers.length;
+      
+      const safeIndex = Math.min(Math.max(0, adjustedIndex), totalLayers - 1);
+      
+      console.log('🖼️ Opening gallery:', {
+        layerId,
+        layerIndex,
+        adjustedIndex,
+        safeIndex,
+        totalLayers,
+        canvasType: canvas.type,
+        hasBaseImage: !!canvas.imageUrl,
+      });
+      
+      setGalleryInitialIndex(safeIndex);
       setShowLayerGallery(true);
+    }
+  };
+
+  const handleViewBaseDrawing = () => {
+    console.log('🖼️ View Base Drawing clicked:', {
+      canvasType: canvas?.type,
+      hasImageUrl: !!canvas?.imageUrl,
+      imageUrl: canvas?.imageUrl,
+      layersCount: canvas?.layers?.length || 0,
+      imageLayers: canvas?.layers?.filter(l => l.type === 'image' && l.imageUrl).length || 0,
+    });
+    
+    // Log what we'll pass to modal
+    console.log('📦 Props for LayerGalleryModal:', {
+      baseImageUrl: canvas?.type === 'drawing' ? canvas?.imageUrl : undefined,
+      canvasType: canvas?.type || 'photo',
+      layers: canvas?.layers?.filter(l => l.type === 'image' && l.imageUrl) || [],
+      initialIndex: 0,
+    });
+    
+    if (canvas?.type === 'drawing' && canvas.imageUrl) {
+      setGalleryInitialIndex(0);
+      setShowLayerGallery(true);
+    } else {
+      console.error('❌ Cannot view base drawing - missing type or imageUrl');
     }
   };
 
@@ -1023,18 +1071,24 @@ const CanvasEditorScreen = () => {
               </TouchableOpacity>
 
               {/* View in AR Button */}
-              <TouchableOpacity
-                onPress={handleViewInAR}
-                style={styles.actionButton}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="cube-outline" size={22} color={COLORS.cyan400} />
-                <Text style={styles.actionButtonText}>AR</Text>
+            <TouchableOpacity
+              onPress={handleViewInAR}
+              style={styles.actionButton}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="cube-outline" size={22} color={COLORS.cyan400} />
+              <Text style={styles.actionButtonText}>AR</Text>
+            </TouchableOpacity>
+
+            {/* View Base Drawing Button - DRAWING CANVAS ONLY */}
+            {canvas?.type === 'drawing' && canvas.imageUrl && (
+              <TouchableOpacity onPress={handleViewBaseDrawing} style={styles.actionButton}>
+                <Icon name="image" size={22} color={COLORS.amber400} />
               </TouchableOpacity>
+            )}
 
-
-              {/* 🆕 Story Mode Toggle - CREATOR ONLY */}
-              {userId === canvas.creatorId && (
+            {/* 🆕 Story Mode Toggle - CREATOR ONLY */}
+            {userId === canvas.creatorId && (
                 <TouchableOpacity
                   onPress={toggleStoryMode}
                   style={[
@@ -1334,10 +1388,25 @@ const CanvasEditorScreen = () => {
 
       <TouchableOpacity
         style={styles.addButton}
-        onPress={() => setShowAddMenu(true)}
+        onPress={() => {
+          if (canvas?.type === 'drawing') {
+            // Open drawing interface for drawing canvas
+            (navigation as any).navigate('DrawingEditorScreen', {
+              mode: 'layer',
+              canvasId: canvasId,
+            });
+          } else {
+            // Show add menu for photo canvas
+            setShowAddMenu(true);
+          }
+        }}
         activeOpacity={0.8}
       >
-        <Icon name="add" size={32} color={COLORS.white} />
+        <Icon 
+          name={canvas?.type === 'drawing' ? "brush" : "add"} 
+          size={32} 
+          color={COLORS.white} 
+        />
       </TouchableOpacity>
 
       {/* Floating Comments Button */}
@@ -1473,15 +1542,19 @@ const CanvasEditorScreen = () => {
         isPrivate={canvas.accessType === 'private'}
       />
 
-      <LayerGalleryModal
+<LayerGalleryModal
         visible={showLayerGallery}
-        layers={canvas.layers.filter(l => l.type === 'image')}
+        layers={canvas.layers.filter(layer => layer.type === 'image' && layer.imageUrl)}
         initialIndex={galleryInitialIndex}
         creatorInfo={{
           username: canvas.creatorUsername,
           displayName: canvas.creatorUsername,
-          profilePictureUrl: undefined
+          profilePictureUrl: undefined,
         }}
+        {...(canvas.type === 'drawing' && canvas.imageUrl ? {
+          baseImageUrl: canvas.imageUrl,
+          canvasType: 'drawing' as const,
+        } : {})}
         onClose={() => setShowLayerGallery(false)}
       />
 

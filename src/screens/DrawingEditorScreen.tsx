@@ -23,8 +23,16 @@ import { uploadDrawingImage } from '../services/drawingStorage';
 import { createDrawingCanvas } from '../services/drawingCanvasService';
 import { useAuth } from '../context/AuthContext';
 
+// Match CanvasEditorScreen dimensions for consistency
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CANVAS_SIZE = SCREEN_WIDTH;
+
+// Base canvas dimensions (reference size - same as CanvasEditorScreen)
+const BASE_CANVAS_WIDTH = 350;
+const BASE_CANVAS_HEIGHT = 622; // 16:9 ratio
+
+// Calculate actual canvas size (with padding) - same logic as CanvasEditorScreen
+const ACTUAL_CANVAS_WIDTH = Math.min(SCREEN_WIDTH - 40, 500); // Max 500px for tablets
+const ACTUAL_CANVAS_HEIGHT = ACTUAL_CANVAS_WIDTH * (BASE_CANVAS_HEIGHT / BASE_CANVAS_WIDTH);
 
 interface Point {
   x: number;
@@ -415,7 +423,7 @@ const handleBack = () => {
           ]}
           {...panResponder.panHandlers}
         >
-          <Svg width={CANVAS_SIZE} height={SCREEN_HEIGHT - 300}>
+          <Svg width={ACTUAL_CANVAS_WIDTH} height={ACTUAL_CANVAS_HEIGHT}>
             <G>
               {/* Render all completed strokes */}
               {strokes.map((stroke, index) => (
@@ -628,8 +636,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   canvasWrapper: {
-    width: CANVAS_SIZE,
-    height: SCREEN_HEIGHT - 300,
+    width: ACTUAL_CANVAS_WIDTH,
+    height: ACTUAL_CANVAS_HEIGHT,
     borderRadius: 0,
     overflow: 'hidden',
     borderWidth: 0,

@@ -306,27 +306,116 @@ const CanvasLayerComponent: React.FC<CanvasLayerProps> = ({
         });
         break;
 
-      case 'pulse':
-        animation = Animated.sequence([
-          Animated.timing(animatedScale, {
-            toValue: 1.2,
-            duration: duration / 2,
-            delay,
-            useNativeDriver: true,
-            easing: Easing.ease,
-          }),
-          Animated.timing(animatedScale, {
-            toValue: 1,
-            duration: duration / 2,
-            useNativeDriver: true,
-            easing: Easing.ease,
-          }),
-        ]);
-        break;
-
-      default:
-        return;
-    }
+        case 'pulse':
+          animation = Animated.sequence([
+            Animated.timing(animatedScale, {
+              toValue: 1.2,
+              duration: duration / 2,
+              delay,
+              useNativeDriver: true,
+              easing: Easing.ease,
+            }),
+            Animated.timing(animatedScale, {
+              toValue: 1,
+              duration: duration / 2,
+              useNativeDriver: true,
+              easing: Easing.ease,
+            }),
+          ]);
+          break;
+  
+        // 🎨 DRAWING-SPECIFIC ANIMATIONS
+        case 'drawReveal':
+          // Reveal from left to right like drawing a line
+          animatedTranslateX.setValue(-100);
+          animatedOpacity.setValue(0);
+          animation = Animated.parallel([
+            Animated.timing(animatedTranslateX, {
+              toValue: 0,
+              duration,
+              delay,
+              useNativeDriver: true,
+              easing: Easing.out(Easing.cubic),
+            }),
+            Animated.timing(animatedOpacity, {
+              toValue: 1,
+              duration: duration * 0.8,
+              delay,
+              useNativeDriver: true,
+              easing: Easing.ease,
+            }),
+          ]);
+          break;
+  
+        case 'sketchFade':
+          // Fade in with slight movement (sketchy effect)
+          animatedOpacity.setValue(0);
+          animatedScale.setValue(0.95);
+          animation = Animated.parallel([
+            Animated.timing(animatedOpacity, {
+              toValue: 1,
+              duration,
+              delay,
+              useNativeDriver: true,
+              easing: Easing.ease,
+            }),
+            Animated.spring(animatedScale, {
+              toValue: 1,
+              friction: 8,
+              tension: 40,
+              delay,
+              useNativeDriver: true,
+            }),
+          ]);
+          break;
+  
+        case 'watercolorBloom':
+          // Expand from center like paint spreading
+          animatedScale.setValue(0);
+          animatedOpacity.setValue(0.3);
+          animation = Animated.parallel([
+            Animated.spring(animatedScale, {
+              toValue: 1,
+              friction: 7,
+              tension: 30,
+              delay,
+              useNativeDriver: true,
+            }),
+            Animated.timing(animatedOpacity, {
+              toValue: 1,
+              duration: duration * 0.7,
+              delay,
+              useNativeDriver: true,
+              easing: Easing.ease,
+            }),
+          ]);
+          break;
+  
+        case 'pencilTexture':
+          // Fade in with subtle scale (pencil sketch effect)
+          animatedOpacity.setValue(0);
+          animatedScale.setValue(0.98);
+          animation = Animated.parallel([
+            Animated.timing(animatedOpacity, {
+              toValue: 1,
+              duration,
+              delay,
+              useNativeDriver: true,
+              easing: Easing.linear,
+            }),
+            Animated.timing(animatedScale, {
+              toValue: 1,
+              duration,
+              delay,
+              useNativeDriver: true,
+              easing: Easing.ease,
+            }),
+          ]);
+          break;
+  
+        default:
+          return;
+      }
 
     // Start animation (loop if needed)
     if (loop) {

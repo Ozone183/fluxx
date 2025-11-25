@@ -50,6 +50,8 @@ import PrivateCanvasMembersModal from '../components/PrivateCanvasMembersModal';
 import ShareModal from '../components/ShareModal';
 import CommentsBottomSheet from '../components/CommentsBottomSheet';
 import ExportOptionsModal from '../components/ExportOptionsModal';
+import CursorOverlay from '../components/CursorOverlay';
+import { subscribeToCursors, createThrottledCursorUpdate, removeCursor, UserCursor } from '../services/cursorService';
 
 // Base canvas dimensions (reference size - iPhone 14 standard)
 const BASE_CANVAS_WIDTH = 350;
@@ -154,16 +156,18 @@ const CanvasEditorScreen = () => {
   const [isFirstOpen, setIsFirstOpen] = useState(true);
   const [showLayerGallery, setShowLayerGallery] = useState(false);
   const [galleryInitialIndex, setGalleryInitialIndex] = useState(0);
+  const [activeCursors, setActiveCursors] = useState<UserCursor[]>([]);
+  const throttledCursorUpdateRef = useRef<((x: number, y: number) => void) | null>(null);
 
   const handleViewInAR = () => {
     // Get the canvas image URL - use exportedImageUrl or first layer's image
     const canvasImageUrl = canvas?.exportedImageUrl || canvas?.layers[0]?.imageUrl || '';
-    
+
     if (!canvasImageUrl) {
       Alert.alert('Error', 'Canvas image not available for AR view');
       return;
     }
-    
+
     (navigation as any).navigate('ARViewer', {
       canvasId: canvas.id,
       canvasImageUrl: canvasImageUrl,
@@ -278,6 +282,30 @@ const CanvasEditorScreen = () => {
     return () => clearInterval(interval);
   }, [canvasId, userId, selectedLayerId]);
 
+  // Real-time cursor tracking
+  useEffect(() => {
+    if (!canvasId || !userId || !userChannel) return;
+
+    // Create throttled cursor update function
+    throttledCursorUpdateRef.current = createThrottledCursorUpdate(
+      canvasId,
+      userId,
+      userChannel,
+      100 // Update every 100ms
+    );
+
+    // Subscribe to other users' cursors
+    const unsubscribe = subscribeToCursors(canvasId, userId, (cursors) => {
+      setActiveCursors(cursors);
+    });
+
+    // Cleanup: remove cursor when leaving
+    return () => {
+      unsubscribe();
+      removeCursor(canvasId, userId);
+    };
+  }, [canvasId, userId, userChannel]);
+
   const updateCollaboratorIfNeeded = async () => {
     if (!canvas || !userId || !userChannel) return;
 
@@ -390,17 +418,17 @@ const CanvasEditorScreen = () => {
     if (layerIndex !== -1) {
       // For drawing canvases with base image, the display layers include base at index 0
       // So we add 1 to show the correct layer (base = 0, first layer = 1, etc.)
-      const adjustedIndex = (canvas.type === 'drawing' && canvas.imageUrl) 
-        ? layerIndex + 1 
+      const adjustedIndex = (canvas.type === 'drawing' && canvas.imageUrl)
+        ? layerIndex + 1
         : layerIndex;
-      
+
       // Clamp to valid range
       const totalLayers = (canvas.type === 'drawing' && canvas.imageUrl)
         ? imageLayers.length + 1  // Include base image
         : imageLayers.length;
-      
+
       const safeIndex = Math.min(Math.max(0, adjustedIndex), totalLayers - 1);
-      
+
       console.log('🖼️ Opening gallery:', {
         layerId,
         layerIndex,
@@ -410,7 +438,7 @@ const CanvasEditorScreen = () => {
         canvasType: canvas.type,
         hasBaseImage: !!canvas.imageUrl,
       });
-      
+
       setGalleryInitialIndex(safeIndex);
       setShowLayerGallery(true);
     }
@@ -424,7 +452,7 @@ const CanvasEditorScreen = () => {
       layersCount: canvas?.layers?.length || 0,
       imageLayers: canvas?.layers?.filter(l => l.type === 'image' && l.imageUrl).length || 0,
     });
-    
+
     // Log what we'll pass to modal
     console.log('📦 Props for LayerGalleryModal:', {
       baseImageUrl: canvas?.type === 'drawing' ? canvas?.imageUrl : undefined,
@@ -432,7 +460,7 @@ const CanvasEditorScreen = () => {
       layers: canvas?.layers?.filter(l => l.type === 'image' && l.imageUrl) || [],
       initialIndex: 0,
     });
-    
+
     if (canvas?.type === 'drawing' && canvas.imageUrl) {
       setGalleryInitialIndex(0);
       setShowLayerGallery(true);
@@ -1071,24 +1099,24 @@ const CanvasEditorScreen = () => {
               </TouchableOpacity>
 
               {/* View in AR Button */}
-            <TouchableOpacity
-              onPress={handleViewInAR}
-              style={styles.actionButton}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="cube-outline" size={22} color={COLORS.cyan400} />
-              <Text style={styles.actionButtonText}>AR</Text>
-            </TouchableOpacity>
-
-            {/* View Base Drawing Button - DRAWING CANVAS ONLY */}
-            {canvas?.type === 'drawing' && canvas.imageUrl && (
-              <TouchableOpacity onPress={handleViewBaseDrawing} style={styles.actionButton}>
-                <Icon name="image" size={22} color={COLORS.amber400} />
+              <TouchableOpacity
+                onPress={handleViewInAR}
+                style={styles.actionButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="cube-outline" size={22} color={COLORS.cyan400} />
+                <Text style={styles.actionButtonText}>AR</Text>
               </TouchableOpacity>
-            )}
 
-            {/* 🆕 Story Mode Toggle - CREATOR ONLY */}
-            {userId === canvas.creatorId && (
+              {/* View Base Drawing Button - DRAWING CANVAS ONLY */}
+              {canvas?.type === 'drawing' && canvas.imageUrl && (
+                <TouchableOpacity onPress={handleViewBaseDrawing} style={styles.actionButton}>
+                  <Icon name="image" size={22} color={COLORS.amber400} />
+                </TouchableOpacity>
+              )}
+
+              {/* 🆕 Story Mode Toggle - CREATOR ONLY */}
+              {userId === canvas.creatorId && (
                 <TouchableOpacity
                   onPress={toggleStoryMode}
                   style={[
@@ -1313,10 +1341,26 @@ const CanvasEditorScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }}>
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={handleCanvasTap}
-            disabled={!isFirstOpen || !focusMode}
+        <View
+            onTouchStart={(e) => {
+              // Handle tap for welcome hint
+              if (isFirstOpen && focusMode) {
+                handleCanvasTap();
+              }
+              
+              // Track cursor position on touch start
+              if (throttledCursorUpdateRef.current && e.nativeEvent.touches[0]) {
+                const touch = e.nativeEvent.touches[0];
+                throttledCursorUpdateRef.current(touch.locationX, touch.locationY);
+              }
+            }}
+            onTouchMove={(e) => {
+              // Track cursor movement
+              if (throttledCursorUpdateRef.current && e.nativeEvent.touches[0]) {
+                const touch = e.nativeEvent.touches[0];
+                throttledCursorUpdateRef.current(touch.locationX, touch.locationY);
+              }
+            }}
           >
             <Animated.View style={[styles.canvas, {
               width: ACTUAL_CANVAS_WIDTH,
@@ -1326,24 +1370,33 @@ const CanvasEditorScreen = () => {
 
               {/* Show drawing image if this is a drawing canvas */}
         {canvas.type === 'drawing' && canvas.imageUrl && (
-          <Image 
-            source={{ uri: canvas.imageUrl }}
-            style={{
-              width: ACTUAL_CANVAS_WIDTH,
-              height: ACTUAL_CANVAS_HEIGHT,
-              position: 'absolute',
-              top: 0,
-              left: 0,
-            }}
-            resizeMode="contain"
-          />
+          <>
+            <Image 
+              source={{ uri: canvas.imageUrl }}
+              style={{
+                width: ACTUAL_CANVAS_WIDTH,
+                height: ACTUAL_CANVAS_HEIGHT,
+                position: 'absolute',
+                top: 0,
+                left: 0,
+              }}
+              resizeMode="contain"
+            />
+            {/* Attribution Badge for Base Drawing */}
+            <View style={styles.baseDrawingAttribution}>
+              <Icon name="brush" size={12} color={COLORS.amber400} />
+              <Text style={styles.baseDrawingAttributionText}>
+                Original by {canvas.creatorUsername}
+              </Text>
+            </View>
+          </>
         )}
 
-        {/* DRAW LAYERS for current page */}
-        {canvas.layers
-          .filter(layer => (layer.pageIndex ?? 0) === currentPage)
-          .sort((a, b) => a.zIndex - b.zIndex)
-          .map((layer) => (
+              {/* DRAW LAYERS for current page */}
+              {canvas.layers
+                .filter(layer => (layer.pageIndex ?? 0) === currentPage)
+                .sort((a, b) => a.zIndex - b.zIndex)
+                .map((layer) => (
                   <CanvasLayerComponent
                     key={layer.id}
                     layer={layer}
@@ -1360,6 +1413,15 @@ const CanvasEditorScreen = () => {
                     showAllCaptions={canvas?.showAllCaptions || false}
                   />
                 ))}
+
+              {/* Real-time Cursor Overlay */}
+              {!focusMode && (
+                <CursorOverlay
+                  cursors={activeCursors}
+                  canvasWidth={ACTUAL_CANVAS_WIDTH}
+                  canvasHeight={ACTUAL_CANVAS_HEIGHT}
+                />
+              )}
 
               {/* Fancy Watermark overlay */}
               <View style={styles.watermark} pointerEvents="none">
@@ -1382,7 +1444,7 @@ const CanvasEditorScreen = () => {
               )}
 
             </Animated.View>
-          </TouchableOpacity>
+            </View>
         </ViewShot>
       </ScrollView>
 
@@ -1402,10 +1464,10 @@ const CanvasEditorScreen = () => {
         }}
         activeOpacity={0.8}
       >
-        <Icon 
-          name={canvas?.type === 'drawing' ? "brush" : "add"} 
-          size={32} 
-          color={COLORS.white} 
+        <Icon
+          name={canvas?.type === 'drawing' ? "brush" : "add"}
+          size={32}
+          color={COLORS.white}
         />
       </TouchableOpacity>
 
@@ -1520,6 +1582,11 @@ const CanvasEditorScreen = () => {
             ? canvas?.layers.find(l => l.id === animatingLayerId)?.animation
             : undefined
         }
+        isDrawingLayer={
+          animatingLayerId
+            ? canvas?.layers.find(l => l.id === animatingLayerId)?.caption === '✏️ Drawing'
+            : false
+        }
       />
 
       {/* 🔒 Private Canvas Members Modal */}
@@ -1542,21 +1609,19 @@ const CanvasEditorScreen = () => {
         isPrivate={canvas.accessType === 'private'}
       />
 
-<LayerGalleryModal
-        visible={showLayerGallery}
-        layers={canvas.layers.filter(layer => layer.type === 'image' && layer.imageUrl)}
-        initialIndex={galleryInitialIndex}
-        creatorInfo={{
+      {React.createElement(LayerGalleryModal as any, {
+        visible: showLayerGallery,
+        layers: canvas.layers.filter(layer => layer.type === 'image' && layer.imageUrl),
+        initialIndex: galleryInitialIndex,
+        creatorInfo: {
           username: canvas.creatorUsername,
           displayName: canvas.creatorUsername,
           profilePictureUrl: undefined,
-        }}
-        {...(canvas.type === 'drawing' && canvas.imageUrl ? {
-          baseImageUrl: canvas.imageUrl,
-          canvasType: 'drawing' as const,
-        } : {})}
-        onClose={() => setShowLayerGallery(false)}
-      />
+        },
+        baseImageUrl: canvas.type === 'drawing' ? canvas.imageUrl : undefined,
+        canvasType: canvas.type || 'photo',
+        onClose: () => setShowLayerGallery(false),
+      })}
 
 // ADD THIS RIGHT AFTER ShareModal:
 
@@ -2104,6 +2169,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
     fontFamily: 'Poppins-Medium',
+  },
+  baseDrawingAttribution: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.amber400 + '40',
+  },
+  baseDrawingAttributionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.white,
   },
 });
 

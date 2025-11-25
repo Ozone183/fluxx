@@ -33,16 +33,23 @@ interface LayerGalleryModalProps {
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const LayerGalleryModal: React.FC<LayerGalleryModalProps> = ({
-  visible,
-  layers,
-  initialIndex,
-  creatorInfo,
-  onClose,
-  baseImageUrl,
-  canvasType = 'photo',
-}) => {
-  // Prepare display layers: include base image as Layer 0 for drawing canvases
-  const displayLayers = React.useMemo(() => {
+    visible,
+    layers,
+    initialIndex,
+    creatorInfo,
+    onClose,
+    baseImageUrl,
+    canvasType = 'photo',
+  }) => {
+    console.log('🚀 LayerGalleryModal RENDERED:', { 
+      visible, 
+      layersCount: layers.length, 
+      baseImageUrl: !!baseImageUrl,
+      canvasType 
+    });
+  
+    // Prepare display layers: include base image as Layer 0 for drawing canvases
+    const displayLayers = React.useMemo(() => {
     console.log('🎨 LayerGalleryModal useMemo:', {
       canvasType,
       baseImageUrl,

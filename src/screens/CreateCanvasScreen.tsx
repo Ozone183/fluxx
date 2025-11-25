@@ -25,6 +25,7 @@ import { COLORS, GRADIENTS } from '../theme/colors';
 import { useAuth, APP_ID } from '../context/AuthContext';
 import { Canvas, CanvasLayer } from '../types/canvas';
 import { CANVAS_TEMPLATES } from '../data/canvasTemplates';
+import { PREMIUM_TEMPLATES } from '../data/premiumTemplates';
 
 const CreateCanvasScreen = () => {
   const navigation = useNavigation();
@@ -46,7 +47,27 @@ const CreateCanvasScreen = () => {
   const [title, setTitle] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState(CANVAS_TEMPLATES[0]);
+  // Combine basic + premium templates
+  const ALL_TEMPLATES = [
+    ...PREMIUM_TEMPLATES.map(pt => ({
+      id: pt.id,
+      title: pt.title,
+      description: pt.description,
+      icon: pt.icon,
+      backgroundColor: pt.backgroundColor,
+      maxLayers: pt.maxLayers,
+      totalPages: pt.totalPages,
+      suggestedPrompts: [],
+      category: pt.category,
+      popularity: pt.popularity,
+      tags: pt.tags,
+      isPremium: true, // 👈 PREMIUM FLAG
+      premiumLayers: pt.layers, // 👈 Store premium layer structure
+    })),
+    ...CANVAS_TEMPLATES.map(ct => ({ ...ct, isPremium: false })),
+  ];
+
+  const [selectedTemplate, setSelectedTemplate] = useState(ALL_TEMPLATES[0]);
   const [showTokenToast, setShowTokenToast] = useState(false);
   const [tokenToastData, setTokenToastData] = useState({ amount: 0, message: '' });
 
@@ -74,6 +95,17 @@ const CreateCanvasScreen = () => {
 
       // Create starter layers for template
       let starterLayers: CanvasLayer[] = [];
+      
+      // 🎨 If premium template, use its pre-built layer structure
+      if ((selectedTemplate as any).isPremium && (selectedTemplate as any).premiumLayers) {
+        starterLayers = (selectedTemplate as any).premiumLayers.map((layer: CanvasLayer) => ({
+          ...layer,
+          createdBy: userId,
+          createdByUsername: userChannel || '@unknown',
+          createdAt: now,
+          updatedAt: now,
+        }));
+      }
 
 
       const canvasData: Omit<Canvas, 'id'> = {
@@ -211,9 +243,15 @@ const CreateCanvasScreen = () => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Choose Template</Text>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>Choose Template</Text>
+              <View style={styles.premiumBadge}>
+                <Icon name="star" size={12} color={COLORS.amber400} />
+                <Text style={styles.premiumBadgeText}>8 Premium</Text>
+              </View>
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {CANVAS_TEMPLATES.map(template => (
+              {ALL_TEMPLATES.map(template => (
                 <TouchableOpacity
                   key={template.id}
                   style={[
@@ -222,6 +260,12 @@ const CreateCanvasScreen = () => {
                   ]}
                   onPress={() => setSelectedTemplate(template)}
                 >
+                  {(template as any).isPremium && (
+                    <View style={styles.premiumTag}>
+                      <Icon name="star" size={10} color={COLORS.amber400} />
+                      <Text style={styles.premiumTagText}>PRO</Text>
+                    </View>
+                  )}
                   <Icon name={template.icon as any} size={24} color={COLORS.cyan400} />
                   <Text style={styles.templateTitle}>{template.title}</Text>
                   <Text style={styles.templateDesc}>{template.description}</Text>
@@ -262,6 +306,25 @@ const CreateCanvasScreen = () => {
               {selectedTemplate.suggestedPrompts.map((prompt, i) => (
                 <Text key={i} style={styles.promptItem}>• {prompt}</Text>
               ))}
+            </View>
+          )}
+
+          {/* Premium Template Preview */}
+          {(selectedTemplate as any).isPremium && (selectedTemplate as any).premiumLayers && (
+            <View style={styles.premiumPreview}>
+              <View style={styles.premiumPreviewHeader}>
+                <Icon name="sparkles" size={18} color={COLORS.amber400} />
+                <Text style={styles.premiumPreviewTitle}>Premium Template Includes:</Text>
+              </View>
+              <Text style={styles.premiumPreviewDesc}>
+                ✨ {(selectedTemplate as any).premiumLayers.filter((l: CanvasLayer) => l.type === 'image').length} pre-positioned image slots
+              </Text>
+              <Text style={styles.premiumPreviewDesc}>
+                📝 {(selectedTemplate as any).premiumLayers.filter((l: CanvasLayer) => l.type === 'text').length} text placeholders
+              </Text>
+              <Text style={styles.premiumPreviewDesc}>
+                🎨 Professional layout ready to fill
+              </Text>
             </View>
           )}
 
@@ -500,6 +563,69 @@ const styles = StyleSheet.create({
   featureText: {
     fontSize: 14,
     color: COLORS.slate300,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 8,
+  },
+  premiumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.amber400 + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  premiumBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.amber400,
+  },
+  premiumTag: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: COLORS.amber400,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    zIndex: 10,
+  },
+  premiumTagText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: COLORS.slate900,
+  },
+  premiumPreview: {
+    backgroundColor: COLORS.slate800,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.amber400 + '40',
+  },
+  premiumPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  premiumPreviewTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  premiumPreviewDesc: {
+    fontSize: 13,
+    color: COLORS.slate300,
+    marginBottom: 6,
   },
 });
 

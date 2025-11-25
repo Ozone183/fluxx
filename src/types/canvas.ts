@@ -8,10 +8,11 @@ export interface CanvasLayer {
   rotation: number;
   zIndex: number;
   pageIndex: number; // ← ADD THIS LINE
+  placeholder?: boolean; // 👈 NEW - marks template placeholders
 
   // 🎬 NEW: Animation Properties
   animation?: {
-    type: 'fadeIn' | 'fadeOut' | 'slideLeft' | 'slideRight' | 'slideUp' | 'slideDown' | 'scaleIn' | 'scaleOut' | 'bounce' | 'rotate' | 'pulse' | 'none';
+    type: 'fadeIn' | 'fadeOut' | 'slideLeft' | 'slideRight' | 'slideUp' | 'slideDown' | 'scaleIn' | 'scaleOut' | 'bounce' | 'rotate' | 'pulse' | 'drawReveal' | 'sketchFade' | 'watercolorBloom' | 'pencilTexture' | 'none';
     duration: number; // in milliseconds (500-5000)
     delay: number; // start delay in milliseconds (0-10000)
     loop: boolean; // repeat forever

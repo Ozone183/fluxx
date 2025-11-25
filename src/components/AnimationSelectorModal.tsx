@@ -22,21 +22,27 @@ interface AnimationSelectorModalProps {
   onClose: () => void;
   onSelectAnimation: (config: AnimationConfig) => void;
   currentAnimation?: AnimationConfig;
+  isDrawingLayer?: boolean; // 👈 NEW PROP
 }
 
 const ANIMATIONS = [
-  { type: 'none', name: 'None', icon: 'close-circle-outline', color: COLORS.slate400 },
-  { type: 'fadeIn', name: 'Fade In', icon: 'eye-outline', color: COLORS.cyan400 },
-  { type: 'fadeOut', name: 'Fade Out', icon: 'eye-off-outline', color: COLORS.cyan400 },
-  { type: 'slideLeft', name: 'Slide Left', icon: 'arrow-back-outline', color: COLORS.purple400 },
-  { type: 'slideRight', name: 'Slide Right', icon: 'arrow-forward-outline', color: COLORS.purple400 },
-  { type: 'slideUp', name: 'Slide Up', icon: 'arrow-up-outline', color: COLORS.amber400 },
-  { type: 'slideDown', name: 'Slide Down', icon: 'arrow-down-outline', color: COLORS.amber400 },
-  { type: 'scaleIn', name: 'Scale In', icon: 'expand-outline', color: COLORS.green600 },
-  { type: 'scaleOut', name: 'Scale Out', icon: 'contract-outline', color: COLORS.green600 },
-  { type: 'bounce', name: 'Bounce', icon: 'basketball-outline', color: COLORS.amber400 },
-  { type: 'rotate', name: 'Rotate', icon: 'refresh-outline', color: COLORS.pink600 },
-  { type: 'pulse', name: 'Pulse', icon: 'heart-outline', color: COLORS.red400 },
+  { type: 'none', name: 'None', icon: 'close-circle-outline', color: COLORS.slate400, category: 'general' },
+  { type: 'fadeIn', name: 'Fade In', icon: 'eye-outline', color: COLORS.cyan400, category: 'general' },
+  { type: 'fadeOut', name: 'Fade Out', icon: 'eye-off-outline', color: COLORS.cyan400, category: 'general' },
+  { type: 'slideLeft', name: 'Slide Left', icon: 'arrow-back-outline', color: COLORS.purple400, category: 'general' },
+  { type: 'slideRight', name: 'Slide Right', icon: 'arrow-forward-outline', color: COLORS.purple400, category: 'general' },
+  { type: 'slideUp', name: 'Slide Up', icon: 'arrow-up-outline', color: COLORS.amber400, category: 'general' },
+  { type: 'slideDown', name: 'Slide Down', icon: 'arrow-down-outline', color: COLORS.amber400, category: 'general' },
+  { type: 'scaleIn', name: 'Scale In', icon: 'expand-outline', color: COLORS.green600, category: 'general' },
+  { type: 'scaleOut', name: 'Scale Out', icon: 'contract-outline', color: COLORS.green600, category: 'general' },
+  { type: 'bounce', name: 'Bounce', icon: 'basketball-outline', color: COLORS.amber400, category: 'general' },
+  { type: 'rotate', name: 'Rotate', icon: 'refresh-outline', color: COLORS.pink600, category: 'general' },
+  { type: 'pulse', name: 'Pulse', icon: 'heart-outline', color: COLORS.red400, category: 'general' },
+  // Drawing-specific animations
+  { type: 'drawReveal', name: 'Draw Reveal', icon: 'brush-outline', color: COLORS.amber400, category: 'drawing' },
+  { type: 'sketchFade', name: 'Sketch Fade', icon: 'create-outline', color: COLORS.cyan400, category: 'drawing' },
+  { type: 'watercolorBloom', name: 'Watercolor', icon: 'water-outline', color: COLORS.purple400, category: 'drawing' },
+  { type: 'pencilTexture', name: 'Pencil', icon: 'pencil-outline', color: COLORS.slate400, category: 'drawing' },
 ];
 
 const SPEED_PRESETS = [
@@ -56,6 +62,7 @@ const AnimationSelectorModal: React.FC<AnimationSelectorModalProps> = ({
   onClose,
   onSelectAnimation,
   currentAnimation,
+  isDrawingLayer = false, // 👈 NEW PROP
 }) => {
   const [selectedType, setSelectedType] = useState(currentAnimation?.type || 'none');
   const [duration, setDuration] = useState(currentAnimation?.duration || 1000);
@@ -99,7 +106,12 @@ const AnimationSelectorModal: React.FC<AnimationSelectorModalProps> = ({
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>1. Choose Animation</Text>
               <View style={styles.grid}>
-                {ANIMATIONS.map((anim) => (
+                {ANIMATIONS
+                  .filter(anim => 
+                    anim.category === 'general' || 
+                    (anim.category === 'drawing' && isDrawingLayer)
+                  )
+                  .map((anim) => (
                   <TouchableOpacity
                     key={anim.type}
                     style={[

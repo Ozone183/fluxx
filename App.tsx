@@ -30,6 +30,7 @@ import CanvasEditorScreen from './src/screens/CanvasEditorScreen';
 import CreateVideoPostScreen from './src/screens/CreateVideoPost';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import UserProfileScreen from './src/screens/UserProfileScreen';
+import WatchPartyScreen from './src/screens/WatchPartyScreen';
 import DiscoveryFeedScreen from './src/screens/DiscoveryFeedScreen';
 import ProfileMenuDrawer from './src/screens/ProfileMenuDrawer';
 import CreateModal from './src/components/CreateModal';
@@ -217,6 +218,14 @@ const AppNavigator = () => {
             name="UserProfile"
             component={UserProfileScreen}
             options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="WatchParty"
+            component={WatchPartyScreen}
+            options={{
+              headerShown: false,
+              presentation: 'fullScreenModal',
+            }}
           />
         </>
       )}

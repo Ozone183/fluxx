@@ -8,6 +8,7 @@ import {
   Text,
   Animated,
   Image,
+  PanResponder,
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,16 +20,16 @@ interface User {
   profilePictureUrl?: string;
 }
 
-interface LayerGalleryModalProps {
-  visible: boolean;
-  layers: CanvasLayer[];
-  initialIndex: number;
-  creatorInfo: User;
-  onClose: () => void;
-  // NEW: For drawing canvas support
-  baseImageUrl?: string; // Base drawing image
-  canvasType?: 'photo' | 'drawing';
-}
+export interface LayerGalleryModalProps {
+    visible: boolean;
+    layers: CanvasLayer[];
+    initialIndex: number;
+    creatorInfo: User;
+    onClose: () => void;
+    // NEW: For drawing canvas support
+    baseImageUrl?: string; // Base drawing image
+    canvasType?: 'photo' | 'drawing';
+  }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -87,6 +88,71 @@ const LayerGalleryModal: React.FC<LayerGalleryModalProps> = ({
   const translateX = useRef(new Animated.Value(0)).current;
   const overlayOpacity = useRef(new Animated.Value(1)).current;
   const autoHideTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // 👆 SWIPE GESTURE HANDLER
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only respond to horizontal swipes (not vertical scrolling)
+        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        // Update translateX as user swipes
+        translateX.setValue(gestureState.dx);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const { dx } = gestureState;
+        const swipeThreshold = 75; // Minimum swipe distance
+        
+        // Swipe LEFT (show next image)
+        if (dx < -swipeThreshold && currentIndex < displayLayers.length - 1) {
+          // Animate out to left
+          Animated.timing(translateX, {
+            toValue: -400,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => {
+            setCurrentIndex(currentIndex + 1);
+            translateX.setValue(400); // Position next image off-screen right
+            // Animate in from right
+            Animated.timing(translateX, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            }).start();
+          });
+        }
+        // Swipe RIGHT (show previous image)
+        else if (dx > swipeThreshold && currentIndex > 0) {
+          // Animate out to right
+          Animated.timing(translateX, {
+            toValue: 400,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => {
+            setCurrentIndex(currentIndex - 1);
+            translateX.setValue(-400); // Position previous image off-screen left
+            // Animate in from left
+            Animated.timing(translateX, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            }).start();
+          });
+        }
+        // Not enough swipe distance - bounce back
+        else {
+          Animated.spring(translateX, {
+            toValue: 0,
+            useNativeDriver: true,
+            tension: 100,
+            friction: 8,
+          }).start();
+        }
+      },
+    })
+  ).current;
 
   // Reset overlay when index changes
   useEffect(() => {
@@ -153,6 +219,9 @@ const LayerGalleryModal: React.FC<LayerGalleryModalProps> = ({
   );
 
   const handleGestureStateChange = (event: any) => {
+    console.log('🖐️ Gesture state:', event.nativeEvent.state);
+    console.log('🖐️ Translation X:', event.nativeEvent.translationX);
+    
     if (event.nativeEvent.state === State.END) {
       const { translationX: tx, velocityX } = event.nativeEvent;
 

@@ -15,7 +15,7 @@ import {
   Clipboard,
   Image,
 } from 'react-native';
-import LayerGalleryModal from '../components/LGMbackup';
+import LayerGalleryModal, { LayerGalleryModalProps } from '../components/LayerGalleryModal';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { doc, onSnapshot, updateDoc, arrayUnion, getDoc, increment } from 'firebase/firestore';
 import { ref as dbRef, onValue, set, serverTimestamp } from 'firebase/database';
@@ -1341,13 +1341,13 @@ const CanvasEditorScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }}>
-        <View
+          <View
             onTouchStart={(e) => {
               // Handle tap for welcome hint
               if (isFirstOpen && focusMode) {
                 handleCanvasTap();
               }
-              
+
               // Track cursor position on touch start
               if (throttledCursorUpdateRef.current && e.nativeEvent.touches[0]) {
                 const touch = e.nativeEvent.touches[0];
@@ -1369,28 +1369,28 @@ const CanvasEditorScreen = () => {
             }, animatedStyle]}>
 
               {/* Show drawing image if this is a drawing canvas */}
-        {canvas.type === 'drawing' && canvas.imageUrl && (
-          <>
-            <Image 
-              source={{ uri: canvas.imageUrl }}
-              style={{
-                width: ACTUAL_CANVAS_WIDTH,
-                height: ACTUAL_CANVAS_HEIGHT,
-                position: 'absolute',
-                top: 0,
-                left: 0,
-              }}
-              resizeMode="contain"
-            />
-            {/* Attribution Badge for Base Drawing */}
-            <View style={styles.baseDrawingAttribution}>
-              <Icon name="brush" size={12} color={COLORS.amber400} />
-              <Text style={styles.baseDrawingAttributionText}>
-                Original by {canvas.creatorUsername}
-              </Text>
-            </View>
-          </>
-        )}
+              {canvas.type === 'drawing' && canvas.imageUrl && (
+                <>
+                  <Image
+                    source={{ uri: canvas.imageUrl }}
+                    style={{
+                      width: ACTUAL_CANVAS_WIDTH,
+                      height: ACTUAL_CANVAS_HEIGHT,
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                    }}
+                    resizeMode="contain"
+                  />
+                  {/* Attribution Badge for Base Drawing */}
+                  <View style={styles.baseDrawingAttribution}>
+                    <Icon name="brush" size={12} color={COLORS.amber400} />
+                    <Text style={styles.baseDrawingAttributionText}>
+                      Original by {canvas.creatorUsername}
+                    </Text>
+                  </View>
+                </>
+              )}
 
               {/* DRAW LAYERS for current page */}
               {canvas.layers
@@ -1444,7 +1444,7 @@ const CanvasEditorScreen = () => {
               )}
 
             </Animated.View>
-            </View>
+          </View>
         </ViewShot>
       </ScrollView>
 
@@ -1609,19 +1609,19 @@ const CanvasEditorScreen = () => {
         isPrivate={canvas.accessType === 'private'}
       />
 
-      {React.createElement(LayerGalleryModal as any, {
-        visible: showLayerGallery,
-        layers: canvas.layers.filter(layer => layer.type === 'image' && layer.imageUrl),
-        initialIndex: galleryInitialIndex,
-        creatorInfo: {
+      <LayerGalleryModal
+        visible={showLayerGallery}
+        layers={canvas.layers.filter(layer => layer.type === 'image' && layer.imageUrl)}
+        initialIndex={galleryInitialIndex}
+        creatorInfo={{
           username: canvas.creatorUsername,
           displayName: canvas.creatorUsername,
           profilePictureUrl: undefined,
-        },
-        baseImageUrl: canvas.type === 'drawing' ? canvas.imageUrl : undefined,
-        canvasType: canvas.type || 'photo',
-        onClose: () => setShowLayerGallery(false),
-      })}
+        }}
+        baseImageUrl={canvas.type === 'drawing' ? canvas.imageUrl : undefined}
+        canvasType={canvas.type || 'photo'}
+        onClose={() => setShowLayerGallery(false)}
+      />
 
 // ADD THIS RIGHT AFTER ShareModal:
 

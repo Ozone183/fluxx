@@ -68,9 +68,9 @@ const CanvasStoryRing: React.FC<CanvasStoryRingProps> = ({
   const creatorName = canvas.creatorUsername.replace('@', '');
   const hasActiveUsers = activeCollaboratorsCount > 0;
 
-  // Get first image layer for thumbnail
+  // Get thumbnail - either from layers OR direct imageUrl (for drawings)
   const firstImageLayer = canvas.layers.find(layer => layer.type === 'image' && layer.imageUrl);
-  const thumbnailUrl = firstImageLayer?.imageUrl;
+  const thumbnailUrl = firstImageLayer?.imageUrl || (canvas as any).imageUrl;
 
   const ringGradient = isExpired
     ? ['#475569', '#334155'] as const

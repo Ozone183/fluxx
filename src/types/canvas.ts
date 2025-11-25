@@ -53,6 +53,10 @@ export interface Canvas {
   creatorId: string;
   creatorUsername: string;
 
+  // Canvas type (for drawing vs photo canvas)
+  type?: 'drawing' | 'photo';
+  imageUrl?: string; // For drawing canvases
+
   // Canvas settings
   width: number;
   height: number;

@@ -9,19 +9,13 @@ import {
   ScrollView,
   Dimensions,
   PanResponder,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import Svg, { Path, G } from 'react-native-svg';
-import { captureRef } from 'react-native-view-shot';
 import { COLORS } from '../theme/colors';
 import { DrawingTemplate } from '../data/drawingTemplates';
-import { auth } from '../config/firebase';
-import { uploadDrawingImage } from '../services/drawingStorage';
-import { createDrawingCanvas } from '../services/drawingCanvasService';
-import { useAuth } from '../context/AuthContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CANVAS_SIZE = SCREEN_WIDTH;
@@ -89,11 +83,6 @@ export default function DrawingEditorScreen() {
   const [selectedColor, setSelectedColor] = useState('#000000');
   const [strokeWidth, setStrokeWidth] = useState(3);
   const [selectedTool, setSelectedTool] = useState<'pen' | 'brush' | 'eraser'>('pen');
-  const [isSaving, setIsSaving] = useState(false);
-  const { userChannel } = useAuth(); // Add after navigation/route hooks
-
-  // Ref for canvas capture
-  const canvasViewRef = useRef<View>(null);
 
   // History for undo/redo
   const [history, setHistory] = useState<Stroke[][]>([[]]);
@@ -108,23 +97,6 @@ export default function DrawingEditorScreen() {
   React.useEffect(() => {
     strokesRef.current = strokes;
   }, [strokes]);
-
-  // Add refs for color, tool, and width
-  const selectedColorRef = useRef(selectedColor);
-  const selectedToolRef = useRef(selectedTool);
-  const strokeWidthRef = useRef(strokeWidth);
-
-  React.useEffect(() => {
-    selectedColorRef.current = selectedColor;
-  }, [selectedColor]);
-
-  React.useEffect(() => {
-    selectedToolRef.current = selectedTool;
-  }, [selectedTool]);
-
-  React.useEffect(() => {
-    strokeWidthRef.current = strokeWidth;
-  }, [strokeWidth]);
 
   React.useEffect(() => {
     historyRef.current = history;
@@ -150,16 +122,11 @@ export default function DrawingEditorScreen() {
       onPanResponderRelease: () => {
         setCurrentPoints(currentPts => {
           if (currentPts.length > 1) {
-            // Use refs to get current values
-            const currentColor = selectedColorRef.current;
-            const currentTool = selectedToolRef.current;
-            const currentWidth = strokeWidthRef.current;
-            
             const newStroke: Stroke = {
               points: [...currentPts],
-              color: currentTool === 'eraser' ? template.background : currentColor,
-              width: currentTool === 'eraser' ? currentWidth * 3 : currentWidth,
-              tool: currentTool,
+              color: selectedTool === 'eraser' ? template.background : selectedColor,
+              width: selectedTool === 'eraser' ? strokeWidth * 3 : strokeWidth,
+              tool: selectedTool,
             };
 
             // Use refs to get latest values
@@ -220,104 +187,28 @@ export default function DrawingEditorScreen() {
     );
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (strokes.length === 0) {
       Alert.alert('Empty Canvas', 'Draw something before saving!');
       return;
     }
-  
-    if (!auth.currentUser) {
-      Alert.alert('Error', 'You must be logged in to save drawings');
-      return;
-    }
-  
-    setIsSaving(true);
-  
-    try {
-      console.log('📸 Capturing canvas...');
-      console.log('📋 Template:', template.name); // Debug log
-      
-      // Capture the canvas as image (returns local file URI)
-      const uri = await captureRef(canvasViewRef, {
-        format: 'png',
-        quality: 0.9,
-      });
-  
-      console.log('✅ Canvas captured:', uri);
-  
-      // Upload to Firebase Storage (pass URI directly)
-      console.log('⬆️ Uploading to Firebase Storage...');
-      const uploadResult = await uploadDrawingImage(
-        uri,
-        auth.currentUser.uid
-      );
-  
-      console.log('✅ Upload successful:', uploadResult.imageUrl);
-  
-      // Get user data
-      const username = userChannel || auth.currentUser.displayName || 'Anonymous';
-      const userAvatar = auth.currentUser.photoURL || '';
-  
-      // Create drawing canvas (NOT a post)
-      console.log('📝 Creating drawing canvas...');
-      const canvasId = await createDrawingCanvas(
-        auth.currentUser.uid,
-        username,
-        uploadResult.imageUrl,
-        uploadResult.storagePath,
-        template.name, // Pass the actual template name
-        userAvatar
-      );
-  
-      console.log('✅ Drawing canvas created:', canvasId);
-  
-      // Clear the drawing state (no discard dialog after save)
-      setStrokes([]);
-      setHistory([[]]);
-      setHistoryStep(0);
-  
-      // Success feedback
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      
-      Alert.alert(
-        'Drawing Saved! 🎨',
-        'Your masterpiece has been saved to canvas stories!',
-        [
-          {
-            text: 'Go to Feed',
-            onPress: () => {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'MainTabs' as never }],
-              });
-            },
-          },
-          {
-            text: 'Create Another',
-            style: 'cancel',
-          },
-        ]
-      );
-    } catch (error: any) {
-      console.error('❌ Error saving drawing:', error);
-      
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      
-      Alert.alert(
-        'Error Saving Drawing',
-        error.message || 'Failed to save your drawing. Please try again.'
-      );
-    } finally {
-      setIsSaving(false);
-    }
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // TODO: Convert canvas to image and save
+    Alert.alert(
+      'Coming Soon!',
+      'Drawing save functionality will be implemented next. For now, your drawing works perfectly!'
+    );
+
+    // navigation.goBack();
   };
 
-  // Also update handleBack to check if drawing was saved
-const handleBack = () => {
+  const handleBack = () => {
     if (strokes.length > 0) {
       Alert.alert(
         'Discard Drawing?',
-        'Your unsaved drawing will be lost.',
+        'Your drawing will be lost.',
         [
           { text: 'Keep Drawing', style: 'cancel' },
           {
@@ -349,35 +240,21 @@ const handleBack = () => {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={handleBack} 
-          style={styles.headerButton}
-          disabled={isSaving}
-        >
+        <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
           <Ionicons name="close" size={28} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{template.name}</Text>
           <Text style={styles.headerSubtitle}>{template.instructions}</Text>
         </View>
-        <TouchableOpacity 
-          onPress={handleSave} 
-          style={styles.headerButton}
-          disabled={isSaving}
-        >
-          {isSaving ? (
-            <ActivityIndicator size="small" color={COLORS.cyan400} />
-          ) : (
-            <Ionicons name="checkmark" size={32} color={COLORS.cyan400} />
-          )}
+        <TouchableOpacity onPress={handleSave} style={styles.headerButton}>
+          <Ionicons name="checkmark" size={32} color={COLORS.cyan400} />
         </TouchableOpacity>
       </View>
 
       {/* Canvas */}
       <View style={styles.canvasContainer}>
         <View
-          ref={canvasViewRef}
-          collapsable={false}
           style={[
             styles.canvasWrapper,
             { backgroundColor: template.background },
@@ -427,7 +304,6 @@ const handleBack = () => {
                 selectedTool === tool.id && styles.toolButtonActive,
               ]}
               onPress={() => handleToolSelect(tool.id as any)}
-              disabled={isSaving}
             >
               <Ionicons
                 name={tool.icon as any}
@@ -442,7 +318,7 @@ const handleBack = () => {
           <TouchableOpacity
             style={[styles.toolButton, !canUndo && styles.toolButtonDisabled]}
             onPress={handleUndo}
-            disabled={!canUndo || isSaving}
+            disabled={!canUndo}
           >
             <Ionicons
               name="arrow-undo"
@@ -454,7 +330,7 @@ const handleBack = () => {
           <TouchableOpacity
             style={[styles.toolButton, !canRedo && styles.toolButtonDisabled]}
             onPress={handleRedo}
-            disabled={!canRedo || isSaving}
+            disabled={!canRedo}
           >
             <Ionicons
               name="arrow-redo"
@@ -463,11 +339,7 @@ const handleBack = () => {
             />
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.toolButton} 
-            onPress={handleClear}
-            disabled={isSaving}
-          >
+          <TouchableOpacity style={styles.toolButton} onPress={handleClear}>
             <Ionicons name="trash-outline" size={24} color={COLORS.red500} />
           </TouchableOpacity>
         </View>
@@ -479,7 +351,6 @@ const handleBack = () => {
             showsHorizontalScrollIndicator={false}
             style={styles.colorsScroll}
             contentContainerStyle={styles.colorsRow}
-            scrollEnabled={!isSaving}
           >
             {PRESET_COLORS.map((color) => (
               <TouchableOpacity
@@ -494,7 +365,6 @@ const handleBack = () => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setSelectedColor(color);
                 }}
-                disabled={isSaving}
               >
                 {selectedColor === color && (
                   <Ionicons
@@ -524,7 +394,6 @@ const handleBack = () => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setStrokeWidth(width);
                   }}
-                  disabled={isSaving}
                 >
                   <View
                     style={[
@@ -542,16 +411,6 @@ const handleBack = () => {
           </View>
         )}
       </View>
-
-      {/* Saving Overlay */}
-      {isSaving && (
-        <View style={styles.savingOverlay}>
-          <View style={styles.savingCard}>
-            <ActivityIndicator size="large" color={COLORS.cyan400} />
-            <Text style={styles.savingText}>Saving your masterpiece...</Text>
-          </View>
-        </View>
-      )}
     </SafeAreaView>
   );
 }
@@ -685,23 +544,5 @@ const styles = StyleSheet.create({
   },
   widthPreview: {
     borderRadius: 12,
-  },
-  savingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  savingCard: {
-    backgroundColor: COLORS.slate800,
-    padding: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    gap: 16,
-  },
-  savingText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '500',
   },
 });

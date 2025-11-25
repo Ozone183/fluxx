@@ -13,6 +13,7 @@ import {
   Modal,
   TextInput as RNTextInput,
   Clipboard,
+  Image,
 } from 'react-native';
 import LayerGalleryModal from '../components/LayerGalleryModal';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -1269,10 +1270,26 @@ const CanvasEditorScreen = () => {
               backgroundColor: canvas.backgroundColor
             }, animatedStyle]}>
 
-              {canvas.layers
-                .filter(layer => (layer.pageIndex ?? 0) === currentPage)
-                .sort((a, b) => a.zIndex - b.zIndex)
-                .map((layer) => (
+              {/* Show drawing image if this is a drawing canvas */}
+        {canvas.type === 'drawing' && canvas.imageUrl && (
+          <Image 
+            source={{ uri: canvas.imageUrl }}
+            style={{
+              width: ACTUAL_CANVAS_WIDTH,
+              height: ACTUAL_CANVAS_HEIGHT,
+              position: 'absolute',
+              top: 0,
+              left: 0,
+            }}
+            resizeMode="contain"
+          />
+        )}
+
+        {/* DRAW LAYERS for current page */}
+        {canvas.layers
+          .filter(layer => (layer.pageIndex ?? 0) === currentPage)
+          .sort((a, b) => a.zIndex - b.zIndex)
+          .map((layer) => (
                   <CanvasLayerComponent
                     key={layer.id}
                     layer={layer}

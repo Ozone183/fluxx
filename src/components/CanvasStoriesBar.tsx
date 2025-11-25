@@ -36,19 +36,25 @@ const CanvasStoriesBar = () => {
       console.log('📊 Total canvases from Firestore:', snapshot.docs.length);
       
       const activeCanvases = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as Canvas))
-        .filter(canvas => {
-          // Filter out expired canvases
-          if (canvas.expiresAt <= now) {
-            console.log('❌ Filtered out expired:', canvas.title, canvas.id);
-            return false;
-          }
-          
-          console.log('✅ Active canvas:', canvas.title, canvas.creatorUsername);
-          
-          // ✅ SHOW ALL CANVASES (public + private) for engagement
-          return true;
-        });
+  .map(doc => ({ id: doc.id, ...doc.data() } as Canvas))
+  .filter(canvas => {
+    // Debug log for each canvas
+    console.log('🔍 Checking canvas:', canvas.title);
+    console.log('  - expiresAt:', canvas.expiresAt);
+    console.log('  - now:', now);
+    console.log('  - expired?', canvas.expiresAt <= now);
+    
+    // Filter out expired canvases
+    if (canvas.expiresAt <= now) {
+      console.log('❌ Filtered out expired:', canvas.title, canvas.id);
+      return false;
+    }
+    
+    console.log('✅ Active canvas:', canvas.title, canvas.creatorUsername);
+    
+    // ✅ SHOW ALL CANVASES (public + private) for engagement
+    return true;
+  });
 
       console.log('📊 Final active canvases count:', activeCanvases.length);
       setCanvases(activeCanvases);

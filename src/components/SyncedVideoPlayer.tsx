@@ -89,14 +89,16 @@ const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = ({
   const showControlsTemporarily = () => {
     setShowControls(true);
 
+    // Clear any existing timeout
     if (controlsTimeoutRef.current) {
       clearTimeout(controlsTimeoutRef.current);
+      controlsTimeoutRef.current = null;
     }
 
+    // Set new timeout
     controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying) {
-        setShowControls(false);
-      }
+      setShowControls(false);
+      controlsTimeoutRef.current = null;
     }, 3000);
   };
 
@@ -104,19 +106,28 @@ const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = ({
   const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
       setIsLoading(false);
-      setIsPlaying(status.isPlaying);
       setPosition(status.positionMillis);
 
       if (status.durationMillis) {
         setDuration(status.durationMillis);
       }
 
-      // Auto-hide controls when playing
-      if (status.isPlaying) {
+      // Update playing state
+      const wasPlaying = isPlaying;
+      setIsPlaying(status.isPlaying);
+
+      // When video starts playing, start auto-hide timer
+      if (!wasPlaying && status.isPlaying) {
         showControlsTemporarily();
-      } else {
-        // Keep controls visible when paused
+      }
+
+      // When video pauses, show controls and clear timer
+      if (wasPlaying && !status.isPlaying) {
         setShowControls(true);
+        if (controlsTimeoutRef.current) {
+          clearTimeout(controlsTimeoutRef.current);
+          controlsTimeoutRef.current = null;
+        }
       }
 
       if (isHost && onPlaybackUpdate) {
@@ -392,19 +403,25 @@ const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = ({
 
   // Render native video player
   return (
-    <TouchableOpacity
-      style={styles.container}
-      activeOpacity={1}
-      onPress={() => {
-        if (isHost) {
+    <View style={styles.container}>
+      {/* Tap overlay for controls toggle */}
+      <TouchableOpacity
+        style={styles.tapOverlay}
+        activeOpacity={1}
+        onPress={() => {
+          console.log('🎬 Screen tapped!');
           if (showControls) {
+            console.log('🔽 Hiding controls');
             setShowControls(false);
+            if (controlsTimeoutRef.current) {
+              clearTimeout(controlsTimeoutRef.current);
+            }
           } else {
+            console.log('🔼 Showing controls');
             showControlsTemporarily();
           }
-        }
-      }}
-    >
+        }}
+      />
       <Video
         ref={videoRef}
         source={{ uri: videoUrl }}
@@ -422,24 +439,22 @@ const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = ({
         </View>
       )}
 
-      {!isLoading && isHost && (
+{!isLoading && isHost && showControls && (
         <TouchableOpacity
-          style={styles.playOverlay}
-          onPress={() => {
-            showControlsTemporarily();
+          style={styles.playButton}
+          onPress={(e) => {
+            e.stopPropagation(); // Prevent tap overlay from triggering
+            console.log('▶️ Play/Pause button tapped!');
             togglePlayPause();
+            showControlsTemporarily();
           }}
           activeOpacity={0.7}
         >
-          {showControls && (
-            <View style={styles.playButton}>
-              <Icon
-                name={isPlaying ? 'pause' : 'play'}
-                size={48}
-                color={COLORS.white}
-              />
-            </View>
-          )}
+          <Icon
+            name={isPlaying ? 'pause' : 'play'}
+            size={48}
+            color={COLORS.white}
+          />
         </TouchableOpacity>
       )}
 
@@ -471,7 +486,7 @@ const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = ({
           <Text style={styles.syncedBadgeText}>Synced with host</Text>
         </View>
       )}
-    </TouchableOpacity>
+    </View>
   );
 };
 
@@ -507,7 +522,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  tapOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+    zIndex: 1,
+  },
   playButton: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -40,
+    marginLeft: -40,
     width: 80,
     height: 80,
     borderRadius: 40,
@@ -516,6 +541,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 3,
     borderColor: COLORS.white,
+    zIndex: 2,
   },
   progressContainer: {
     position: 'absolute',

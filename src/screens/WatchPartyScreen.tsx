@@ -393,57 +393,62 @@ const WatchPartyScreen = () => {
         </View>
       </View>
 
-      {/* Video Container */}
-      <View style={styles.videoContainer}>
-        {!isInCall ? (
-          <View style={styles.lobbyContainer}>
-            <Icon name="videocam" size={80} color={COLORS.cyan400} />
-            <Text style={styles.lobbyTitle}>Ready to watch?</Text>
-            <Text style={styles.lobbySubtitle}>
-              {party.videoTitle || 'Join the watch party'}
-            </Text>
-            
-            <TouchableOpacity
-              style={styles.joinButton}
-              onPress={joinCall}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <>
-                  <Icon name="play-circle" size={24} color={COLORS.white} />
-                  <Text style={styles.joinButtonText}>Join Watch Party</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            {isHost && party.status === 'waiting' && (
-              <TouchableOpacity
-                style={styles.startButton}
-                onPress={handleStartParty}
-              >
-                <Text style={styles.startButtonText}>Start Party</Text>
-              </TouchableOpacity>
+      {/* 🎬 VIDEO PLAYER - SEPARATE FROM DAILY.CO */}
+      {!isInCall ? (
+        <View style={styles.lobbyContainer}>
+          <Icon name="videocam" size={80} color={COLORS.cyan400} />
+          <Text style={styles.lobbyTitle}>Ready to watch?</Text>
+          <Text style={styles.lobbySubtitle}>
+            {party.videoTitle || 'Join the watch party'}
+          </Text>
+          
+          <TouchableOpacity
+            style={styles.joinButton}
+            onPress={joinCall}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={COLORS.white} />
+            ) : (
+              <>
+                <Icon name="play-circle" size={24} color={COLORS.white} />
+                <Text style={styles.joinButtonText}>Join Watch Party</Text>
+              </>
             )}
-          </View>
-        ) : (
+          </TouchableOpacity>
+
+          {isHost && party.status === 'waiting' && (
+            <TouchableOpacity
+              style={styles.startButton}
+              onPress={handleStartParty}
+            >
+              <Text style={styles.startButtonText}>Start Party</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : (
+        <>
+          {/* 🎬 MAIN VIDEO PLAYER (NO DAILY.CO INTERFERENCE!) */}
           <View style={styles.videoPlayerContainer}>
             <SyncedVideoPlayer
               videoUrl={party.videoUrl || ''}
               isHost={isHost}
               onPlaybackUpdate={(isPlaying, positionMillis) => {
-                // Host broadcasts playback state
                 setPlaybackState({ isPlaying, positionMillis });
-                
-                // TODO: Later we'll sync this to Firebase for real-time sync
                 console.log('🎬 Playback update:', { isPlaying, positionMillis });
               }}
               syncedPlaybackState={!isHost ? playbackState : undefined}
             />
           </View>
-        )}
-      </View>
+
+          {/* 👥 PARTICIPANT COUNTER OVERLAY */}
+          <View style={styles.participantTiles}>
+            <Text style={styles.participantText}>
+              👥 {party.participants.length} watching
+            </Text>
+          </View>
+        </>
+      )}
 
       {/* Controls */}
       {isInCall && (
@@ -455,17 +460,18 @@ const WatchPartyScreen = () => {
             <Icon name="videocam" size={24} color={COLORS.white} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.controlButton}>
-            <Icon name="share-social" size={24} color={COLORS.white} />
+            <Icon name="chatbubbles" size={24} color={COLORS.white} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.controlButton, styles.leaveButton]}
             onPress={leaveCall}
           >
-            <Icon name="call" size={24} color={COLORS.white} />
+            <Icon name="exit" size={24} color={COLORS.white} />
           </TouchableOpacity>
         </View>
       )}
-      {/* 🎬 VIDEO PICKER MODAL - ADD HERE */}
+
+      {/* 🎬 VIDEO PICKER MODAL */}
       <VideoPickerModal
         visible={showVideoPicker}
         onClose={() => setShowVideoPicker(false)}
@@ -764,6 +770,20 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  participantTiles: {
+    position: 'absolute',
+    top: 80,
+    right: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  participantText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
 

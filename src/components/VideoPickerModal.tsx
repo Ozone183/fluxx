@@ -15,6 +15,7 @@ import {
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '../theme/colors';
+import { FEATURED_MOVIES, FeaturedMovie } from '../data/featuredMovies';
 
 interface VideoPickerModalProps {
   visible: boolean;
@@ -37,7 +38,7 @@ const VideoPickerModal: React.FC<VideoPickerModalProps> = ({
   const pickFromGallery = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
+
       if (status !== 'granted') {
         Alert.alert('Permission Required', 'Please grant access to your media library');
         return;
@@ -66,28 +67,85 @@ const VideoPickerModal: React.FC<VideoPickerModalProps> = ({
       return;
     }
 
-    const url = videoUrl.trim();
+    let url = videoUrl.trim();
+
+    // 🔧 FIX: Add https:// if missing
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
 
     // Check if YouTube link
-    if (url.includes('youtube.com') || url.includes('youtu.be')) {
-      Alert.alert(
-        'YouTube Not Supported',
-        'YouTube links are not supported. Please use:\n\n• Direct video files (.mp4, .m3u8)\n• Or pick a video from your gallery',
-        [{ text: 'OK' }]
-      );
+    const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
+
+    // Check if Tubi link
+    const isTubi = url.includes('tubitv.com');
+
+    if (isYouTube) {
+      onSelectVideo(url, videoTitle.trim() || 'YouTube Video');
+      onClose();
+      setVideoUrl('');
+      setVideoTitle('');
       return;
     }
 
-    // Check if it's a direct video file
+    if (isTubi) {
+      onSelectVideo(url, videoTitle.trim() || 'Tubi Movie');
+      onClose();
+      setVideoUrl('');
+      setVideoTitle('');
+      return;
+    }
+
+    // Check if Archive.org link
+    const isArchive = url.includes('archive.org');
+
+    if (isArchive) {
+      // Archive.org URLs work directly!
+      onSelectVideo(url, videoTitle.trim() || 'Archive.org Video');
+      onClose();
+      setVideoUrl('');
+      setVideoTitle('');
+      return;
+    }
+
+    // Check if Vimeo link
+    const isVimeo = url.includes('vimeo.com');
+    
+    if (isVimeo) {
+      // Convert to embed URL if needed
+      let vimeoUrl = url;
+      const vimeoIdMatch = url.match(/vimeo\.com\/(\d+)/);
+      if (vimeoIdMatch && !url.includes('player.vimeo.com')) {
+        vimeoUrl = `https://player.vimeo.com/video/${vimeoIdMatch[1]}`;
+      }
+      
+      onSelectVideo(vimeoUrl, videoTitle.trim() || 'Vimeo Video');
+      onClose();
+      setVideoUrl('');
+      setVideoTitle('');
+      return;
+    }
+
+    if (false) { // OLD YOUTUBE BLOCK - DISABLED
+      onSelectVideo(url, videoTitle.trim() || 'YouTube Video');
+      onClose();
+      setVideoUrl('');
+      setVideoTitle('');
+      return;
+    }
+
+    // Check if it's a direct video file OR special platform
     const isDirectVideo = url.endsWith('.mp4') || 
                           url.endsWith('.m3u8') || 
                           url.endsWith('.mov') ||
-                          url.endsWith('.avi');
+                          url.endsWith('.avi') ||
+                          url.includes('player.vimeo.com') ||
+                          url.includes('commondatastorage.googleapis.com');
 
     if (!isDirectVideo) {
       Alert.alert(
         'Invalid Video URL',
-        'Please enter a direct video file URL ending with .mp4, .m3u8, .mov, or .avi',
+        'Supported formats:\n\n• Vimeo videos\n• Archive.org videos\n• YouTube links\n• Direct video files (.mp4, .m3u8, .mov, .avi)',
         [{ text: 'OK' }]
       );
       return;
@@ -115,23 +173,47 @@ const VideoPickerModal: React.FC<VideoPickerModalProps> = ({
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.modalContent}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Choose Video 🎬</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Icon name="close" size={28} color={COLORS.white} />
-            </TouchableOpacity>
-          </View>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.headerTitle}>Choose Video 🎬</Text>
+              <TouchableOpacity onPress={onClose}>
+                <Icon name="close" size={28} color={COLORS.white} />
+              </TouchableOpacity>
+            </View>
 
-          {/* Pick from Gallery */}
-          <TouchableOpacity
-            style={styles.optionButton}
-            onPress={pickFromGallery}
-            disabled={loading}
-          >
-            <Icon name="film" size={24} color={COLORS.cyan400} />
-            <Text style={styles.optionText}>Pick from Gallery</Text>
-          </TouchableOpacity>
+            {/* Featured Movies Section */}
+          <View style={styles.featuredSection}>
+            <Text style={styles.sectionTitle}>🎬 Featured Movies</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.moviesScroll}
+            >
+              {FEATURED_MOVIES.map((movie) => (
+                <TouchableOpacity
+                  key={movie.id}
+                  style={styles.movieCard}
+                  onPress={() => {
+                    onSelectVideo(movie.videoUrl, movie.title);
+                    onClose();
+                  }}
+                >
+                  <View style={styles.movieThumbnail}>
+                    <Icon name="film" size={40} color={COLORS.cyan400} />
+                  </View>
+                  <Text style={styles.movieTitle} numberOfLines={2}>
+                    {movie.title}
+                  </Text>
+                  <Text style={styles.movieMeta}>
+                    {movie.year} • {movie.duration}
+                  </Text>
+                  <View style={styles.genreBadge}>
+                    <Text style={styles.genreText}>{movie.genre}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
 
           {/* Divider */}
           <View style={styles.divider}>
@@ -140,43 +222,60 @@ const VideoPickerModal: React.FC<VideoPickerModalProps> = ({
             <View style={styles.dividerLine} />
           </View>
 
-          {/* Video URL Input */}
-          <Text style={styles.label}>Video URL</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="https://example.com/video.mp4"
-            placeholderTextColor={COLORS.slate500}
-            value={videoUrl}
-            onChangeText={setVideoUrl}
-            autoCapitalize="none"
-            keyboardType="url"
-          />
+            {/* Pick from Gallery */}
+            <TouchableOpacity
+              style={styles.optionButton}
+              onPress={pickFromGallery}
+              disabled={loading}
+            >
+              <Icon name="film" size={24} color={COLORS.cyan400} />
+              <Text style={styles.optionText}>Pick from Gallery</Text>
+            </TouchableOpacity>
 
-          {/* Video Title Input */}
-          <Text style={styles.label}>Video Title (optional)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="My Favorite Movie"
-            placeholderTextColor={COLORS.slate500}
-            value={videoTitle}
-            onChangeText={setVideoTitle}
-          />
+            {/* Divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
-          {/* Submit Button */}
-          <TouchableOpacity
-            style={[styles.submitButton, !videoUrl.trim() && styles.submitButtonDisabled]}
-            onPress={handleUrlSubmit}
-            disabled={!videoUrl.trim() || loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={COLORS.white} />
-            ) : (
-              <>
-                <Icon name="checkmark-circle" size={24} color={COLORS.white} />
-                <Text style={styles.submitButtonText}>Use This Video</Text>
-              </>
-            )}
-          </TouchableOpacity>
+            {/* Video URL Input */}
+            <Text style={styles.label}>Video URL</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Paste YouTube, Archive.org, or .mp4 URL"
+              placeholderTextColor={COLORS.slate500}
+              value={videoUrl}
+              onChangeText={setVideoUrl}
+              autoCapitalize="none"
+              keyboardType="url"
+            />
+
+            {/* Video Title Input */}
+            <Text style={styles.label}>Video Title (optional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="My Favorite Movie"
+              placeholderTextColor={COLORS.slate500}
+              value={videoTitle}
+              onChangeText={setVideoTitle}
+            />
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              style={[styles.submitButton, !videoUrl.trim() && styles.submitButtonDisabled]}
+              onPress={handleUrlSubmit}
+              disabled={!videoUrl.trim() || loading}
+            >
+              {loading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <>
+                  <Icon name="checkmark-circle" size={24} color={COLORS.white} />
+                  <Text style={styles.submitButtonText}>Use This Video</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -277,6 +376,61 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'flex-end',
+  },
+  featuredSection: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginBottom: 12,
+  },
+  moviesScroll: {
+    marginHorizontal: -24,
+    paddingHorizontal: 24,
+  },
+  movieCard: {
+    width: 140,
+    marginRight: 12,
+    backgroundColor: COLORS.slate800,
+    borderRadius: 12,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: COLORS.slate700,
+  },
+  movieThumbnail: {
+    width: '100%',
+    height: 100,
+    backgroundColor: COLORS.slate900,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  movieTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.white,
+    marginBottom: 4,
+    height: 32,
+  },
+  movieMeta: {
+    fontSize: 11,
+    color: COLORS.slate400,
+    marginBottom: 6,
+  },
+  genreBadge: {
+    backgroundColor: COLORS.cyan500,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  genreText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.white,
   },
 });
 

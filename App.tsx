@@ -117,6 +117,16 @@ const MainTabs = () => {
           }}
         />
         <Tab.Screen
+          name="WatchParties"
+          component={WatchPartyScreen}
+          options={{
+            tabBarLabel: 'Watch',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name="film-outline" size={focused ? 28 : 24} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
           name="Menu"
           component={ProfileMenuDrawer}
           options={{
@@ -277,11 +287,22 @@ const AppContent = () => {
         } else {
           console.log('❌ User not authenticated, cannot navigate');
         }
+      } else if (path?.startsWith('watchparty/')) {
+        // 🎬 NEW: Watch Party deep link
+        const partyId = path.replace('watchparty/', '');
+        console.log('🎬 Watch Party ID extracted:', partyId);
+
+        if (userId && isProfileSetup) {
+          console.log('✅ Navigating to watch party...');
+          (navigationRef.current as any)?.navigate('WatchParty', { partyId });
+        } else {
+          console.log('❌ User not authenticated, cannot navigate');
+        }
       } else {
-        console.log('❌ Invalid deep link path');
+        console.log('❓ Invalid deep link path');
       }
     } catch (error) {
-      console.error('❌ Deep link error:', error);
+      console.error('💥 Deep link error:', error);
     }
   };
 

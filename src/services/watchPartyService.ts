@@ -1,7 +1,8 @@
 // src/services/watchPartyService.ts
 
-import { collection, addDoc, doc, updateDoc, onSnapshot, arrayUnion } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, onSnapshot, arrayUnion, serverTimestamp, Timestamp, query, where, orderBy, limit } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
+import { db } from '../config/firebase';
 import { APP_ID } from '../context/AuthContext';
 import { DAILY_CONFIG } from '../config/dailyConfig';
 
@@ -41,14 +42,15 @@ const createDailyRoom = async (roomName: string): Promise<string> => {
       },
       body: JSON.stringify({
         name: roomName,
-        privacy: DAILY_CONFIG.roomDefaults.privacy,
+        privacy: 'public', // 👈 Changed from 'private'
         properties: {
-          max_participants: DAILY_CONFIG.roomDefaults.max_participants,
-          enable_screenshare: DAILY_CONFIG.roomDefaults.enable_screenshare,
-          enable_chat: DAILY_CONFIG.roomDefaults.enable_chat,
-          enable_recording: DAILY_CONFIG.roomDefaults.enable_recording,
-          start_video_off: DAILY_CONFIG.roomDefaults.start_video_off,
-          start_audio_off: DAILY_CONFIG.roomDefaults.start_audio_off,
+          enable_screenshare: true,
+          enable_chat: true,
+          start_video_off: false,
+          start_audio_off: false,
+          owner_only_broadcast: false, // 👈 Allow anyone to broadcast
+          enable_prejoin_ui: false, // 👈 Skip prejoin screen
+          exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24), // 👈 Room expires in 24 hours
         },
       }),
     });
@@ -172,4 +174,31 @@ export const subscribeToWatchParty = (
       callback({ id: snapshot.id, ...snapshot.data() } as WatchParty);
     }
   });
+};
+
+/**
+ * Subscribe to active watch parties
+ */
+export const subscribeToActiveParties = (
+  callback: (parties: WatchParty[]) => void
+): (() => void) => {
+  const partiesRef = collection(db, 'watchParties');
+  const activeQuery = query(
+    partiesRef,
+    where('status', 'in', ['waiting', 'started']),
+    orderBy('createdAt', 'desc'),
+    limit(20)
+  );
+
+  const unsubscribe = onSnapshot(activeQuery, (snapshot) => {
+    const parties = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as WatchParty));
+    
+    console.log('🎬 Active parties updated:', parties.length);
+    callback(parties);
+  });
+
+  return unsubscribe;
 };

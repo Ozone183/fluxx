@@ -538,41 +538,6 @@ const FeedScreen = () => {
         <CanvasStoriesBar />
       </View>
 
-      {/* 🧪 TEST BUTTON - Watch Party */}
-      <TouchableOpacity
-        style={{
-          backgroundColor: COLORS.cyan500,
-          padding: 16,
-          marginHorizontal: 16,
-          marginTop: 8,
-          borderRadius: 12,
-          alignItems: 'center',
-          flexDirection: 'row',
-          justifyContent: 'center',
-          gap: 8,
-        }}
-        onPress={async () => {
-          try {
-            const partyId = await createWatchParty(
-              'Movie Night 🍿',
-              userId!,
-              userChannel || '@unknown',
-              'https://example.com/video.mp4',
-              'Avengers: Endgame'
-            );
-            (navigation as any).navigate('WatchParty', { partyId });
-          } catch (error) {
-            Alert.alert('Error', 'Could not create watch party');
-            console.error(error);
-          }
-        }}
-      >
-        <Icon name="videocam" size={20} color={COLORS.white} />
-        <Text style={{ color: COLORS.white, fontSize: 16, fontWeight: '700' }}>
-          Start Watch Party (TEST)
-        </Text>
-      </TouchableOpacity>
-
       <FlatList
         ref={flatListRef}
         data={posts}

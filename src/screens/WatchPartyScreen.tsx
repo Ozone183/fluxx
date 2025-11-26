@@ -8,47 +8,87 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  ScrollView,  // 👈 ADD THIS
 } from 'react-native';
+import { Clipboard } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import DailyIframe from '@daily-co/react-native-daily-js';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
+import VideoPickerModal from '../components/VideoPickerModal';
 import {
   subscribeToWatchParty,
   startWatchParty,
   endWatchParty,
+  createWatchParty,  // 👈 ADD THIS
   WatchParty,
+  subscribeToActiveParties,  // 👈 ADD THIS
 } from '../services/watchPartyService';
 
 const WatchPartyScreen = () => {
   const route = useRoute();
   const navigation = useNavigation();
-  const { partyId } = route.params as { partyId: string };
   const { userId, userChannel } = useAuth();
+  
+  // 👈 REACTIVE: Read partyId dynamically, not just once
+  const partyId = (route.params as any)?.partyId;
 
   const [party, setParty] = useState<WatchParty | null>(null);
   const [loading, setLoading] = useState(true);
   const [callObject, setCallObject] = useState<any>(null);
   const [isInCall, setIsInCall] = useState(false);
+  const [activeParties, setActiveParties] = useState<WatchParty[]>([]);
+
+  const [showVideoPicker, setShowVideoPicker] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
 
   // Subscribe to party updates
   useEffect(() => {
-    if (!partyId) return;
+    if (!partyId) {
+      setLoading(false);
+      return;
+    }
 
+    console.log('🎬 Subscribing to party:', partyId);
+    setLoading(true);
+    
     const unsubscribe = subscribeToWatchParty(partyId, (updatedParty) => {
+      console.log('✅ Party data received:', updatedParty);
       setParty(updatedParty);
       setLoading(false);
     });
 
+    return () => {
+      console.log('🧹 Cleaning up subscription');
+      unsubscribe();
+    };
+  }, [partyId]); // 👈 This will now trigger when partyId changes
+
+  // Subscribe to all active parties (for browsing)
+  useEffect(() => {
+    const unsubscribe = subscribeToActiveParties((parties) => {
+      setActiveParties(parties);
+    });
+
     return () => unsubscribe();
-  }, [partyId]);
+  }, []);
 
   // Initialize Daily.co call
   const joinCall = async () => {
     if (!party?.roomUrl) {
       Alert.alert('Error', 'Room URL not available');
       return;
+    }
+
+    // 👇 PREVENT DUPLICATE CALLS
+    if (callObject) {
+      console.log('⚠️ Already in a call, cleaning up first...');
+      await callObject.destroy();
+      setCallObject(null);
     }
 
     try {
@@ -139,6 +179,119 @@ const WatchPartyScreen = () => {
 
   const isHost = party?.hostId === userId;
 
+  // NEW: Show browse screen if no partyId
+  if (!partyId) {
+    return (
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerInfo}>
+            <Text style={styles.title}>Watch Parties 🎬</Text>
+            <Text style={styles.subtitle}>
+              {activeParties.length} active {activeParties.length === 1 ? 'party' : 'parties'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.createIconButton}
+            onPress={() => {
+              console.log('🎬 + button tapped!');
+              console.log('📹 Opening video picker...');
+              setShowVideoPicker(true);
+            }}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <Icon name="add-circle" size={28} color={COLORS.cyan400} />
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Active Parties List */}
+        {activeParties.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Icon name="film-outline" size={80} color={COLORS.slate600} />
+            <Text style={styles.emptyTitle}>No Active Parties</Text>
+            <Text style={styles.emptySubtitle}>
+              Be the first to start watching together!
+            </Text>
+          </View>
+        ) : (
+          <ScrollView style={styles.partiesList}>
+            {activeParties.map((activeParty) => (
+              <TouchableOpacity
+                key={activeParty.id}
+                style={styles.partyCard}
+                onPress={() => {
+                  navigation.setParams({ partyId: activeParty.id } as any);
+                }}
+              >
+                <View style={styles.partyCardLeft}>
+                  <View style={styles.partyIconContainer}>
+                    <Icon name="film" size={24} color={COLORS.cyan400} />
+                  </View>
+                  <View style={styles.partyCardInfo}>
+                    <Text style={styles.partyCardTitle}>{activeParty.title}</Text>
+                    <Text style={styles.partyCardHost}>by @{activeParty.hostUsername}</Text>
+                    {activeParty.videoTitle && (
+                      <Text style={styles.partyCardMovie} numberOfLines={1}>
+                        🎬 {activeParty.videoTitle}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                <View style={styles.partyCardRight}>
+                  <View style={styles.participantBadge}>
+                    <Icon name="people" size={16} color={COLORS.cyan400} />
+                    <Text style={styles.participantBadgeText}>
+                      {activeParty.participants.length}/{activeParty.maxParticipants}
+                    </Text>
+                  </View>
+                  <View style={[
+                    styles.statusBadge,
+                    activeParty.status === 'started' ? styles.statusActive : styles.statusWaiting
+                  ]}>
+                    <Text style={styles.statusBadgeText}>
+                      {activeParty.status === 'started' ? '🔴 Live' : '⏸️ Lobby'}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* 🎬 VIDEO PICKER MODAL */}
+        <VideoPickerModal
+          visible={showVideoPicker}
+          onClose={() => setShowVideoPicker(false)}
+          onSelectVideo={async (videoUrl, videoTitle) => {
+            try {
+              setLoading(true);
+              setShowVideoPicker(false);
+              
+              const newPartyId = await createWatchParty(
+                'Movie Night 🍿',
+                userId!,
+                userChannel || '@unknown',
+                videoUrl,
+                videoTitle
+              );
+              
+              console.log('✅ Watch party created:', newPartyId);
+              navigation.setParams({ partyId: newPartyId } as any);
+              
+            } catch (error) {
+              console.error('❌ Create party error:', error);
+              Alert.alert('Error', 'Could not create watch party');
+              setLoading(false);
+            }
+          }}
+        />
+      </View>
+    );
+  }
+
   if (loading || !party) {
     return (
       <View style={styles.loadingContainer}>
@@ -152,7 +305,18 @@ const WatchPartyScreen = () => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={leaveCall} style={styles.backButton}>
+        <TouchableOpacity 
+          onPress={() => {
+            // If in call, leave the call
+            if (isInCall) {
+              leaveCall();
+            } else {
+              // Otherwise, go back to browse screen
+              navigation.setParams({ partyId: undefined } as any);
+            }
+          }} 
+          style={styles.backButton}
+        >
           <Icon name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
@@ -161,11 +325,29 @@ const WatchPartyScreen = () => {
             {party.participants.length} / {party.maxParticipants} watching
           </Text>
         </View>
-        {isHost && (
-          <TouchableOpacity onPress={handleEndParty} style={styles.endButton}>
-            <Icon name="close-circle" size={24} color={COLORS.red400} />
+        <View style={styles.headerActions}>
+          {/* SHARE BUTTON */}
+          <TouchableOpacity 
+            onPress={() => {
+              try {
+                Clipboard.setString(`fluxx://watchparty/${partyId}`);
+                Alert.alert('🎉 Invite Link Copied!', 'Share it with friends to watch together!');
+              } catch (error) {
+                Alert.alert('Error', 'Could not copy invite link');
+              }
+            }} 
+            style={styles.shareButton}
+          >
+            <Icon name="share-social" size={22} color={COLORS.cyan400} />
           </TouchableOpacity>
-        )}
+          
+          {/* END PARTY BUTTON (host only) */}
+          {isHost && (
+            <TouchableOpacity onPress={handleEndParty} style={styles.endButton}>
+              <Icon name="close-circle" size={24} color={COLORS.red400} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Video Container */}
@@ -234,6 +416,33 @@ const WatchPartyScreen = () => {
           </TouchableOpacity>
         </View>
       )}
+      {/* 🎬 VIDEO PICKER MODAL - ADD HERE */}
+      <VideoPickerModal
+        visible={showVideoPicker}
+        onClose={() => setShowVideoPicker(false)}
+        onSelectVideo={async (videoUrl, videoTitle) => {
+          try {
+            setLoading(true);
+            setShowVideoPicker(false);
+            
+            const newPartyId = await createWatchParty(
+              'Movie Night 🍿',
+              userId!,
+              userChannel || '@unknown',
+              videoUrl,
+              videoTitle
+            );
+            
+            console.log('✅ Watch party created:', newPartyId);
+            navigation.setParams({ partyId: newPartyId } as any);
+            
+          } catch (error) {
+            console.error('❌ Create party error:', error);
+            Alert.alert('Error', 'Could not create watch party');
+            setLoading(false);
+          }
+        }}
+      />
     </View>
   );
 };
@@ -366,6 +575,142 @@ const styles = StyleSheet.create({
   },
   leaveButton: {
     backgroundColor: COLORS.red500,
+  },
+  orText: {
+    fontSize: 16,
+    color: COLORS.slate400,
+    marginVertical: 16,
+  },
+  browseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: COLORS.cyan400,
+  },
+  browseButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.cyan400,
+  },
+  createIconButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  partiesList: {
+    flex: 1,
+  },
+  partyCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.slate800,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.slate700,
+  },
+  partyCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  partyIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.slate700,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  partyCardInfo: {
+    flex: 1,
+  },
+  partyCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginBottom: 4,
+  },
+  partyCardHost: {
+    fontSize: 14,
+    color: COLORS.cyan400,
+    marginBottom: 2,
+  },
+  partyCardMovie: {
+    fontSize: 13,
+    color: COLORS.slate400,
+  },
+  partyCardRight: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  participantBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.slate700,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  participantBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.cyan400,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusActive: {
+    backgroundColor: COLORS.red500,
+  },
+  statusWaiting: {
+    backgroundColor: COLORS.slate700,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginTop: 20,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: COLORS.slate400,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  shareButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

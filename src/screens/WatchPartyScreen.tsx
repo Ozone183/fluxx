@@ -17,6 +17,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import VideoPickerModal from '../components/VideoPickerModal';
+import SyncedVideoPlayer from '../components/SyncedVideoPlayer';
 import {
   subscribeToWatchParty,
   startWatchParty,
@@ -46,10 +47,27 @@ const WatchPartyScreen = () => {
     title: string;
   } | null>(null);
 
+  const [playbackState, setPlaybackState] = useState<{
+    isPlaying: boolean;
+    positionMillis: number;
+  }>({
+    isPlaying: false,
+    positionMillis: 0,
+  });
+
   // Subscribe to party updates
   useEffect(() => {
     if (!partyId) {
       setLoading(false);
+      
+      // 🔧 CLEANUP: Destroy call object when leaving party
+      if (callObject) {
+        console.log('🧹 No partyId, destroying call object...');
+        callObject.destroy().catch(() => {});
+        setCallObject(null);
+        setIsInCall(false);
+      }
+      
       return;
     }
 
@@ -65,8 +83,16 @@ const WatchPartyScreen = () => {
     return () => {
       console.log('🧹 Cleaning up subscription');
       unsubscribe();
+      
+      // 🔧 CLEANUP: Destroy call object when changing party
+      if (callObject) {
+        console.log('🧹 Party changed, destroying call object...');
+        callObject.destroy().catch(() => {});
+        setCallObject(null);
+        setIsInCall(false);
+      }
     };
-  }, [partyId]); // 👈 This will now trigger when partyId changes
+  }, [partyId, callObject]);
 
   // Subscribe to all active parties (for browsing)
   useEffect(() => {
@@ -77,63 +103,80 @@ const WatchPartyScreen = () => {
     return () => unsubscribe();
   }, []);
 
-  // Initialize Daily.co call
-  const joinCall = async () => {
-    if (!party?.roomUrl) {
-      Alert.alert('Error', 'Room URL not available');
-      return;
-    }
+  // Cleanup call object on unmount
+  useEffect(() => {
+    return () => {
+      if (callObject) {
+        console.log('🧹 Component unmounting, destroying call object...');
+        callObject.destroy();
+      }
+    };
+  }, [callObject]);
 
-    // 👇 PREVENT DUPLICATE CALLS
-    if (callObject) {
-      console.log('⚠️ Already in a call, cleaning up first...');
-      await callObject.destroy();
-      setCallObject(null);
-    }
-
-    try {
-      setLoading(true);
-
-      // Create call object
-      const daily = DailyIframe.createCallObject();
-      setCallObject(daily);
-
-      // Add event listeners
-      daily.on('joined-meeting', () => {
-        console.log('✅ Joined meeting');
-        setIsInCall(true);
+    // Initialize Daily.co call
+    const joinCall = async () => {
+      if (!party?.roomUrl) {
+        Alert.alert('Error', 'Room URL not available');
+        return;
+      }
+  
+      try {
+        setLoading(true);
+  
+        // 🔧 FIX: Destroy existing call object first
+        if (callObject) {
+          console.log('🧹 Destroying existing call object...');
+          await callObject.destroy();
+          setCallObject(null);
+        }
+  
+        // Create call object
+        const daily = DailyIframe.createCallObject();
+        setCallObject(daily);
+  
+        // Add event listeners
+        daily.on('joined-meeting', () => {
+          console.log('✅ Joined meeting');
+          setIsInCall(true);
+          setLoading(false);
+        });
+  
+        daily.on('left-meeting', () => {
+          console.log('👋 Left meeting');
+          setIsInCall(false);
+        });
+  
+        daily.on('error', (error: any) => {
+          console.error('❌ Daily error:', error);
+          Alert.alert('Connection Error', error.errorMsg || 'Could not connect to call');
+          setLoading(false);
+        });
+  
+        // Join the room
+        await daily.join({
+          url: party.roomUrl,
+          userName: userChannel || 'Anonymous',
+        });
+  
+      } catch (error) {
+        console.error('Join call error:', error);
+        Alert.alert('Error', 'Could not join watch party');
         setLoading(false);
-      });
-
-      daily.on('left-meeting', () => {
-        console.log('👋 Left meeting');
-        setIsInCall(false);
-      });
-
-      daily.on('error', (error: any) => {
-        console.error('❌ Daily error:', error);
-        Alert.alert('Connection Error', error.errorMsg || 'Could not connect to call');
-        setLoading(false);
-      });
-
-      // Join the room
-      await daily.join({
-        url: party.roomUrl,
-        userName: userChannel || 'Anonymous',
-      });
-
-    } catch (error) {
-      console.error('Join call error:', error);
-      Alert.alert('Error', 'Could not join watch party');
-      setLoading(false);
-    }
-  };
+      }
+    };
 
   // Leave call
   const leaveCall = async () => {
-    if (callObject) {
-      await callObject.leave();
-      await callObject.destroy();
+    try {
+      if (callObject) {
+        console.log('🧹 Leaving and destroying call...');
+        await callObject.leave();
+        await callObject.destroy();
+        setCallObject(null);
+        setIsInCall(false);
+      }
+    } catch (error) {
+      console.error('Leave call error:', error);
       setCallObject(null);
       setIsInCall(false);
     }
@@ -385,13 +428,19 @@ const WatchPartyScreen = () => {
             )}
           </View>
         ) : (
-          <View style={styles.callContainer}>
-            <Text style={styles.callText}>
-              🎬 In Call (Daily.co video will render here)
-            </Text>
-            <Text style={styles.callSubtext}>
-              Video rendering coming in next step!
-            </Text>
+          <View style={styles.videoPlayerContainer}>
+            <SyncedVideoPlayer
+              videoUrl={party.videoUrl || ''}
+              isHost={isHost}
+              onPlaybackUpdate={(isPlaying, positionMillis) => {
+                // Host broadcasts playback state
+                setPlaybackState({ isPlaying, positionMillis });
+                
+                // TODO: Later we'll sync this to Firebase for real-time sync
+                console.log('🎬 Playback update:', { isPlaying, positionMillis });
+              }}
+              syncedPlaybackState={!isHost ? playbackState : undefined}
+            />
           </View>
         )}
       </View>
@@ -555,6 +604,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.slate400,
     marginTop: 8,
+  },
+  videoPlayerContainer: {
+    flex: 1,
+    backgroundColor: '#000',
   },
   controls: {
     flexDirection: 'row',

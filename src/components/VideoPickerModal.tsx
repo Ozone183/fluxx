@@ -8,6 +8,9 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -63,7 +66,34 @@ const VideoPickerModal: React.FC<VideoPickerModalProps> = ({
       return;
     }
 
-    onSelectVideo(videoUrl.trim(), videoTitle.trim() || 'Video');
+    const url = videoUrl.trim();
+
+    // Check if YouTube link
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      Alert.alert(
+        'YouTube Not Supported',
+        'YouTube links are not supported. Please use:\n\n• Direct video files (.mp4, .m3u8)\n• Or pick a video from your gallery',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    // Check if it's a direct video file
+    const isDirectVideo = url.endsWith('.mp4') || 
+                          url.endsWith('.m3u8') || 
+                          url.endsWith('.mov') ||
+                          url.endsWith('.avi');
+
+    if (!isDirectVideo) {
+      Alert.alert(
+        'Invalid Video URL',
+        'Please enter a direct video file URL ending with .mp4, .m3u8, .mov, or .avi',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    onSelectVideo(url, videoTitle.trim() || 'Video');
     onClose();
     setVideoUrl('');
     setVideoTitle('');
@@ -76,8 +106,15 @@ const VideoPickerModal: React.FC<VideoPickerModalProps> = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalOverlay}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.modalContent}>
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Choose Video 🎬</Text>
@@ -140,8 +177,9 @@ const VideoPickerModal: React.FC<VideoPickerModalProps> = ({
               </>
             )}
           </TouchableOpacity>
-        </View>
-      </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -235,6 +273,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: COLORS.white,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
   },
 });
 

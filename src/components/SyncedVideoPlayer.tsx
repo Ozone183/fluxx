@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Modal, Dimensions } from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
 import { resolveVideoSource } from '../utils/resolveVideoSource';
 import YouTubePlayer from './YouTubePlayer';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import { StatusBar } from 'expo-status-bar';
 import {
   broadcastPlaybackState,
   subscribeToPlaybackState,
@@ -37,6 +39,7 @@ const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = ({
   const [position, setPosition] = useState(0);
   const [showControls, setShowControls] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Use universal video resolver
@@ -70,43 +73,43 @@ const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = ({
   };
 
   // Handle native video playback status
-const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-  if (status.isLoaded) {
-    setIsLoading(false);
-    setPosition(status.positionMillis);
+  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+    if (status.isLoaded) {
+      setIsLoading(false);
+      setPosition(status.positionMillis);
 
-    if (status.durationMillis) {
-      setDuration(status.durationMillis);
-    }
+      if (status.durationMillis) {
+        setDuration(status.durationMillis);
+      }
 
-    // Update playing state
-    const wasPlaying = isPlaying;
-    setIsPlaying(status.isPlaying);
+      // Update playing state
+      const wasPlaying = isPlaying;
+      setIsPlaying(status.isPlaying);
 
-    // When video starts playing, start auto-hide timer
-    if (!wasPlaying && status.isPlaying) {
-      showControlsTemporarily();
-    }
+      // When video starts playing, start auto-hide timer
+      if (!wasPlaying && status.isPlaying) {
+        showControlsTemporarily();
+      }
 
-    // When video pauses, show controls and clear timer
-    if (wasPlaying && !status.isPlaying) {
-      setShowControls(true);
-      if (controlsTimeoutRef.current) {
-        clearTimeout(controlsTimeoutRef.current);
-        controlsTimeoutRef.current = null;
+      // When video pauses, show controls and clear timer
+      if (wasPlaying && !status.isPlaying) {
+        setShowControls(true);
+        if (controlsTimeoutRef.current) {
+          clearTimeout(controlsTimeoutRef.current);
+          controlsTimeoutRef.current = null;
+        }
+      }
+
+      // HOST: Broadcast playback state directly to Firebase
+      if (isHost && partyId && status.positionMillis > 0) {
+        broadcastPlaybackState(partyId, {
+          isPlaying: status.isPlaying,
+          currentTime: status.positionMillis / 1000,
+          hostId: '',
+        });
       }
     }
-
-    // HOST: Broadcast playback state directly to Firebase
-    if (isHost && partyId && status.positionMillis > 0) {
-      broadcastPlaybackState(partyId, {
-        isPlaying: status.isPlaying,
-        currentTime: status.positionMillis / 1000,
-        hostId: '',
-      });
-    }
-  }
-};
+  };
 
   // Sync native video with host's playback state
   useEffect(() => {
@@ -137,85 +140,85 @@ const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
   }, [syncedPlaybackState, isHost, resolvedVideo.type]);
 
   // Subscribe to playback state (NON-HOSTS)
-useEffect(() => {
-  if (!isHost && partyId) {
-    const unsubscribe = subscribeToPlaybackState(partyId, async (state) => {
-      if (!state || isSyncing || isLoading) return;
+  useEffect(() => {
+    if (!isHost && partyId) {
+      const unsubscribe = subscribeToPlaybackState(partyId, async (state) => {
+        if (!state || isSyncing || isLoading) return;
 
-      console.log('📡 Received playback state:', state);
-      setIsSyncing(true);
+        console.log('📡 Received playback state:', state);
+        setIsSyncing(true);
 
-      try {
-        if (resolvedVideo.type === 'mp4' && videoRef.current) {
-          const currentStatus = await videoRef.current.getStatusAsync();
-          
-          if (!currentStatus.isLoaded) {
-            setIsSyncing(false);
-            return;
-          }
-          
-          // Sync play/pause
-          if (state.isPlaying && !currentStatus.isPlaying) {
-            await videoRef.current.playAsync();
-          } else if (!state.isPlaying && currentStatus.isPlaying) {
-            await videoRef.current.pauseAsync();
-          }
+        try {
+          if (resolvedVideo.type === 'mp4' && videoRef.current) {
+            const currentStatus = await videoRef.current.getStatusAsync();
 
-          // Sync position (if off by more than 5 seconds to avoid loop)
-          if (currentStatus.positionMillis) {
-            const currentSeconds = currentStatus.positionMillis / 1000;
-            const diff = Math.abs(currentSeconds - state.currentTime);
-            
-            // Only sync if difference is significant
-            if (diff > 5) {
-              console.log(`⏩ Syncing position: ${currentSeconds}s → ${state.currentTime}s (diff: ${diff.toFixed(1)}s)`);
-              await videoRef.current.setPositionAsync(state.currentTime * 1000);
+            if (!currentStatus.isLoaded) {
+              setIsSyncing(false);
+              return;
+            }
+
+            // Sync play/pause
+            if (state.isPlaying && !currentStatus.isPlaying) {
+              await videoRef.current.playAsync();
+            } else if (!state.isPlaying && currentStatus.isPlaying) {
+              await videoRef.current.pauseAsync();
+            }
+
+            // Sync position (if off by more than 5 seconds to avoid loop)
+            if (currentStatus.positionMillis) {
+              const currentSeconds = currentStatus.positionMillis / 1000;
+              const diff = Math.abs(currentSeconds - state.currentTime);
+
+              // Only sync if difference is significant
+              if (diff > 5) {
+                console.log(`⏩ Syncing position: ${currentSeconds}s → ${state.currentTime}s (diff: ${diff.toFixed(1)}s)`);
+                await videoRef.current.setPositionAsync(state.currentTime * 1000);
+              }
             }
           }
+        } catch (error) {
+          console.error('Sync error:', error);
+        } finally {
+          setTimeout(() => setIsSyncing(false), 1000);
         }
-      } catch (error) {
-        console.error('Sync error:', error);
-      } finally {
-        setTimeout(() => setIsSyncing(false), 1000);
-      }
-    });
+      });
 
-    return () => unsubscribe();
-  }
-}, [isHost, partyId, isSyncing, resolvedVideo.type, isLoading]);
+      return () => unsubscribe();
+    }
+  }, [isHost, partyId, isSyncing, resolvedVideo.type, isLoading]);
 
   // Initial sync when joining (set starting position)
-useEffect(() => {
-  if (!isHost && syncedPlaybackState && videoRef.current && !isLoading) {
-    const setInitialPosition = async () => {
-      try {
-        const status = await videoRef.current!.getStatusAsync();
-        
-        if (!status.isLoaded) {
-          console.log('⏳ Video not loaded yet, waiting...');
-          return;
-        }
+  useEffect(() => {
+    if (!isHost && syncedPlaybackState && videoRef.current && !isLoading) {
+      const setInitialPosition = async () => {
+        try {
+          const status = await videoRef.current!.getStatusAsync();
 
-        // Only set position if we're at the beginning and host is ahead
-        const currentSeconds = (status.positionMillis || 0) / 1000;
-        const targetSeconds = syncedPlaybackState.positionMillis / 1000;
-        
-        if (currentSeconds < 5 && targetSeconds > 5) {
-          console.log('🎬 Setting initial position:', targetSeconds, 'seconds');
-          await videoRef.current!.setPositionAsync(syncedPlaybackState.positionMillis);
-        }
-        
-        if (syncedPlaybackState.isPlaying && !status.isPlaying) {
-          await videoRef.current!.playAsync();
-        }
-      } catch (error) {
-        console.error('Initial sync error:', error);
-      }
-    };
+          if (!status.isLoaded) {
+            console.log('⏳ Video not loaded yet, waiting...');
+            return;
+          }
 
-    setInitialPosition();
-  }
-}, [isHost, syncedPlaybackState, isLoading]);
+          // Only set position if we're at the beginning and host is ahead
+          const currentSeconds = (status.positionMillis || 0) / 1000;
+          const targetSeconds = syncedPlaybackState.positionMillis / 1000;
+
+          if (currentSeconds < 5 && targetSeconds > 5) {
+            console.log('🎬 Setting initial position:', targetSeconds, 'seconds');
+            await videoRef.current!.setPositionAsync(syncedPlaybackState.positionMillis);
+          }
+
+          if (syncedPlaybackState.isPlaying && !status.isPlaying) {
+            await videoRef.current!.playAsync();
+          }
+        } catch (error) {
+          console.error('Initial sync error:', error);
+        }
+      };
+
+      setInitialPosition();
+    }
+  }, [isHost, syncedPlaybackState, isLoading]);
 
   // Play/Pause toggle for native video
   const togglePlayPause = async () => {
@@ -252,6 +255,37 @@ useEffect(() => {
     }
   };
 
+  // Toggle fullscreen
+  const toggleFullscreen = async () => {
+    try {
+      // Save current playback state before transition
+      const status = await videoRef.current?.getStatusAsync();
+      const currentPosition = status?.isLoaded ? status.positionMillis : 0;
+      const wasPlaying = status?.isLoaded ? status.isPlaying : false;
+
+      const newFullscreenState = !isFullscreen;
+      setIsFullscreen(newFullscreenState);
+
+      if (newFullscreenState) {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+      } else {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+      }
+
+      // Restore playback state after a short delay
+      setTimeout(async () => {
+        if (videoRef.current && currentPosition > 0) {
+          await videoRef.current.setPositionAsync(currentPosition);
+          if (wasPlaying) {
+            await videoRef.current.playAsync();
+          }
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Fullscreen toggle error:', error);
+    }
+  };
+
   // Render YouTube player
   if (resolvedVideo.type === 'youtube' && resolvedVideo.videoId) {
     return (
@@ -276,9 +310,8 @@ useEffect(() => {
   }
 
   // Render native video player for MP4/M3U8
-  return (
-    <View style={styles.container}>
-      {/* Tap overlay for controls toggle */}
+  const renderVideoPlayer = () => (
+    <>
       <TouchableOpacity
         style={styles.tapOverlay}
         activeOpacity={1}
@@ -344,23 +377,65 @@ useEffect(() => {
             />
           </View>
           <Text style={styles.timeText}>{formatTime(duration)}</Text>
+
+          <TouchableOpacity
+            style={styles.fullscreenButton}
+            onPress={toggleFullscreen}
+            activeOpacity={0.7}
+          >
+            <Icon
+              name={isFullscreen ? 'contract' : 'expand'}
+              size={20}
+              color={COLORS.white}
+            />
+          </TouchableOpacity>
         </View>
       )}
 
-      {isHost && (
+      {!isFullscreen && isHost && (
         <View style={styles.hostBadge}>
           <Icon name="star" size={14} color={COLORS.amber400} />
           <Text style={styles.hostBadgeText}>You're the host</Text>
         </View>
       )}
 
-      {!isHost && (
+      {!isFullscreen && !isHost && (
         <View style={styles.syncedBadge}>
           <Icon name="sync" size={14} color={COLORS.cyan400} />
           <Text style={styles.syncedBadgeText}>Synced with host</Text>
         </View>
       )}
-    </View>
+    </>
+  );
+
+  return (
+    <>
+      {!isFullscreen && (
+        <View style={styles.container}>
+          {renderVideoPlayer()}
+        </View>
+      )}
+
+      <Modal
+        visible={isFullscreen}
+        animationType="fade"
+        onRequestClose={toggleFullscreen}
+        supportedOrientations={['landscape']}
+      >
+        <StatusBar hidden />
+        <View style={styles.fullscreenContainer}>
+          {renderVideoPlayer()}
+
+          <TouchableOpacity
+            style={styles.exitFullscreenButton}
+            onPress={toggleFullscreen}
+            activeOpacity={0.7}
+          >
+            <Icon name="close" size={28} color={COLORS.white} />
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    </>
   );
 };
 
@@ -470,6 +545,32 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 12,
     fontWeight: '700',
+  },
+  fullscreenButton: {
+    padding: 8,
+    marginLeft: 8,
+    zIndex: 3,
+  },
+  fullscreenContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  exitFullscreenButton: {
+    position: 'absolute',
+    top: 30,
+    right: 50,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+    elevation: 999,
+    borderWidth: 2,
+    borderColor: COLORS.white,
   },
 });
 

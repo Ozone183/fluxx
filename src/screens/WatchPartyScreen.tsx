@@ -19,6 +19,8 @@ import { useAuth } from '../context/AuthContext';
 import { AppState } from 'react-native';
 import VideoPickerModal from '../components/VideoPickerModal';
 import SyncedVideoPlayer from '../components/SyncedVideoPlayer';
+import CollapsibleVideoTiles from '../components/CollapsibleVideoTiles';
+import { Camera } from 'expo-camera';
 import {
   subscribeToWatchParty,
   startWatchParty,
@@ -35,7 +37,7 @@ const WatchPartyScreen = () => {
   const route = useRoute();
   const navigation = useNavigation();
   const { userId, userChannel } = useAuth();
-  
+
   const partyId = (route.params as any)?.partyId;
 
   const [party, setParty] = useState<WatchParty | null>(null);
@@ -47,6 +49,8 @@ const WatchPartyScreen = () => {
   const channelName = userChannel || 'Anonymous';
 
   const [showVideoPicker, setShowVideoPicker] = useState(false);
+  const [isMicMuted, setIsMicMuted] = useState(false);
+  const [isCameraOff, setIsCameraOff] = useState(false);
 
   const [playbackState, setPlaybackState] = useState<{
     isPlaying: boolean;
@@ -60,19 +64,19 @@ const WatchPartyScreen = () => {
   useEffect(() => {
     if (!partyId) {
       setLoading(false);
-      
+
       if (callObject) {
-        callObject.destroy().catch(() => {});
+        callObject.destroy().catch(() => { });
         setCallObject(null);
         setIsInCall(false);
       }
-      
+
       return;
     }
 
     console.log('🎬 Subscribing to party:', partyId);
     setLoading(true);
-    
+
     const unsubscribe = subscribeToWatchParty(partyId, (updatedParty) => {
       console.log('✅ Party data received:', updatedParty);
       setParty(updatedParty);
@@ -81,9 +85,9 @@ const WatchPartyScreen = () => {
 
     return () => {
       unsubscribe();
-      
+
       if (callObject) {
-        callObject.destroy().catch(() => {});
+        callObject.destroy().catch(() => { });
         setCallObject(null);
         setIsInCall(false);
       }
@@ -109,39 +113,59 @@ const WatchPartyScreen = () => {
   }, [callObject]);
 
   // Track participant join/leave
-useEffect(() => {
-  if (partyId && userId && channelName) {
-    // Mark as joined
-    updateParticipantCount(partyId, userId, channelName, 'join');
+  useEffect(() => {
+    if (partyId && userId && channelName) {
+      // Mark as joined
+      updateParticipantCount(partyId, userId, channelName, 'join');
 
-    // Subscribe to participants
-    const unsubscribe = subscribeToParticipants(partyId, (participantsList) => {
-      console.log('👥 Participants:', participantsList);
-      setParticipants(participantsList);
+      // Subscribe to participants
+      const unsubscribe = subscribeToParticipants(partyId, (participantsList) => {
+        console.log('👥 Participants:', participantsList);
+        setParticipants(participantsList);
+      });
+
+      // Mark as left on cleanup
+      return () => {
+        console.log('🚪 User leaving party');
+        updateParticipantCount(partyId, userId, channelName, 'leave');
+        unsubscribe();
+      };
+    }
+  }, [partyId, userId, channelName]);
+
+  // Handle app going to background/closing
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'background' && partyId && userId && channelName) {
+        console.log('📱 App going to background, marking user as left');
+        updateParticipantCount(partyId, userId, channelName, 'leave');
+      }
     });
 
-    // Mark as left on cleanup
     return () => {
-      console.log('🚪 User leaving party');
-      updateParticipantCount(partyId, userId, channelName, 'leave');
-      unsubscribe();
+      subscription.remove();
     };
-  }
-}, [partyId, userId, channelName]);
+  }, [partyId, userId, channelName]);
 
-// Handle app going to background/closing
-useEffect(() => {
-  const subscription = AppState.addEventListener('change', (nextAppState) => {
-    if (nextAppState === 'background' && partyId && userId && channelName) {
-      console.log('📱 App going to background, marking user as left');
-      updateParticipantCount(partyId, userId, channelName, 'leave');
+  // Request permissions
+const requestPermissions = async () => {
+  try {
+    const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
+    const { status: micStatus } = await Camera.requestMicrophonePermissionsAsync();
+    
+    if (cameraStatus !== 'granted' || micStatus !== 'granted') {
+      Alert.alert(
+        'Permissions Required',
+        'Camera and microphone access are needed for video calls'
+      );
+      return false;
     }
-  });
-
-  return () => {
-    subscription.remove();
-  };
-}, [partyId, userId, channelName]);
+    return true;
+  } catch (error) {
+    console.error('Permission error:', error);
+    return false;
+  }
+};
 
   // Join Daily.co call
   const joinCall = async () => {
@@ -149,7 +173,13 @@ useEffect(() => {
       Alert.alert('Error', 'Room URL not available');
       return;
     }
-
+  
+    // Request permissions first
+    const hasPermissions = await requestPermissions();
+    if (!hasPermissions) {
+      return;
+    }
+  
     try {
       setLoading(true);
 
@@ -207,10 +237,54 @@ useEffect(() => {
     navigation.goBack();
   };
 
+  // Toggle microphone
+  const toggleMic = async () => {
+    if (!callObject) return;
+
+    try {
+      const newMutedState = !isMicMuted;
+      await callObject.setLocalAudio(!newMutedState);
+      setIsMicMuted(newMutedState);
+      console.log('🎤 Mic', newMutedState ? 'MUTED' : 'UNMUTED');
+    } catch (error) {
+      console.error('Toggle mic error:', error);
+    }
+  };
+
+  // Toggle camera
+  const toggleCamera = async () => {
+    if (!callObject) return;
+
+    try {
+      const newCameraState = !isCameraOff;
+      await callObject.setLocalVideo(!newCameraState);
+      setIsCameraOff(newCameraState);
+      console.log('📹 Camera', newCameraState ? 'OFF' : 'ON');
+    } catch (error) {
+      console.error('Toggle camera error:', error);
+    }
+  };
+
+  // Leave with confirmation
+  const leaveCallWithConfirmation = () => {
+    Alert.alert(
+      'Leave Watch Party?',
+      'Are you sure you want to leave?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: leaveCall,
+        },
+      ]
+    );
+  };
+
   // Start party (host only)
   const handleStartParty = async () => {
     if (!partyId) return;
-    
+
     try {
       await startWatchParty(partyId);
       Alert.alert('🎉 Party Started!', 'Everyone can now join the watch party');
@@ -328,7 +402,7 @@ useEffect(() => {
             try {
               setLoading(true);
               setShowVideoPicker(false);
-              
+
               const newPartyId = await createWatchParty(
                 'Movie Night 🍿',
                 userId!,
@@ -336,10 +410,10 @@ useEffect(() => {
                 videoUrl,
                 videoTitle
               );
-              
+
               console.log('✅ Watch party created:', newPartyId);
               navigation.setParams({ partyId: newPartyId } as any);
-              
+
             } catch (error) {
               console.error('❌ Create party error:', error);
               Alert.alert('Error', 'Could not create watch party');
@@ -364,26 +438,26 @@ useEffect(() => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => {
             if (isInCall) {
               leaveCall();
             } else {
               navigation.setParams({ partyId: undefined } as any);
             }
-          }} 
+          }}
           style={styles.backButton}
         >
           <Icon name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
-  <Text style={styles.title}>{party.title}</Text>
-  <Text style={styles.subtitle}>
-    {participants.length} / {party.maxParticipants} watching
-  </Text>
-</View>
+          <Text style={styles.title}>{party.title}</Text>
+          <Text style={styles.subtitle}>
+            {participants.length} / {party.maxParticipants} watching
+          </Text>
+        </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
               try {
                 Clipboard.setString(`fluxx://watchparty/${partyId}`);
@@ -391,12 +465,12 @@ useEffect(() => {
               } catch (error) {
                 Alert.alert('Error', 'Could not copy invite link');
               }
-            }} 
+            }}
             style={styles.shareButton}
           >
             <Icon name="share-social" size={22} color={COLORS.cyan400} />
           </TouchableOpacity>
-          
+
           {isHost && (
             <TouchableOpacity onPress={handleEndParty} style={styles.endButton}>
               <Icon name="close-circle" size={24} color={COLORS.red400} />
@@ -413,7 +487,7 @@ useEffect(() => {
           <Text style={styles.lobbySubtitle}>
             {party.videoTitle || 'Join the watch party'}
           </Text>
-          
+
           <TouchableOpacity
             style={styles.joinButton}
             onPress={joinCall}
@@ -452,31 +526,42 @@ useEffect(() => {
             />
           </View>
 
-          <View style={styles.participantTiles}>
-  {participants.map((participant) => (
-    <View key={participant.userId} style={styles.participantChip}>
-      <Text style={styles.participantName}>@{participant.username}</Text>
-    </View>
-  ))}
-</View>
+          <CollapsibleVideoTiles
+            callObject={callObject}
+            participantCount={participants.length}
+          />
         </>
       )}
 
       {/* Controls */}
       {isInCall && (
         <View style={styles.controls}>
-          <TouchableOpacity style={styles.controlButton}>
-            <Icon name="mic" size={24} color={COLORS.white} />
+          <TouchableOpacity
+            style={[styles.controlButton, isMicMuted && styles.mutedButton]}
+            onPress={toggleMic}
+          >
+            <Icon
+              name={isMicMuted ? 'mic-off' : 'mic'}
+              size={24}
+              color={COLORS.white}
+            />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.controlButton}>
-            <Icon name="videocam" size={24} color={COLORS.white} />
+          <TouchableOpacity
+            style={[styles.controlButton, isCameraOff && styles.mutedButton]}
+            onPress={toggleCamera}
+          >
+            <Icon
+              name={isCameraOff ? 'videocam-off' : 'videocam'}
+              size={24}
+              color={COLORS.white}
+            />
           </TouchableOpacity>
           <TouchableOpacity style={styles.controlButton}>
             <Icon name="chatbubbles" size={24} color={COLORS.white} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.controlButton, styles.leaveButton]}
-            onPress={leaveCall}
+            onPress={leaveCallWithConfirmation}
           >
             <Icon name="exit" size={24} color={COLORS.white} />
           </TouchableOpacity>
@@ -746,6 +831,9 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 12,
     fontWeight: '600',
+  },
+  mutedButton: {
+    backgroundColor: COLORS.red500,
   },
 });
 

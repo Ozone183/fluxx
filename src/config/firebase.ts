@@ -24,5 +24,6 @@ export const firestore = getFirestore(app);   // ← Keep this for backward comp
 export const storage = getStorage(app);
 export const database = getDatabase(app);
 export const functions = getFunctions(app);
+export const realtimeDb = getDatabase(app); // ADD THIS
 
 export default app;

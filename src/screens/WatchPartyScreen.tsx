@@ -1,6 +1,6 @@
 // src/screens/WatchPartyScreen.tsx
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  ScrollView,  // 👈 ADD THIS
+  ScrollView,
 } from 'react-native';
 import { Clipboard } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -16,15 +16,19 @@ import DailyIframe from '@daily-co/react-native-daily-js';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
+import { AppState } from 'react-native';
 import VideoPickerModal from '../components/VideoPickerModal';
 import SyncedVideoPlayer from '../components/SyncedVideoPlayer';
 import {
   subscribeToWatchParty,
   startWatchParty,
   endWatchParty,
-  createWatchParty,  // 👈 ADD THIS
+  createWatchParty,
   WatchParty,
-  subscribeToActiveParties,  // 👈 ADD THIS
+  subscribeToActiveParties,
+  updateParticipantCount, // ADD THIS
+  subscribeToParticipants, // ADD THIS
+  Participant, // ADD THIS
 } from '../services/watchPartyService';
 
 const WatchPartyScreen = () => {
@@ -32,7 +36,6 @@ const WatchPartyScreen = () => {
   const navigation = useNavigation();
   const { userId, userChannel } = useAuth();
   
-  // 👈 REACTIVE: Read partyId dynamically, not just once
   const partyId = (route.params as any)?.partyId;
 
   const [party, setParty] = useState<WatchParty | null>(null);
@@ -40,12 +43,10 @@ const WatchPartyScreen = () => {
   const [callObject, setCallObject] = useState<any>(null);
   const [isInCall, setIsInCall] = useState(false);
   const [activeParties, setActiveParties] = useState<WatchParty[]>([]);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const channelName = userChannel || 'Anonymous';
 
   const [showVideoPicker, setShowVideoPicker] = useState(false);
-  const [selectedVideo, setSelectedVideo] = useState<{
-    url: string;
-    title: string;
-  } | null>(null);
 
   const [playbackState, setPlaybackState] = useState<{
     isPlaying: boolean;
@@ -60,9 +61,7 @@ const WatchPartyScreen = () => {
     if (!partyId) {
       setLoading(false);
       
-      // 🔧 CLEANUP: Destroy call object when leaving party
       if (callObject) {
-        console.log('🧹 No partyId, destroying call object...');
         callObject.destroy().catch(() => {});
         setCallObject(null);
         setIsInCall(false);
@@ -81,12 +80,9 @@ const WatchPartyScreen = () => {
     });
 
     return () => {
-      console.log('🧹 Cleaning up subscription');
       unsubscribe();
       
-      // 🔧 CLEANUP: Destroy call object when changing party
       if (callObject) {
-        console.log('🧹 Party changed, destroying call object...');
         callObject.destroy().catch(() => {});
         setCallObject(null);
         setIsInCall(false);
@@ -94,7 +90,7 @@ const WatchPartyScreen = () => {
     };
   }, [partyId, callObject]);
 
-  // Subscribe to all active parties (for browsing)
+  // Subscribe to all active parties
   useEffect(() => {
     const unsubscribe = subscribeToActiveParties((parties) => {
       setActiveParties(parties);
@@ -107,69 +103,97 @@ const WatchPartyScreen = () => {
   useEffect(() => {
     return () => {
       if (callObject) {
-        console.log('🧹 Component unmounting, destroying call object...');
         callObject.destroy();
       }
     };
   }, [callObject]);
 
-    // Initialize Daily.co call
-    const joinCall = async () => {
-      if (!party?.roomUrl) {
-        Alert.alert('Error', 'Room URL not available');
-        return;
-      }
-  
-      try {
-        setLoading(true);
-  
-        // 🔧 FIX: Destroy existing call object first
-        if (callObject) {
-          console.log('🧹 Destroying existing call object...');
-          await callObject.destroy();
-          setCallObject(null);
-        }
-  
-        // Create call object
-        const daily = DailyIframe.createCallObject();
-        setCallObject(daily);
-  
-        // Add event listeners
-        daily.on('joined-meeting', () => {
-          console.log('✅ Joined meeting');
-          setIsInCall(true);
-          setLoading(false);
-        });
-  
-        daily.on('left-meeting', () => {
-          console.log('👋 Left meeting');
-          setIsInCall(false);
-        });
-  
-        daily.on('error', (error: any) => {
-          console.error('❌ Daily error:', error);
-          Alert.alert('Connection Error', error.errorMsg || 'Could not connect to call');
-          setLoading(false);
-        });
-  
-        // Join the room
-        await daily.join({
-          url: party.roomUrl,
-          userName: userChannel || 'Anonymous',
-        });
-  
-      } catch (error) {
-        console.error('Join call error:', error);
-        Alert.alert('Error', 'Could not join watch party');
-        setLoading(false);
-      }
+  // Track participant join/leave
+useEffect(() => {
+  if (partyId && userId && channelName) {
+    // Mark as joined
+    updateParticipantCount(partyId, userId, channelName, 'join');
+
+    // Subscribe to participants
+    const unsubscribe = subscribeToParticipants(partyId, (participantsList) => {
+      console.log('👥 Participants:', participantsList);
+      setParticipants(participantsList);
+    });
+
+    // Mark as left on cleanup
+    return () => {
+      console.log('🚪 User leaving party');
+      updateParticipantCount(partyId, userId, channelName, 'leave');
+      unsubscribe();
     };
+  }
+}, [partyId, userId, channelName]);
+
+// Handle app going to background/closing
+useEffect(() => {
+  const subscription = AppState.addEventListener('change', (nextAppState) => {
+    if (nextAppState === 'background' && partyId && userId && channelName) {
+      console.log('📱 App going to background, marking user as left');
+      updateParticipantCount(partyId, userId, channelName, 'leave');
+    }
+  });
+
+  return () => {
+    subscription.remove();
+  };
+}, [partyId, userId, channelName]);
+
+  // Join Daily.co call
+  const joinCall = async () => {
+    if (!party?.roomUrl) {
+      Alert.alert('Error', 'Room URL not available');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      if (callObject) {
+        await callObject.destroy();
+        setCallObject(null);
+      }
+
+      const daily = DailyIframe.createCallObject();
+      setCallObject(daily);
+
+      daily.on('joined-meeting', () => {
+        console.log('✅ Joined meeting');
+        setIsInCall(true);
+        setLoading(false);
+      });
+
+      daily.on('left-meeting', () => {
+        console.log('👋 Left meeting');
+        setIsInCall(false);
+      });
+
+      daily.on('error', (error: any) => {
+        console.error('❌ Daily error:', error);
+        Alert.alert('Connection Error', error.errorMsg || 'Could not connect to call');
+        setLoading(false);
+      });
+
+      await daily.join({
+        url: party.roomUrl,
+        userName: userChannel || 'Anonymous',
+      });
+
+    } catch (error) {
+      console.error('Join call error:', error);
+      Alert.alert('Error', 'Could not join watch party');
+      setLoading(false);
+    }
+  };
 
   // Leave call
   const leaveCall = async () => {
     try {
       if (callObject) {
-        console.log('🧹 Leaving and destroying call...');
         await callObject.leave();
         await callObject.destroy();
         setCallObject(null);
@@ -222,7 +246,7 @@ const WatchPartyScreen = () => {
 
   const isHost = party?.hostId === userId;
 
-  // NEW: Show browse screen if no partyId
+  // Browse screen (no partyId)
   if (!partyId) {
     return (
       <View style={styles.container}>
@@ -236,17 +260,9 @@ const WatchPartyScreen = () => {
           </View>
           <TouchableOpacity
             style={styles.createIconButton}
-            onPress={() => {
-              console.log('🎬 + button tapped!');
-              console.log('📹 Opening video picker...');
-              setShowVideoPicker(true);
-            }}
+            onPress={() => setShowVideoPicker(true)}
           >
-            {loading ? (
-              <ActivityIndicator size="small" color={COLORS.white} />
-            ) : (
-              <Icon name="add-circle" size={28} color={COLORS.cyan400} />
-            )}
+            <Icon name="add-circle" size={28} color={COLORS.cyan400} />
           </TouchableOpacity>
         </View>
 
@@ -304,7 +320,7 @@ const WatchPartyScreen = () => {
           </ScrollView>
         )}
 
-        {/* 🎬 VIDEO PICKER MODAL */}
+        {/* Video Picker Modal */}
         <VideoPickerModal
           visible={showVideoPicker}
           onClose={() => setShowVideoPicker(false)}
@@ -350,11 +366,9 @@ const WatchPartyScreen = () => {
       <View style={styles.header}>
         <TouchableOpacity 
           onPress={() => {
-            // If in call, leave the call
             if (isInCall) {
               leaveCall();
             } else {
-              // Otherwise, go back to browse screen
               navigation.setParams({ partyId: undefined } as any);
             }
           }} 
@@ -363,13 +377,12 @@ const WatchPartyScreen = () => {
           <Icon name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
-          <Text style={styles.title}>{party.title}</Text>
-          <Text style={styles.subtitle}>
-            {party.participants.length} / {party.maxParticipants} watching
-          </Text>
-        </View>
+  <Text style={styles.title}>{party.title}</Text>
+  <Text style={styles.subtitle}>
+    {participants.length} / {party.maxParticipants} watching
+  </Text>
+</View>
         <View style={styles.headerActions}>
-          {/* SHARE BUTTON */}
           <TouchableOpacity 
             onPress={() => {
               try {
@@ -384,7 +397,6 @@ const WatchPartyScreen = () => {
             <Icon name="share-social" size={22} color={COLORS.cyan400} />
           </TouchableOpacity>
           
-          {/* END PARTY BUTTON (host only) */}
           {isHost && (
             <TouchableOpacity onPress={handleEndParty} style={styles.endButton}>
               <Icon name="close-circle" size={24} color={COLORS.red400} />
@@ -393,7 +405,7 @@ const WatchPartyScreen = () => {
         </View>
       </View>
 
-      {/* 🎬 VIDEO PLAYER - SEPARATE FROM DAILY.CO */}
+      {/* Lobby or Video Player */}
       {!isInCall ? (
         <View style={styles.lobbyContainer}>
           <Icon name="videocam" size={80} color={COLORS.cyan400} />
@@ -428,25 +440,25 @@ const WatchPartyScreen = () => {
         </View>
       ) : (
         <>
-          {/* 🎬 MAIN VIDEO PLAYER (NO DAILY.CO INTERFERENCE!) */}
           <View style={styles.videoPlayerContainer}>
             <SyncedVideoPlayer
               videoUrl={party.videoUrl || ''}
               isHost={isHost}
+              partyId={partyId}
               onPlaybackUpdate={(isPlaying, positionMillis) => {
                 setPlaybackState({ isPlaying, positionMillis });
-                console.log('🎬 Playback update:', { isPlaying, positionMillis });
               }}
               syncedPlaybackState={!isHost ? playbackState : undefined}
             />
           </View>
 
-          {/* 👥 PARTICIPANT COUNTER OVERLAY */}
           <View style={styles.participantTiles}>
-            <Text style={styles.participantText}>
-              👥 {party.participants.length} watching
-            </Text>
-          </View>
+  {participants.map((participant) => (
+    <View key={participant.userId} style={styles.participantChip}>
+      <Text style={styles.participantName}>@{participant.username}</Text>
+    </View>
+  ))}
+</View>
         </>
       )}
 
@@ -470,34 +482,6 @@ const WatchPartyScreen = () => {
           </TouchableOpacity>
         </View>
       )}
-
-      {/* 🎬 VIDEO PICKER MODAL */}
-      <VideoPickerModal
-        visible={showVideoPicker}
-        onClose={() => setShowVideoPicker(false)}
-        onSelectVideo={async (videoUrl, videoTitle) => {
-          try {
-            setLoading(true);
-            setShowVideoPicker(false);
-            
-            const newPartyId = await createWatchParty(
-              'Movie Night 🍿',
-              userId!,
-              userChannel || '@unknown',
-              videoUrl,
-              videoTitle
-            );
-            
-            console.log('✅ Watch party created:', newPartyId);
-            navigation.setParams({ partyId: newPartyId } as any);
-            
-          } catch (error) {
-            console.error('❌ Create party error:', error);
-            Alert.alert('Error', 'Could not create watch party');
-            setLoading(false);
-          }
-        }}
-      />
     </View>
   );
 };
@@ -547,10 +531,6 @@ const styles = StyleSheet.create({
   endButton: {
     padding: 8,
   },
-  videoContainer: {
-    flex: 1,
-    backgroundColor: COLORS.slate800,
-  },
   lobbyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -596,21 +576,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.white,
   },
-  callContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  callText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  callSubtext: {
-    fontSize: 14,
-    color: COLORS.slate400,
-    marginTop: 8,
-  },
   videoPlayerContainer: {
     flex: 1,
     backgroundColor: '#000',
@@ -634,26 +599,6 @@ const styles = StyleSheet.create({
   },
   leaveButton: {
     backgroundColor: COLORS.red500,
-  },
-  orText: {
-    fontSize: 16,
-    color: COLORS.slate400,
-    marginVertical: 16,
-  },
-  browseButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.cyan400,
-  },
-  browseButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.cyan400,
   },
   createIconButton: {
     width: 40,
@@ -775,12 +720,29 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 80,
     right: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
+    maxWidth: 250,
+    gap: 8,
   },
   participantText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  participantChip: {
+    backgroundColor: COLORS.cyan400,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  participantName: {
     color: COLORS.white,
     fontSize: 12,
     fontWeight: '600',

@@ -1,81 +1,48 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
-import { WebView } from 'react-native-webview';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
+import { resolveVideoSource } from '../utils/resolveVideoSource';
+import YouTubePlayer from './YouTubePlayer';
+import {
+  broadcastPlaybackState,
+  subscribeToPlaybackState,
+  PlaybackState,
+} from '../services/watchPartyService';
 
 interface SyncedVideoPlayerProps {
   videoUrl: string;
   isHost: boolean;
+  partyId: string; // ADD THIS
   onPlaybackUpdate?: (isPlaying: boolean, positionMillis: number) => void;
   syncedPlaybackState?: {
     isPlaying: boolean;
     positionMillis: number;
+    positionSeconds?: number;
   };
 }
-
-// Helper: Extract YouTube video ID
-const getYouTubeVideoId = (url: string): string | null => {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
-    /youtube\.com\/embed\/([^&\n?#]+)/,
-  ];
-
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match && match[1]) {
-      return match[1];
-    }
-  }
-  return null;
-};
-
-// Helper: Check if URL is YouTube
-const isYouTubeUrl = (url: string): boolean => {
-  return url.includes('youtube.com') || url.includes('youtu.be');
-};
-
-// Helper: Check if URL is Tubi
-const isTubiUrl = (url: string): boolean => {
-  return url.includes('tubitv.com');
-};
-
-// Helper: Extract Tubi video ID
-const getTubiVideoId = (url: string): string | null => {
-  const match = url.match(/tubitv\.com\/(movies|tv-shows)\/(\d+)/);
-  return match ? match[2] : null;
-};
 
 const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = ({
   videoUrl,
   isHost,
+  partyId, // ADD THIS
   onPlaybackUpdate,
   syncedPlaybackState,
 }) => {
   const videoRef = useRef<Video>(null);
-  const webViewRef = useRef<WebView>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
   const [showControls, setShowControls] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isYouTube = isYouTubeUrl(videoUrl);
-  const youtubeVideoId = isYouTube ? getYouTubeVideoId(videoUrl) : null;
+  // Use universal video resolver
+  const resolvedVideo = resolveVideoSource(videoUrl);
 
-  const isTubi = isTubiUrl(videoUrl);
-  const tubiVideoId = isTubi ? getTubiVideoId(videoUrl) : null;
-
-  // DEBUG
-  console.log('🔍 Video URL:', videoUrl);
-  console.log('🔍 Is YouTube?:', isYouTube);
-  console.log('🔍 YouTube Video ID:', youtubeVideoId);
-  console.log('🔍 Is Tubi?:', isTubi);
-  console.log('🔍 Tubi Video ID:', tubiVideoId);
-
-
+  console.log('🎬 Resolved video:', resolvedVideo.type, resolvedVideo.videoId || resolvedVideo.playableUrl);
 
   // Format time (ms to MM:SS)
   const formatTime = (millis: number) => {
@@ -103,42 +70,47 @@ const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = ({
   };
 
   // Handle native video playback status
-  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-    if (status.isLoaded) {
-      setIsLoading(false);
-      setPosition(status.positionMillis);
+const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+  if (status.isLoaded) {
+    setIsLoading(false);
+    setPosition(status.positionMillis);
 
-      if (status.durationMillis) {
-        setDuration(status.durationMillis);
-      }
+    if (status.durationMillis) {
+      setDuration(status.durationMillis);
+    }
 
-      // Update playing state
-      const wasPlaying = isPlaying;
-      setIsPlaying(status.isPlaying);
+    // Update playing state
+    const wasPlaying = isPlaying;
+    setIsPlaying(status.isPlaying);
 
-      // When video starts playing, start auto-hide timer
-      if (!wasPlaying && status.isPlaying) {
-        showControlsTemporarily();
-      }
+    // When video starts playing, start auto-hide timer
+    if (!wasPlaying && status.isPlaying) {
+      showControlsTemporarily();
+    }
 
-      // When video pauses, show controls and clear timer
-      if (wasPlaying && !status.isPlaying) {
-        setShowControls(true);
-        if (controlsTimeoutRef.current) {
-          clearTimeout(controlsTimeoutRef.current);
-          controlsTimeoutRef.current = null;
-        }
-      }
-
-      if (isHost && onPlaybackUpdate) {
-        onPlaybackUpdate(status.isPlaying, status.positionMillis);
+    // When video pauses, show controls and clear timer
+    if (wasPlaying && !status.isPlaying) {
+      setShowControls(true);
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+        controlsTimeoutRef.current = null;
       }
     }
-  };
+
+    // HOST: Broadcast playback state directly to Firebase
+    if (isHost && partyId && status.positionMillis > 0) {
+      broadcastPlaybackState(partyId, {
+        isPlaying: status.isPlaying,
+        currentTime: status.positionMillis / 1000,
+        hostId: '',
+      });
+    }
+  }
+};
 
   // Sync native video with host's playback state
   useEffect(() => {
-    if (!isHost && !isYouTube && syncedPlaybackState && videoRef.current) {
+    if (!isHost && resolvedVideo.type === 'mp4' && syncedPlaybackState && videoRef.current) {
       const syncPlayback = async () => {
         try {
           const status = await videoRef.current!.getStatusAsync();
@@ -162,246 +134,148 @@ const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = ({
 
       syncPlayback();
     }
-  }, [syncedPlaybackState, isHost, isYouTube]);
+  }, [syncedPlaybackState, isHost, resolvedVideo.type]);
+
+  // Subscribe to playback state (NON-HOSTS)
+useEffect(() => {
+  if (!isHost && partyId) {
+    const unsubscribe = subscribeToPlaybackState(partyId, async (state) => {
+      if (!state || isSyncing || isLoading) return;
+
+      console.log('📡 Received playback state:', state);
+      setIsSyncing(true);
+
+      try {
+        if (resolvedVideo.type === 'mp4' && videoRef.current) {
+          const currentStatus = await videoRef.current.getStatusAsync();
+          
+          if (!currentStatus.isLoaded) {
+            setIsSyncing(false);
+            return;
+          }
+          
+          // Sync play/pause
+          if (state.isPlaying && !currentStatus.isPlaying) {
+            await videoRef.current.playAsync();
+          } else if (!state.isPlaying && currentStatus.isPlaying) {
+            await videoRef.current.pauseAsync();
+          }
+
+          // Sync position (if off by more than 5 seconds to avoid loop)
+          if (currentStatus.positionMillis) {
+            const currentSeconds = currentStatus.positionMillis / 1000;
+            const diff = Math.abs(currentSeconds - state.currentTime);
+            
+            // Only sync if difference is significant
+            if (diff > 5) {
+              console.log(`⏩ Syncing position: ${currentSeconds}s → ${state.currentTime}s (diff: ${diff.toFixed(1)}s)`);
+              await videoRef.current.setPositionAsync(state.currentTime * 1000);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Sync error:', error);
+      } finally {
+        setTimeout(() => setIsSyncing(false), 1000);
+      }
+    });
+
+    return () => unsubscribe();
+  }
+}, [isHost, partyId, isSyncing, resolvedVideo.type, isLoading]);
+
+  // Initial sync when joining (set starting position)
+useEffect(() => {
+  if (!isHost && syncedPlaybackState && videoRef.current && !isLoading) {
+    const setInitialPosition = async () => {
+      try {
+        const status = await videoRef.current!.getStatusAsync();
+        
+        if (!status.isLoaded) {
+          console.log('⏳ Video not loaded yet, waiting...');
+          return;
+        }
+
+        // Only set position if we're at the beginning and host is ahead
+        const currentSeconds = (status.positionMillis || 0) / 1000;
+        const targetSeconds = syncedPlaybackState.positionMillis / 1000;
+        
+        if (currentSeconds < 5 && targetSeconds > 5) {
+          console.log('🎬 Setting initial position:', targetSeconds, 'seconds');
+          await videoRef.current!.setPositionAsync(syncedPlaybackState.positionMillis);
+        }
+        
+        if (syncedPlaybackState.isPlaying && !status.isPlaying) {
+          await videoRef.current!.playAsync();
+        }
+      } catch (error) {
+        console.error('Initial sync error:', error);
+      }
+    };
+
+    setInitialPosition();
+  }
+}, [isHost, syncedPlaybackState, isLoading]);
 
   // Play/Pause toggle for native video
   const togglePlayPause = async () => {
     if (!isHost) return;
 
     try {
-      if (isPlaying) {
-        await videoRef.current?.pauseAsync();
-        setShowControls(true);
-      } else {
-        await videoRef.current?.playAsync();
-        showControlsTemporarily();
+      const status = await videoRef.current?.getStatusAsync();
+
+      if (status?.isLoaded) {
+        if (isPlaying) {
+          await videoRef.current?.pauseAsync();
+          setShowControls(true);
+
+          // Broadcast pause state
+          await broadcastPlaybackState(partyId, {
+            isPlaying: false,
+            currentTime: (status.positionMillis || 0) / 1000,
+            hostId: '', // Will be set by service
+          });
+        } else {
+          await videoRef.current?.playAsync();
+          showControlsTemporarily();
+
+          // Broadcast play state
+          await broadcastPlaybackState(partyId, {
+            isPlaying: true,
+            currentTime: (status.positionMillis || 0) / 1000,
+            hostId: '', // Will be set by service
+          });
+        }
       }
     } catch (error) {
       console.error('Play/pause error:', error);
     }
   };
 
-  // YouTube WebView control
-  const sendYouTubeCommand = (command: string) => {
-    console.log('🎬 Sending YouTube command:', command);
-    if (webViewRef.current) {
-      const script = `
-        console.log('📺 Executing command: ${command}');
-        if (window.player) {
-          console.log('✅ Player exists, calling ${command}');
-          window.player.${command}();
-          true;
-        } else {
-          console.log('❌ Player not found!');
-          false;
-        }
-        true;
-      `;
-      webViewRef.current.injectJavaScript(script);
-    } else {
-      console.log('❌ WebView ref not found!');
-    }
-  };
-
-  // YouTube player HTML
-  const getYouTubeHTML = () => {
-    if (!youtubeVideoId) return '';
-
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-          <style>
-            * {
-              margin: 0;
-              padding: 0;
-              border: 0;
-            }
-            body, html {
-              width: 100%;
-              height: 100%;
-              background-color: #000;
-              overflow: hidden;
-            }
-            iframe {
-              position: absolute;
-              top: 0;
-              left: 0;
-              width: 100%;
-              height: 100%;
-              border: none;
-            }
-          </style>
-        </head>
-        <body>
-          <iframe
-            src="https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&playsinline=1&controls=1&modestbranding=1&rel=0&enablejsapi=1"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowfullscreen
-            frameborder="0"
-          ></iframe>
-        </body>
-      </html>
-    `;
-  };
-
-  // Tubi player HTML
-  const getTubiHTML = () => {
-    if (!tubiVideoId) return '';
-
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            * {
-              margin: 0;
-              padding: 0;
-              border: 0;
-            }
-            body, html {
-              width: 100%;
-              height: 100%;
-              background-color: #000;
-              overflow: hidden;
-            }
-            iframe {
-              position: absolute;
-              top: 0;
-              left: 0;
-              width: 100%;
-              height: 100%;
-              border: none;
-            }
-          </style>
-        </head>
-        <body>
-          <iframe
-            src="https://tubitv.com/embed/${tubiVideoId}"
-            allowfullscreen
-            frameborder="0"
-            allow="autoplay; fullscreen"
-          ></iframe>
-        </body>
-      </html>
-    `;
-  };
-
-  // Handle YouTube WebView messages
-  const handleYouTubeMessage = (event: any) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      console.log('📺 YouTube message:', data);
-
-      if (data.type === 'ready') {
-        setIsLoading(false);
-        console.log('✅ YouTube player ready');
-      } else if (data.type === 'stateChange') {
-        console.log('🎬 YouTube state changed:', data.state);
-        // 1 = playing, 2 = paused
-        const playing = data.state === 1;
-        setIsPlaying(playing);
-
-        if (isHost && onPlaybackUpdate) {
-          onPlaybackUpdate(playing, data.time * 1000);
-        }
-      } else if (data.type === 'timeUpdate') {
-        setPosition(data.time * 1000);
-        setDuration(data.duration * 1000);
-      }
-    } catch (error) {
-      console.error('YouTube message error:', error);
-    }
-  };
-
-  // Render Tubi player
-  if (isTubi && tubiVideoId) {
-    return (
-      <View style={styles.container}>
-        <WebView
-          ref={webViewRef}
-          source={{ html: getTubiHTML() }}
-          style={styles.webview}
-          allowsInlineMediaPlayback={true}
-          mediaPlaybackRequiresUserAction={false}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          allowsFullscreenVideo={true}
-          userAgent="Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
-        />
-
-        {isLoading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={COLORS.cyan400} />
-            <Text style={styles.loadingText}>Loading Tubi...</Text>
-          </View>
-        )}
-
-        {/* Host Badge */}
-        {isHost && (
-          <View style={styles.hostBadge}>
-            <Icon name="film" size={16} color="#FA541C" />
-            <Text style={styles.hostBadgeText}>Tubi • Host</Text>
-          </View>
-        )}
-
-        {/* Synced Badge (Non-Host) */}
-        {!isHost && (
-          <View style={styles.syncedBadge}>
-            <Icon name="film" size={16} color="#FA541C" />
-            <Text style={styles.syncedBadgeText}>Tubi • Synced</Text>
-          </View>
-        )}
-      </View>
-    );
-  }
-
   // Render YouTube player
-  if (isYouTube && youtubeVideoId) {
+  if (resolvedVideo.type === 'youtube' && resolvedVideo.videoId) {
     return (
-      <View style={styles.container}>
-        <WebView
-          ref={webViewRef}
-          source={{ html: getYouTubeHTML() }}
-          style={styles.webview}
-          allowsInlineMediaPlayback={true}
-          mediaPlaybackRequiresUserAction={false}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          allowsFullscreenVideo={true}
-          onMessage={handleYouTubeMessage}
-          userAgent="Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
-        />
-
-        {isLoading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={COLORS.cyan400} />
-            <Text style={styles.loadingText}>Loading YouTube video...</Text>
-          </View>
-        )}
-
-        {/* Host Badge */}
-        {isHost && (
-          <View style={styles.hostBadge}>
-            <Icon name="logo-youtube" size={16} color="#FF0000" />
-            <Text style={styles.hostBadgeText}>YouTube • Host</Text>
-          </View>
-        )}
-
-        {/* Synced Badge (Non-Host) */}
-        {!isHost && (
-          <View style={styles.syncedBadge}>
-            <Icon name="logo-youtube" size={16} color="#FF0000" />
-            <Text style={styles.syncedBadgeText}>YouTube • Synced</Text>
-          </View>
-        )}
-      </View>
+      <YouTubePlayer
+        videoId={resolvedVideo.videoId}
+        isHost={isHost}
+        onPlaybackUpdate={(isPlaying, positionSeconds) => {
+          if (isHost && onPlaybackUpdate) {
+            onPlaybackUpdate(isPlaying, positionSeconds * 1000);
+          }
+        }}
+        syncedPlaybackState={
+          syncedPlaybackState
+            ? {
+              isPlaying: syncedPlaybackState.isPlaying,
+              positionSeconds: syncedPlaybackState.positionMillis / 1000,
+            }
+            : undefined
+        }
+      />
     );
   }
 
-  // Render native video player
+  // Render native video player for MP4/M3U8
   return (
     <View style={styles.container}>
       {/* Tap overlay for controls toggle */}
@@ -422,9 +296,10 @@ const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = ({
           }
         }}
       />
+
       <Video
         ref={videoRef}
-        source={{ uri: videoUrl }}
+        source={{ uri: resolvedVideo.playableUrl || videoUrl }}
         style={styles.video}
         resizeMode={ResizeMode.CONTAIN}
         shouldPlay={false}
@@ -439,11 +314,10 @@ const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = ({
         </View>
       )}
 
-{!isLoading && isHost && showControls && (
+      {!isLoading && isHost && showControls && (
         <TouchableOpacity
           style={styles.playButton}
-          onPress={(e) => {
-            e.stopPropagation(); // Prevent tap overlay from triggering
+          onPress={() => {
             console.log('▶️ Play/Pause button tapped!');
             togglePlayPause();
             showControlsTemporarily();
@@ -516,11 +390,6 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 16,
     marginTop: 16,
-  },
-  playOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   tapOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -602,13 +471,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  youtubePlayOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
-
 });
 
 export default SyncedVideoPlayer;

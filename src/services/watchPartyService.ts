@@ -1,10 +1,11 @@
 // src/services/watchPartyService.ts
 
-import { collection, addDoc, doc, updateDoc, onSnapshot, arrayUnion, serverTimestamp, Timestamp, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, onSnapshot, arrayUnion, query, orderBy, limit } from 'firebase/firestore';
 import { firestore } from '../config/firebase';
-import { db } from '../config/firebase';
 import { APP_ID } from '../context/AuthContext';
 import { DAILY_CONFIG } from '../config/dailyConfig';
+import { ref, set, onValue, off, serverTimestamp } from 'firebase/database';
+import { realtimeDb } from '../config/firebase';
 
 export interface WatchParty {
   id: string;
@@ -13,10 +14,10 @@ export interface WatchParty {
   hostUsername: string;
   roomUrl: string;
   roomName: string;
-  videoUrl?: string; // URL of video to watch
+  videoUrl?: string;
   videoTitle?: string;
   status: 'waiting' | 'started' | 'ended';
-  participants: string[]; // Array of userIds
+  participants: string[];
   maxParticipants: number;
   createdAt: number;
   startedAt?: number;
@@ -42,15 +43,15 @@ const createDailyRoom = async (roomName: string): Promise<string> => {
       },
       body: JSON.stringify({
         name: roomName,
-        privacy: 'public', // 👈 Changed from 'private'
+        privacy: 'public',
         properties: {
           enable_screenshare: true,
           enable_chat: true,
           start_video_off: false,
           start_audio_off: false,
-          owner_only_broadcast: false, // 👈 Allow anyone to broadcast
-          enable_prejoin_ui: false, // 👈 Skip prejoin screen
-          exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24), // 👈 Room expires in 24 hours
+          owner_only_broadcast: false,
+          enable_prejoin_ui: false,
+          exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24),
         },
       }),
     });
@@ -61,7 +62,7 @@ const createDailyRoom = async (roomName: string): Promise<string> => {
       throw new Error(data.error || 'Failed to create room');
     }
 
-    return data.url; // Returns the room URL
+    return data.url;
   } catch (error) {
     console.error('Create Daily room error:', error);
     throw error;
@@ -79,7 +80,6 @@ export const createWatchParty = async (
   try {
     const roomName = `fluxx-watch-${Date.now()}-${Math.random().toString(36).substring(7)}`;
     
-    // Create Daily.co room
     const roomUrl = await createDailyRoom(roomName);
     
     const watchPartyData: Omit<WatchParty, 'id'> = {
@@ -176,29 +176,151 @@ export const subscribeToWatchParty = (
   });
 };
 
-/**
- * Subscribe to active watch parties
- */
+// Subscribe to active watch parties
 export const subscribeToActiveParties = (
   callback: (parties: WatchParty[]) => void
 ): (() => void) => {
-  const partiesRef = collection(db, 'watchParties');
-  const activeQuery = query(
+  console.log('🔍 Subscribing to active parties...');
+  
+  // 🔧 FIX: Use the SAME collection path as createWatchParty!
+  const partiesRef = collection(firestore, 'artifacts', APP_ID, 'public', 'data', 'watchParties');
+
+  const q = query(
     partiesRef,
-    where('status', 'in', ['waiting', 'started']),
     orderBy('createdAt', 'desc'),
     limit(20)
   );
 
-  const unsubscribe = onSnapshot(activeQuery, (snapshot) => {
-    const parties = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as WatchParty));
-    
-    console.log('🎬 Active parties updated:', parties.length);
-    callback(parties);
-  });
+  const unsubscribe = onSnapshot(
+    q,
+    (snapshot) => {
+      console.log('📊 Snapshot received:', snapshot.docs.length, 'total parties');
+      
+      const allParties: WatchParty[] = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      } as WatchParty));
+      
+      // Filter for active parties
+      const activeParties = allParties.filter(
+        party => party.status === 'waiting' || party.status === 'started'
+      );
+      
+      console.log('✅ Active parties:', activeParties.length);
+      callback(activeParties);
+    },
+    (error) => {
+      console.error('❌ Firestore error:', error);
+      callback([]);
+    }
+  );
 
   return unsubscribe;
+};
+
+// Real-time playback sync
+export interface PlaybackState {
+  isPlaying: boolean;
+  currentTime: number;
+  timestamp: number;
+  hostId: string;
+}
+
+// Broadcast playback state (HOST ONLY)
+export const broadcastPlaybackState = async (
+  partyId: string,
+  state: Omit<PlaybackState, 'timestamp'>
+): Promise<void> => {
+  try {
+    const playbackRef = ref(realtimeDb, `watchParties/${partyId}/playback`);
+    await set(playbackRef, {
+      ...state,
+      timestamp: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error('Error broadcasting playback state:', error);
+  }
+};
+
+// Subscribe to playback state (ALL USERS)
+export const subscribeToPlaybackState = (
+  partyId: string,
+  callback: (state: PlaybackState | null) => void
+): (() => void) => {
+  const playbackRef = ref(realtimeDb, `watchParties/${partyId}/playback`);
+  
+  onValue(playbackRef, (snapshot) => {
+    const data = snapshot.val();
+    callback(data);
+  });
+
+  // Return unsubscribe function
+  return () => off(playbackRef);
+};
+
+// Participant interface
+export interface Participant {
+  userId: string;
+  username: string;
+  active: boolean;
+  joinedAt: number;
+}
+
+// Update participant count
+export const updateParticipantCount = async (
+  partyId: string,
+  userId: string,
+  username: string,
+  action: 'join' | 'leave'
+): Promise<void> => {
+  try {
+    const participantRef = ref(realtimeDb, `watchParties/${partyId}/participants/${userId}`);
+    
+    if (action === 'join') {
+      await set(participantRef, {
+        userId,
+        username,
+        joinedAt: serverTimestamp(),
+        active: true,
+      });
+    } else {
+      await set(participantRef, {
+        userId,
+        username,
+        active: false,
+        leftAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    console.error('Error updating participant count:', error);
+  }
+};
+
+// Subscribe to participants with full data
+export const subscribeToParticipants = (
+  partyId: string,
+  callback: (participants: Participant[]) => void
+): (() => void) => {
+  const participantsRef = ref(realtimeDb, `watchParties/${partyId}/participants`);
+  
+  onValue(participantsRef, (snapshot) => {
+    const data = snapshot.val();
+    console.log('👥 Raw participant data:', data);
+    if (data) {
+      const participants = Object.values(data)
+        .filter((p: any) => p.active === true)
+        .map((p: any) => ({
+          userId: p.userId,
+          username: p.username,
+          active: p.active,
+          joinedAt: p.joinedAt,
+        })) as Participant[];
+      console.log('👥 Filtered participants:', participants);
+      callback(participants);
+    } else {
+      callback([]);
+    }
+  });
+
+  return () => off(participantsRef);
 };

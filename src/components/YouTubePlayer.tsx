@@ -46,16 +46,18 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
             
             function onYouTubeIframeAPIReady() {
               player = new YT.Player('player', {
-                videoId: '${videoId}',
-                playerVars: {
-                  autoplay: 0,
-                  controls: 1,
-                  modestbranding: 1,
-                  rel: 0,
-                  playsinline: 1,
-                  fs: 1,
-                  enablejsapi: 1
-                },
+  videoId: '${videoId}',
+  host: 'https://www.youtube-nocookie.com',
+  playerVars: {
+    autoplay: 0,
+    controls: 1,
+    modestbranding: 1,
+    rel: 0,
+    playsinline: 1,
+    fs: 1,
+    enablejsapi: 1,
+    origin: window.location.origin
+  },
                 events: {
                   onReady: onPlayerReady,
                   onStateChange: onPlayerStateChange
@@ -187,17 +189,21 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   return (
     <View style={styles.container}>
       <WebView
-        ref={webViewRef}
-        source={{ html: getYouTubeHTML() }}
-        style={styles.webview}
-        allowsInlineMediaPlayback={true}
-        mediaPlaybackRequiresUserAction={false}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        allowsFullscreenVideo={true}
-        onMessage={handleMessage}
-        originWhitelist={['*']}
-      />
+  ref={webViewRef}
+  source={{ 
+    html: getYouTubeHTML(),
+    baseUrl: 'https://www.youtube.com'
+  }}
+  style={styles.webview}
+  allowsInlineMediaPlayback={true}
+  mediaPlaybackRequiresUserAction={false}
+  javaScriptEnabled={true}
+  domStorageEnabled={true}
+  allowsFullscreenVideo={true}
+  onMessage={handleMessage}
+  originWhitelist={['*']}
+  mixedContentMode="always"
+/>
 
       {isLoading && (
         <View style={styles.loadingOverlay}>

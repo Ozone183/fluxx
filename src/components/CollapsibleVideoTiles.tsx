@@ -25,6 +25,7 @@ const CollapsibleVideoTiles: React.FC<CollapsibleVideoTilesProps> = ({
       const participantsList = Object.values(participantsObj);
       setParticipants(participantsList);
       console.log('👥 Video participants:', participantsList.length);
+      console.log('👥 Participant details:', JSON.stringify(participantsList, null, 2));
     };
 
     // Initial load
@@ -68,7 +69,7 @@ const CollapsibleVideoTiles: React.FC<CollapsibleVideoTilesProps> = ({
               <Icon name="close" size={20} color={COLORS.white} />
             </TouchableOpacity>
           </View>
-          
+
           <ScrollView style={styles.scrollContainer}>
             <View style={styles.videoGrid}>
               {participants.map((participant: any) => {
@@ -76,30 +77,30 @@ const CollapsibleVideoTiles: React.FC<CollapsibleVideoTilesProps> = ({
                 const userName = participant.user_name || (isLocal ? 'You' : 'Guest');
                 const videoTrack = participant.tracks?.video;
                 const audioMuted = !participant.audio;
-                
+
                 return (
                   <View key={participant.session_id} style={styles.videoTile}>
                     {videoTrack?.state === 'playable' ? (
-  <DailyMediaView
-    videoTrack={videoTrack}
-    audioTrack={participant.tracks?.audio}
-    mirror={isLocal}
-    objectFit="cover"
-    style={styles.videoView}
-  />
-) : (
-  <View style={styles.videoPlaceholder}>
-    <Icon 
-      name={videoTrack?.off ? 'videocam-off' : 'person'} 
-      size={32} 
-      color={videoTrack?.off ? COLORS.red400 : COLORS.slate600} 
-    />
-    {videoTrack?.off && (
-      <Text style={styles.cameraOffText}>Camera Off</Text>
-    )}
-  </View>
-)}
-                    
+                      <DailyMediaView
+                        videoTrack={videoTrack.track || videoTrack}
+                        audioTrack={participant.tracks?.audio?.track}
+                        mirror={isLocal}
+                        objectFit="cover"
+                        style={styles.videoView}
+                      />
+                    ) : (
+                      <View style={styles.videoPlaceholder}>
+                        <Icon
+                          name={videoTrack?.off ? 'videocam-off' : 'person'}
+                          size={32}
+                          color={videoTrack?.off ? COLORS.red400 : COLORS.slate600}
+                        />
+                        {videoTrack?.off && (
+                          <Text style={styles.cameraOffText}>Camera Off</Text>
+                        )}
+                      </View>
+                    )}
+
                     <View style={styles.videoOverlay}>
                       <Text style={styles.videoTileLabel} numberOfLines={1}>
                         {userName}

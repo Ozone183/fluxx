@@ -40,6 +40,7 @@ const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = ({
   const [showControls, setShowControls] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Use universal video resolver
@@ -286,6 +287,21 @@ const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = ({
     }
   };
 
+  // Toggle mute/unmute
+const toggleMute = async () => {
+  try {
+    if (videoRef.current) {
+      const newMutedState = !isMuted;
+      await videoRef.current.setIsMutedAsync(newMutedState);
+      await videoRef.current.setVolumeAsync(newMutedState ? 0 : 1.0);
+      setIsMuted(newMutedState);
+      console.log('🔊 Audio toggled:', newMutedState ? 'MUTED' : 'UNMUTED');
+    }
+  } catch (error) {
+    console.error('Mute toggle error:', error);
+  }
+};
+
   // Render YouTube player
   if (resolvedVideo.type === 'youtube' && resolvedVideo.videoId) {
     return (
@@ -365,32 +381,44 @@ const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = ({
         </TouchableOpacity>
       )}
 
-      {!isLoading && showControls && (
-        <View style={styles.progressContainer}>
-          <Text style={styles.timeText}>{formatTime(position)}</Text>
-          <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${(position / duration) * 100}%` },
-              ]}
-            />
-          </View>
-          <Text style={styles.timeText}>{formatTime(duration)}</Text>
-
-          <TouchableOpacity
-            style={styles.fullscreenButton}
-            onPress={toggleFullscreen}
-            activeOpacity={0.7}
-          >
-            <Icon
-              name={isFullscreen ? 'contract' : 'expand'}
-              size={20}
-              color={COLORS.white}
-            />
-          </TouchableOpacity>
-        </View>
-      )}
+{!isLoading && showControls && (
+  <View style={styles.progressContainer}>
+    <Text style={styles.timeText}>{formatTime(position)}</Text>
+    <View style={styles.progressBar}>
+      <View
+        style={[
+          styles.progressFill,
+          { width: `${(position / duration) * 100}%` },
+        ]}
+      />
+    </View>
+    <Text style={styles.timeText}>{formatTime(duration)}</Text>
+    
+    <TouchableOpacity
+      style={styles.muteButton}
+      onPress={toggleMute}
+      activeOpacity={0.7}
+    >
+      <Icon
+        name={isMuted ? 'volume-mute' : 'volume-high'}
+        size={20}
+        color={COLORS.white}
+      />
+    </TouchableOpacity>
+    
+    <TouchableOpacity
+      style={styles.fullscreenButton}
+      onPress={toggleFullscreen}
+      activeOpacity={0.7}
+    >
+      <Icon
+        name={isFullscreen ? 'contract' : 'expand'}
+        size={20}
+        color={COLORS.white}
+      />
+    </TouchableOpacity>
+  </View>
+)}
 
       {!isFullscreen && isHost && (
         <View style={styles.hostBadge}>
@@ -571,6 +599,11 @@ const styles = StyleSheet.create({
     elevation: 999,
     borderWidth: 2,
     borderColor: COLORS.white,
+  },
+  muteButton: {
+    padding: 8,
+    marginLeft: 8,
+    zIndex: 3,
   },
 });
 

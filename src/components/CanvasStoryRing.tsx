@@ -141,9 +141,16 @@ const CanvasStoryRing: React.FC<CanvasStoryRingProps> = ({
         </View>
       )}
 
-      <Text style={styles.username} numberOfLines={1}>
-        {creatorName}
-      </Text>
+<View style={styles.textContainer}>
+        {canvas.title && (
+          <Text style={styles.canvasTitle} numberOfLines={1}>
+            {canvas.title}
+          </Text>
+        )}
+        <Text style={styles.username} numberOfLines={1}>
+          {creatorName}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -253,6 +260,17 @@ const styles = StyleSheet.create({
   blurredThumbnail: {
     opacity: 0.3,
   },
+  textContainer: {
+    alignItems: 'center',
+    marginTop: 8,
+    width: '100%',
+  },
+  canvasTitle: {
+    fontSize: 10,
+    color: COLORS.cyan400,
+    fontWeight: '700',
+    marginBottom: -7,
+  },  
 });
 
 export default CanvasStoryRing;

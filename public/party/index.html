@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Join Fluxx Watch Party</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { 
+      font-family: system-ui; 
+      text-align: center; 
+      padding: 40px; 
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: white;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .logo { font-size: 64px; margin-bottom: 20px; }
+    h1 { color: #06b6d4; font-size: 32px; }
+    .loading { margin: 30px 0; font-size: 18px; color: #94a3b8; }
+    .store-btn {
+      display: inline-block;
+      background: #06b6d4;
+      color: white;
+      padding: 16px 32px;
+      border-radius: 12px;
+      text-decoration: none;
+      margin-top: 20px;
+      font-weight: bold;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo">🎬</div>
+  <h1>Opening Fluxx...</h1>
+  <div class="loading">Redirecting to watch party...</div>
+  <a href="#" id="storeLink" class="store-btn" style="display:none;">
+    Get Fluxx on Play Store
+  </a>
+
+  <script>
+    const partyId = window.location.pathname.split('/party/')[1];
+    const deepLink = `fluxx://watchparty/${partyId}`;
+    const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.fluxxstable';
+
+    window.location.href = deepLink;
+
+    setTimeout(() => {
+      const storeBtn = document.getElementById('storeLink');
+      storeBtn.href = playStoreUrl;
+      storeBtn.style.display = 'inline-block';
+      document.querySelector('.loading').textContent = "Don't have Fluxx yet?";
+    }, 2000);
+  </script>
+</body>
+</html>

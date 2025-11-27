@@ -10,8 +10,9 @@ import {
     Alert,
     ActivityIndicator,
     ScrollView,
+    Linking,
 } from 'react-native';
-import { Clipboard } from 'react-native';
+import { Clipboard, Share } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import DailyIframe from '@daily-co/react-native-daily-js';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -130,6 +131,37 @@ const WatchPartyScreen = () => {
             };
         }
     }, [partyId, userId, channelName]);
+
+    // Handle deep link navigation
+useEffect(() => {
+    const handleDeepLink = (event: any) => {
+      const url = event.url;
+      console.log('🔗 Deep link received:', url);
+      
+      if (url && url.includes('watchparty/')) {
+        const deepLinkPartyId = url.split('watchparty/')[1];
+        console.log('🎬 Navigating to party:', deepLinkPartyId);
+        navigation.setParams({ partyId: deepLinkPartyId } as any);
+      }
+    };
+  
+    // Check if app opened via deep link
+    const checkInitialURL = async () => {
+      const initialUrl = await Linking.getInitialURL();
+      if (initialUrl) {
+        handleDeepLink({ url: initialUrl });
+      }
+    };
+  
+    checkInitialURL();
+  
+    // Listen for deep links while app is open
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+  
+    return () => {
+      subscription.remove();
+    };
+  }, [navigation]);
 
     // 🔥 FIXED: Request permissions (Daily.co will handle this)
     const requestPermissions = async () => {
@@ -424,16 +456,15 @@ const WatchPartyScreen = () => {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity
-                    onPress={() => {
-                        if (isInCall) {
-                            leaveCall();
-                        } else {
-                            navigation.setParams({ partyId: undefined } as any);
-                        }
-                    }}
-                    style={styles.backButton}
-                >
+            <TouchableOpacity
+  onPress={async () => {
+    if (isInCall) {
+      await leaveCall();
+    }
+    navigation.setParams({ partyId: undefined } as any);
+  }}
+  style={styles.backButton}
+>
                     <Icon name="arrow-back" size={24} color={COLORS.white} />
                 </TouchableOpacity>
                 <View style={styles.headerInfo}>
@@ -444,17 +475,23 @@ const WatchPartyScreen = () => {
 
                 </View>
                 <View style={styles.headerActions}>
-                    <TouchableOpacity
-                        onPress={() => {
-                            try {
-                                Clipboard.setString(`fluxx://watchparty/${partyId}`);
-                                Alert.alert('🎉 Invite Link Copied!', 'Share it with friends to watch together!');
-                            } catch (error) {
-                                Alert.alert('Error', 'Could not copy invite link');
-                            }
-                        }}
-                        style={styles.shareButton}
-                    >
+                <TouchableOpacity
+  onPress={async () => {
+    try {
+      const webLink = `https://fluxx-fe69f.web.app/party/${partyId}`;
+      const shareMessage = `🎬 Join my watch party!\n\n"${party.title}"\n${party.videoTitle || 'Now watching'}\n\n${webLink}`;
+      
+      await Share.share({
+        message: shareMessage,
+        url: webLink,
+        title: 'Join Watch Party',
+      });
+    } catch (error) {
+      console.error('Share error:', error);
+    }
+  }}
+  style={styles.shareButton}
+>
                         <Icon name="share-social" size={22} color={COLORS.cyan400} />
                     </TouchableOpacity>
 

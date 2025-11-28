@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../config/firebase';
+import { checkPendingDeepLink } from '../../App';
 
 interface LoginScreenProps {
   navigation: any;
@@ -52,13 +53,25 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
-      // Navigation will be handled by auth state change in AuthContext
+
+      // ✅ CHECK FOR PENDING DEEP LINK AFTER LOGIN
+setTimeout(async () => {
+  console.log('🔍 Checking for pending deep link...');
+  const hadPendingLink = await checkPendingDeepLink(navigation);
+  
+  if (hadPendingLink) {
+    console.log('✅ Had pending deep link, navigation handled');
+  } else {
+    console.log('ℹ️ No pending deep link, normal flow');
+  }
+}, 1000); // ✅ CHANGED from 500 to 1000
+
     } catch (error: any) {
       console.error('Login error:', error);
-      
+
       // Handle specific Firebase errors
       let errorMessage = 'Login failed. Please try again.';
-      
+
       if (error.code === 'auth/user-not-found') {
         errorMessage = 'No account found with this email.';
       } else if (error.code === 'auth/wrong-password') {

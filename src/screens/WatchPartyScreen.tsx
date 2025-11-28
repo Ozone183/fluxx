@@ -163,6 +163,38 @@ useEffect(() => {
     };
   }, [navigation]);
 
+  // Auto-join party from deep link
+useEffect(() => {
+    const deepLinkPartyId = (route.params as any)?.partyId;
+    
+    if (deepLinkPartyId && !isInCall && activeParties.length > 0 && !party) {
+      console.log('🎬 Auto-joining party from deep link:', deepLinkPartyId);
+      
+      const foundParty = activeParties.find(p => p.id === deepLinkPartyId);
+      
+      if (foundParty) {
+        console.log('✅ Found party, setting up:', foundParty.title);
+        
+        // Set the party in state (this is what joinCall needs)
+        setParty(foundParty);
+        
+        // joinCall will execute once party is set
+      } else {
+        console.log('⚠️ Party not found in active parties');
+      }
+    }
+  }, [(route.params as any)?.partyId, activeParties, isInCall, party]);
+  
+  // Separate effect: Auto-call joinCall when party is set from deep link
+useEffect(() => {
+    const deepLinkPartyId = (route.params as any)?.partyId;
+    
+    if (deepLinkPartyId && party && party.id === deepLinkPartyId && !isInCall && !callObject) {
+      console.log('🚀 Party set from deep link, joining call...');
+      joinCall();
+    }
+  }, [party, isInCall, callObject, (route.params as any)?.partyId]);
+
     // 🔥 FIXED: Request permissions (Daily.co will handle this)
     const requestPermissions = async () => {
         return true;

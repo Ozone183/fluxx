@@ -91,7 +91,11 @@ const MusicPlayerBar: React.FC<MusicPlayerBarProps> = ({
       // Load sound
       const { sound: newSound } = await Audio.Sound.createAsync(
         track.url,
-        { volume: volume, shouldPlay: false },
+        {
+          volume: volume,
+          shouldPlay: false,
+          isLooping: true  // ✅ ENABLE NATIVE LOOPING
+        },
         onPlaybackStatusUpdate
       );
 
@@ -110,9 +114,9 @@ const MusicPlayerBar: React.FC<MusicPlayerBarProps> = ({
       setDuration(status.durationMillis || track.duration * 1000);
       setIsPlaying(status.isPlaying);
 
+      // ✅ No manual replay needed - isLooping handles it!
       if (status.didJustFinish) {
-        setIsPlaying(false);
-        setPosition(0);
+        console.log('🔁 Song looped automatically');
       }
     }
   };

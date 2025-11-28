@@ -245,6 +245,38 @@ const AppNavigator = () => {
 
 const navigationRef = createNavigationContainerRef();
 
+// ✅ Helper functions for deep link + auth flow
+const storePendingDeepLink = async (url: string) => {
+  try {
+    if (url.includes('watchparty/')) {
+      const partyId = url.split('watchparty/')[1];
+      await AsyncStorage.setItem('pendingPartyId', partyId);
+      console.log('💾 Stored pending party ID:', partyId);
+    }
+  } catch (error) {
+    console.error('Error storing pending deep link:', error);
+  }
+};
+
+export const checkPendingDeepLink = async (navigation: any) => {
+  try {
+    const pendingPartyId = await AsyncStorage.getItem('pendingPartyId');
+    if (pendingPartyId) {
+      console.log('🎉 Found pending party ID:', pendingPartyId);
+      await AsyncStorage.removeItem('pendingPartyId');
+      setTimeout(() => {
+        console.log('🚀 Navigating to party:', pendingPartyId);
+        navigation.navigate('WatchParty', { partyId: pendingPartyId });
+      }, 500);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error checking pending deep link:', error);
+    return false;
+  }
+};
+
 // NEW: Separate component that uses useAuth
 const AppContent = () => {
   const { userId, isProfileSetup } = useAuth(); // ✅ Now inside AuthProvider
@@ -268,7 +300,7 @@ const AppContent = () => {
     }
   };
 
-  const handleDeepLink = (url: string) => {
+  const handleDeepLink = async (url: string) => {
     try {
       const { path } = Linking.parse(url);
 
@@ -288,15 +320,20 @@ const AppContent = () => {
           console.log('❌ User not authenticated, cannot navigate');
         }
       } else if (path?.startsWith('watchparty/')) {
-        // 🎬 NEW: Watch Party deep link
+        // 🎬 Watch Party deep link
         const partyId = path.replace('watchparty/', '');
         console.log('🎬 Watch Party ID extracted:', partyId);
 
         if (userId && isProfileSetup) {
           console.log('✅ Navigating to watch party...');
-          (navigationRef.current as any)?.navigate('WatchParty', { partyId });
+          // ✅ ADD DELAY FOR NAVIGATION
+          setTimeout(() => {
+            (navigationRef.current as any)?.navigate('WatchParty', { partyId });
+          }, 500);
         } else {
-          console.log('❌ User not authenticated, cannot navigate');
+          console.log('❌ User not authenticated, storing for after login...');
+          // ✅ STORE THE PARTY ID FOR AFTER LOGIN
+          await storePendingDeepLink(url);
         }
       } else {
         console.log('❓ Invalid deep link path');
@@ -365,3 +402,4 @@ const App = () => {
 };
 
 export default App;
+

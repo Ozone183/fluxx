@@ -10,6 +10,7 @@ import {
   Dimensions,
   PanResponder,
   ActivityIndicator,
+  TextInput,  // ✅ ADD THIS
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -32,7 +33,7 @@ const BASE_CANVAS_HEIGHT = 622; // 16:9 ratio
 
 // Calculate actual canvas size (with padding) - same logic as CanvasEditorScreen
 const ACTUAL_CANVAS_WIDTH = Math.min(SCREEN_WIDTH - 40, 500); // Max 500px for tablets
-const ACTUAL_CANVAS_HEIGHT = ACTUAL_CANVAS_WIDTH * (BASE_CANVAS_HEIGHT / BASE_CANVAS_WIDTH);
+const ACTUAL_CANVAS_HEIGHT = ACTUAL_CANVAS_WIDTH * (BASE_CANVAS_HEIGHT / BASE_CANVAS_WIDTH) * 0.90; // ✅ REDUCE by 15%
 
 interface Point {
   x: number;
@@ -47,15 +48,15 @@ interface Stroke {
 }
 
 type RouteParams = {
-    DrawingEditorScreen: {
-      template: DrawingTemplate;
-    };
-    DrawingEditor: {
-      mode?: 'canvas' | 'layer';
-      canvasId?: string;
-      template?: DrawingTemplate;
-    };
+  DrawingEditorScreen: {
+    template: DrawingTemplate;
   };
+  DrawingEditor: {
+    mode?: 'canvas' | 'layer';
+    canvasId?: string;
+    template?: DrawingTemplate;
+  };
+};
 
 // Preset colors
 const PRESET_COLORS = [
@@ -81,32 +82,32 @@ const TOOLS = [
 // Convert points array to SVG path string
 const pointsToPath = (points: Point[]): string => {
   if (points.length === 0) return '';
-  
+
   let path = `M ${points[0].x} ${points[0].y}`;
-  
+
   for (let i = 1; i < points.length; i++) {
     path += ` L ${points[i].x} ${points[i].y}`;
   }
-  
+
   return path;
 };
 
 export default function DrawingEditorScreen() {
-    const navigation = useNavigation();
-    const route = useRoute<RouteProp<RouteParams, 'DrawingEditorScreen' | 'DrawingEditor'>>();
-    
-    // Support both old route (DrawingEditorScreen) and new route (DrawingEditor)
-    const params = route.params as any;
-    const mode = params?.mode || 'canvas'; // 'canvas' = new canvas, 'layer' = add to existing
-    const canvasId = params?.canvasId;
-    const template = params?.template || {
-      id: 'blank',
-      name: 'Quick Draw',
-      category: 'quick',
-      instructions: 'Draw anything!',
-      background: '#FFFFFF',
-      icon: 'brush',
-    };
+  const navigation = useNavigation();
+  const route = useRoute<RouteProp<RouteParams, 'DrawingEditorScreen' | 'DrawingEditor'>>();
+
+  // Support both old route (DrawingEditorScreen) and new route (DrawingEditor)
+  const params = route.params as any;
+  const mode = params?.mode || 'canvas'; // 'canvas' = new canvas, 'layer' = add to existing
+  const canvasId = params?.canvasId;
+  const template = params?.template || {
+    id: 'blank',
+    name: 'Quick Draw',
+    category: 'quick',
+    instructions: 'Draw anything!',
+    background: '#FFFFFF',
+    icon: 'brush',
+  };
 
   // Drawing state
   const [strokes, setStrokes] = useState<Stroke[]>([]);
@@ -115,6 +116,8 @@ export default function DrawingEditorScreen() {
   const [strokeWidth, setStrokeWidth] = useState(3);
   const [selectedTool, setSelectedTool] = useState<'pen' | 'brush' | 'eraser'>('pen');
   const [isSaving, setIsSaving] = useState(false);
+  const [canvasTitle, setCanvasTitle] = useState(template.name);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const { userChannel } = useAuth(); // Add after navigation/route hooks
 
   // Ref for canvas capture
@@ -179,7 +182,7 @@ export default function DrawingEditorScreen() {
             const currentColor = selectedColorRef.current;
             const currentTool = selectedToolRef.current;
             const currentWidth = strokeWidthRef.current;
-            
+
             const newStroke: Stroke = {
               points: [...currentPts],
               color: currentTool === 'eraser' ? template.background : currentColor,
@@ -190,14 +193,14 @@ export default function DrawingEditorScreen() {
             // Use refs to get latest values
             const currentStrokes = strokesRef.current;
             const newStrokes = [...currentStrokes, newStroke];
-            
+
             setStrokes(newStrokes);
 
             // Update history
             const currentHistory = historyRef.current;
             const currentStep = historyStepRef.current;
             const newHistory = [...currentHistory.slice(0, currentStep + 1), newStrokes];
-            
+
             setHistory(newHistory);
             setHistoryStep(newHistory.length - 1);
           }
@@ -250,39 +253,39 @@ export default function DrawingEditorScreen() {
       Alert.alert('Empty Canvas', 'Draw something before saving!');
       return;
     }
-  
+
     if (!auth.currentUser) {
       Alert.alert('Error', 'You must be logged in to save drawings');
       return;
     }
-  
+
     setIsSaving(true);
-  
+
     try {
       console.log('🎨 Capturing canvas...');
-      
+
       const uri = await captureRef(canvasViewRef, {
         format: 'png',
         quality: 0.9,
       });
-  
+
       console.log('✅ Canvas captured:', uri);
-  
+
       console.log('☁️ Uploading to Firebase Storage...');
       const uploadResult = await uploadDrawingImage(
         uri,
         auth.currentUser.uid
       );
-  
+
       console.log('✅ Upload successful:', uploadResult.imageUrl);
-  
+
       const username = userChannel || auth.currentUser.displayName || 'Anonymous';
       const userAvatar = auth.currentUser.photoURL || '';
-  
+
       if (mode === 'layer' && canvasId) {
         // MODE: Add drawing as layer to existing canvas
         console.log('📦 Adding drawing as layer to canvas:', canvasId);
-        
+
         const { addDrawingLayer } = await import('../services/drawingLayerService');
         await addDrawingLayer(
           canvasId,
@@ -291,12 +294,12 @@ export default function DrawingEditorScreen() {
           username,
           userAvatar
         );
-        
+
         console.log('✅ Drawing layer added!');
-        
+
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         navigation.goBack();
-        
+
       } else {
         // MODE: Create new drawing canvas
         console.log('📦 Creating drawing canvas...');
@@ -305,18 +308,18 @@ export default function DrawingEditorScreen() {
           username,
           uploadResult.imageUrl,
           uploadResult.storagePath,
-          template.name,
+          canvasTitle,  // ✅ NEW: Uses custom title
           userAvatar
         );
-  
+
         console.log('✅ Drawing canvas created:', newCanvasId);
-  
+
         setStrokes([]);
         setHistory([[]]);
         setHistoryStep(0);
-  
+
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        
+
         Alert.alert(
           'Drawing Saved! 🎉',
           'Your masterpiece has been saved to canvas stories!',
@@ -339,9 +342,9 @@ export default function DrawingEditorScreen() {
       }
     } catch (error: any) {
       console.error('❌ Error saving drawing:', error);
-      
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      
+
       Alert.alert(
         'Error Saving Drawing',
         error.message || 'Failed to save your drawing. Please try again.'
@@ -352,7 +355,7 @@ export default function DrawingEditorScreen() {
   };
 
   // Also update handleBack to check if drawing was saved
-const handleBack = () => {
+  const handleBack = () => {
     if (strokes.length > 0) {
       Alert.alert(
         'Discard Drawing?',
@@ -388,19 +391,39 @@ const handleBack = () => {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={handleBack} 
+        <TouchableOpacity
+          onPress={handleBack}
           style={styles.headerButton}
           disabled={isSaving}
         >
           <Ionicons name="close" size={28} color="#FFFFFF" />
         </TouchableOpacity>
+        
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{template.name}</Text>
-          <Text style={styles.headerSubtitle}>{template.instructions}</Text>
+          {isEditingTitle ? (
+            <TextInput
+              style={styles.headerTitleInput}
+              value={canvasTitle}
+              onChangeText={setCanvasTitle}
+              onBlur={() => setIsEditingTitle(false)}
+              autoFocus
+              maxLength={30}
+              placeholder="Canvas title"
+              placeholderTextColor={COLORS.slate500}
+            />
+          ) : (
+            <TouchableOpacity onPress={() => setIsEditingTitle(true)}>
+              <View style={styles.titleContainer}>
+                <Text style={styles.headerTitle}>{canvasTitle}</Text>
+                <Ionicons name="pencil" size={14} color={COLORS.slate400} style={{ marginLeft: 6 }} />
+              </View>
+              <Text style={styles.headerSubtitle}>{template.instructions}</Text>
+            </TouchableOpacity>
+          )}
         </View>
-        <TouchableOpacity 
-          onPress={handleSave} 
+        
+        <TouchableOpacity
+          onPress={handleSave}
           style={styles.headerButton}
           disabled={isSaving}
         >
@@ -456,130 +479,135 @@ const handleBack = () => {
 
       {/* Toolbar */}
       <View style={styles.toolbar}>
-        {/* Tools Row */}
-        <View style={styles.toolsRow}>
-          {TOOLS.map((tool) => (
-            <TouchableOpacity
-              key={tool.id}
-              style={[
-                styles.toolButton,
-                selectedTool === tool.id && styles.toolButtonActive,
-              ]}
-              onPress={() => handleToolSelect(tool.id as any)}
-              disabled={isSaving}
-            >
-              <Ionicons
-                name={tool.icon as any}
-                size={24}
-                color={selectedTool === tool.id ? '#FFFFFF' : COLORS.slate400}
-              />
-            </TouchableOpacity>
-          ))}
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity
-            style={[styles.toolButton, !canUndo && styles.toolButtonDisabled]}
-            onPress={handleUndo}
-            disabled={!canUndo || isSaving}
-          >
-            <Ionicons
-              name="arrow-undo"
-              size={24}
-              color={canUndo ? COLORS.slate300 : COLORS.slate600}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.toolButton, !canRedo && styles.toolButtonDisabled]}
-            onPress={handleRedo}
-            disabled={!canRedo || isSaving}
-          >
-            <Ionicons
-              name="arrow-redo"
-              size={24}
-              color={canRedo ? COLORS.slate300 : COLORS.slate600}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.toolButton} 
-            onPress={handleClear}
-            disabled={isSaving}
-          >
-            <Ionicons name="trash-outline" size={24} color={COLORS.red500} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Colors Row */}
-        {selectedTool !== 'eraser' && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.colorsScroll}
-            contentContainerStyle={styles.colorsRow}
-            scrollEnabled={!isSaving}
-          >
-            {PRESET_COLORS.map((color) => (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 30 }}
+        >
+          {/* Tools Row */}
+          <View style={styles.toolsRow}>
+            {TOOLS.map((tool) => (
               <TouchableOpacity
-                key={color}
+                key={tool.id}
                 style={[
-                  styles.colorButton,
-                  { backgroundColor: color },
-                  color === '#FFFFFF' && styles.colorButtonWhite,
-                  selectedColor === color && styles.colorButtonSelected,
+                  styles.toolButton,
+                  selectedTool === tool.id && styles.toolButtonActive,
                 ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSelectedColor(color);
-                }}
+                onPress={() => handleToolSelect(tool.id as any)}
                 disabled={isSaving}
               >
-                {selectedColor === color && (
-                  <Ionicons
-                    name="checkmark"
-                    size={16}
-                    color={color === '#FFFFFF' || color === '#FFFF00' ? '#000000' : '#FFFFFF'}
-                  />
-                )}
+                <Ionicons
+                  name={tool.icon as any}
+                  size={24}
+                  color={selectedTool === tool.id ? '#FFFFFF' : COLORS.slate400}
+                />
               </TouchableOpacity>
             ))}
-          </ScrollView>
-        )}
 
-        {/* Stroke Width */}
-        {selectedTool !== 'eraser' && (
-          <View style={styles.widthRow}>
-            <Text style={styles.widthLabel}>Width: {strokeWidth}px</Text>
-            <View style={styles.widthButtons}>
-              {[1, 3, 5, 8, 12].map((width) => (
+            <View style={styles.divider} />
+
+            <TouchableOpacity
+              style={[styles.toolButton, !canUndo && styles.toolButtonDisabled]}
+              onPress={handleUndo}
+              disabled={!canUndo || isSaving}
+            >
+              <Ionicons
+                name="arrow-undo"
+                size={24}
+                color={canUndo ? COLORS.slate300 : COLORS.slate600}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.toolButton, !canRedo && styles.toolButtonDisabled]}
+              onPress={handleRedo}
+              disabled={!canRedo || isSaving}
+            >
+              <Ionicons
+                name="arrow-redo"
+                size={24}
+                color={canRedo ? COLORS.slate300 : COLORS.slate600}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.toolButton}
+              onPress={handleClear}
+              disabled={isSaving}
+            >
+              <Ionicons name="trash-outline" size={24} color={COLORS.red500} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Colors Row */}
+          {selectedTool !== 'eraser' && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.colorsScroll}
+              contentContainerStyle={styles.colorsRow}
+              scrollEnabled={!isSaving}
+            >
+              {PRESET_COLORS.map((color) => (
                 <TouchableOpacity
-                  key={width}
+                  key={color}
                   style={[
-                    styles.widthButton,
-                    strokeWidth === width && styles.widthButtonActive,
+                    styles.colorButton,
+                    { backgroundColor: color },
+                    color === '#FFFFFF' && styles.colorButtonWhite,
+                    selectedColor === color && styles.colorButtonSelected,
                   ]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setStrokeWidth(width);
+                    setSelectedColor(color);
                   }}
                   disabled={isSaving}
                 >
-                  <View
-                    style={[
-                      styles.widthPreview,
-                      {
-                        width: width * 2,
-                        height: width * 2,
-                        backgroundColor: strokeWidth === width ? COLORS.cyan400 : COLORS.slate400,
-                      },
-                    ]}
-                  />
+                  {selectedColor === color && (
+                    <Ionicons
+                      name="checkmark"
+                      size={16}
+                      color={color === '#FFFFFF' || color === '#FFFF00' ? '#000000' : '#FFFFFF'}
+                    />
+                  )}
                 </TouchableOpacity>
               ))}
+            </ScrollView>
+          )}
+
+          {/* Stroke Width */}
+          {selectedTool !== 'eraser' && (
+            <View style={styles.widthRow}>
+              <Text style={styles.widthLabel}>Width: {strokeWidth}px</Text>
+              <View style={styles.widthButtons}>
+                {[1, 3, 5, 8, 12].map((width) => (
+                  <TouchableOpacity
+                    key={width}
+                    style={[
+                      styles.widthButton,
+                      strokeWidth === width && styles.widthButtonActive,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setStrokeWidth(width);
+                    }}
+                    disabled={isSaving}
+                  >
+                    <View
+                      style={[
+                        styles.widthPreview,
+                        {
+                          width: width * 2,
+                          height: width * 2,
+                          backgroundColor: strokeWidth === width ? COLORS.cyan400 : COLORS.slate400,
+                        },
+                      ]}
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-          </View>
-        )}
+          )}
+        </ScrollView>
       </View>
 
       {/* Saving Overlay */}
@@ -605,7 +633,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 50,
+    paddingTop: 40,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.slate800,
@@ -647,6 +675,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.slate700,
     paddingBottom: 20,
+    maxHeight: 280,  // ✅ LIMIT HEIGHT so content scrolls
   },
   toolsRow: {
     flexDirection: 'row',
@@ -742,5 +771,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: '500',
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitleInput: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    backgroundColor: COLORS.slate800,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.cyan400,
+    minWidth: 150,
   },
 });

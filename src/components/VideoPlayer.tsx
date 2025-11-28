@@ -34,7 +34,7 @@ export default function VideoPlayer({
 }: VideoPlayerProps) {
   const videoRef = useRef<Video>(null);
   const [isPlaying, setIsPlaying] = useState(autoPlay);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true); // ✅ MUTE BY DEFAULT
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
   const [isBuffering, setIsBuffering] = useState(true);
@@ -172,14 +172,14 @@ export default function VideoPlayer({
   return (
     <>
       <View style={[styles.container, style]}>
-        <Video
+      <Video
           ref={videoRef}
           source={{ uri: videoUrl }}
           style={styles.video}
           resizeMode={ResizeMode.COVER}
           shouldPlay={autoPlay}
           isLooping
-          isMuted={isMuted}
+          isMuted={true}  // ✅ ALWAYS START MUTED
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
           usePoster={!!thumbnailUrl}
           posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}

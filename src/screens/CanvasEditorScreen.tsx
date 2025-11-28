@@ -180,11 +180,12 @@ const CanvasEditorScreen = () => {
       // Screen is focused - enable music
       setShouldPlayMusic(true);
       console.log('🎵 Canvas focused - music enabled');
-
+  
       return () => {
-        // Screen is unfocused (user left canvas) - disable music
-        setShouldPlayMusic(false);
-        console.log('🛑 Canvas unfocused - stopping music');
+        // ✅ KEEP MUSIC PLAYING when navigating to drawing editor
+        // Only stop when actually leaving canvas back to feed
+        console.log('🎵 Canvas unfocused - keeping music playing');
+        // Music will continue playing in background
       };
     }, [])
   );

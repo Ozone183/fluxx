@@ -180,15 +180,15 @@ const PostCard: React.FC<PostCardProps> = ({
       {/* Full Width Image, Video, or Carousel */}
       {post.type === 'carousel' && post.images && post.images.length > 0 ? (
         <ImageCarouselViewer
-          images={post.images}
-          musicUrl={post.musicUrl}
-          musicTitle={post.musicTitle}
-          autoPlayMusic={true}
-          pauseMusic={pauseCarouselMusic}
-          onImageChange={(index) => {
-            console.log(`Viewing image ${index + 1} of ${post.images?.length}`);
-          }}
-        />
+        images={post.images}
+        musicUrl={post.musicUrl}
+        musicTitle={post.musicTitle}
+        autoPlayMusic={false}  // ✅ DON'T AUTO-PLAY MUSIC
+        pauseMusic={pauseCarouselMusic}
+        onImageChange={(index) => {
+          console.log(`Viewing image ${index + 1} of ${post.images?.length}`);
+        }}
+      />
       ) : post.type === 'video' && post.videoUrl ? (
         post.isProcessing ? (
           // Show processing indicator

@@ -23,8 +23,8 @@
       "infoPlist": {
         "NSPhotoLibraryAddUsageDescription": "Fluxx needs access to save your canvas creations to your photo library.",
         "NSPhotoLibraryUsageDescription": "Fluxx needs access to your photo library to save your canvas creations.",
-        "NSMicrophoneUsageDescription": "Fluxx needs access to your microphone to record voice comments.",
-        "NSCameraUsageDescription": "Fluxx needs camera access to display canvases in AR.",
+        "NSMicrophoneUsageDescription": "Fluxx needs access to your microphone to record voice comments and AR videos.",
+        "NSCameraUsageDescription": "Fluxx needs camera access to display canvases in AR and create AR effects.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -76,7 +76,15 @@
           "isAccessMediaLocationEnabled": true
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "Fluxx needs camera access for AR effects and video recording",
+          "enableMicrophonePermission": true,
+          "microphonePermissionText": "Fluxx needs microphone access for AR videos with sound"
+        }
+      ]
     ],
     "owner": "raymanjago",
     "extra": {

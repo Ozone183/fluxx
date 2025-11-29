@@ -36,12 +36,16 @@ import ProfileMenuDrawer from './src/screens/ProfileMenuDrawer';
 import CreateModal from './src/components/CreateModal';
 import TokenHistoryScreen from './src/screens/TokenHistoryScreen';
 import ARViewerScreen from './src/screens/ARViewerScreen';
+import ARCameraScreen from './src/screens/ARCameraScreen';
 import CreateImageCarouselPost from './src/screens/CreateImageCarouselPost';
 import TestCarouselPost from './src/screens/TestCarouselPost'; // Optional
 import CreatePostTypeScreen from './src/screens/CreatePostTypeScreen';
 import CanvasTypeScreen from './src/screens/CanvasTypeScreen';
 import CreateDrawingCanvasScreen from './src/screens/CreateDrawingCanvasScreen';
 import DrawingEditorScreen from './src/screens/DrawingEditorScreen';
+import MessagingScreen from './src/screens/MessagingScreen';
+import ChatScreen from './src/screens/ChatScreen';
+
 
 import { COLORS } from './src/theme/colors';
 
@@ -236,6 +240,25 @@ const AppNavigator = () => {
               headerShown: false,
               presentation: 'fullScreenModal',
             }}
+          />
+          <Stack.Screen
+            name="ARCamera"
+            component={ARCameraScreen}
+            options={{
+              headerShown: false,
+              presentation: 'fullScreenModal',
+              animation: 'fade',
+            }}
+          />
+          <Stack.Screen
+            name="MessagingScreen"
+            component={MessagingScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ChatScreen"
+            component={ChatScreen}
+            options={{ headerShown: false }}
           />
         </>
       )}

@@ -9,7 +9,6 @@ import {
   StyleSheet,
   Dimensions,
   TouchableWithoutFeedback,
-  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme/colors';
@@ -57,12 +56,6 @@ const CreateModal: React.FC<CreateModalProps> = ({
     }
   };
 
-  const handleARCamera = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    onClose();
-    (navigation as any).navigate('ARCamera');
-  };
-
   const handleClose = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onClose();
@@ -89,12 +82,8 @@ const CreateModal: React.FC<CreateModalProps> = ({
                 </Text>
               </View>
 
-              {/* Scrollable Create Options */}
-              <ScrollView 
-                style={styles.scrollContainer}
-                contentContainerStyle={styles.optionsContainer}
-                showsVerticalScrollIndicator={false}
-              >
+              {/* Create Options */}
+              <View style={styles.optionsContainer}>
                 {/* Create Post */}
                 <TouchableOpacity
                   style={styles.option}
@@ -164,7 +153,11 @@ const CreateModal: React.FC<CreateModalProps> = ({
                 {/* AR Camera */}
                 <TouchableOpacity
                   style={styles.option}
-                  onPress={handleARCamera}
+                  onPress={async () => {
+                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    onClose();
+                    (navigation as any).navigate('ARCamera');
+                  }}
                   activeOpacity={0.8}
                 >
                   <View style={[styles.iconContainer, { backgroundColor: COLORS.pink500 }]}>
@@ -182,7 +175,7 @@ const CreateModal: React.FC<CreateModalProps> = ({
                     <Ionicons name="chevron-forward" size={20} color={COLORS.slate400} />
                   </View>
                 </TouchableOpacity>
-              </ScrollView>
+              </View>
 
               {/* Feature Highlights */}
               <View style={styles.featuresContainer}>
@@ -226,30 +219,27 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
+    justifyContent: 'center',  // Change from 'flex-end' to 'center'
   },
   modalContainer: {
     backgroundColor: COLORS.slate900,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingBottom: 40,
-    maxHeight: '85%', // ✅ Increased from 80% to 85%
-    marginHorizontal: 16, // ✅ Add horizontal margin
-    marginBottom: 20, // ✅ Add bottom margin
-    borderRadius: 24, // ✅ Round all corners
+    maxHeight: '80%',
   },
   header: {
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 16, // ✅ Reduced from 24 to 16
+    paddingBottom: 24,
   },
   handle: {
     width: 40,
     height: 4,
     backgroundColor: COLORS.slate600,
     borderRadius: 2,
-    marginBottom: 16, // ✅ Reduced from 20 to 16
+    marginBottom: 20,
   },
   title: {
     fontSize: 24,
@@ -264,12 +254,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
-  scrollContainer: {
-    maxHeight: 320, // ✅ Limit scroll area height
-  },
   optionsContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 16, // ✅ Add bottom padding
     gap: 12,
   },
   option: {
@@ -277,54 +263,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.slate800,
     borderRadius: 16,
-    padding: 16, // ✅ Reduced from 20 to 16
+    padding: 20,
     borderWidth: 1,
     borderColor: COLORS.slate700,
   },
   iconContainer: {
-    width: 48, // ✅ Reduced from 56 to 48
-    height: 48, // ✅ Reduced from 56 to 48
-    borderRadius: 24, // ✅ Adjusted border radius
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14, // ✅ Reduced from 16 to 14
+    marginRight: 16,
   },
   optionContent: {
     flex: 1,
   },
   optionTitle: {
-    fontSize: 17, // ✅ Reduced from 18 to 17
+    fontSize: 18,
     fontWeight: '600',
     color: COLORS.white,
     marginBottom: 4,
   },
   optionDescription: {
-    fontSize: 13, // ✅ Reduced from 14 to 13
+    fontSize: 14,
     color: COLORS.slate400,
-    lineHeight: 18, // ✅ Reduced from 20 to 18
+    lineHeight: 20,
   },
   arrowContainer: {
     marginLeft: 12,
   },
   featuresContainer: {
     paddingHorizontal: 20,
-    paddingTop: 20, // ✅ Reduced from 32 to 20
-    paddingBottom: 20, // ✅ Reduced from 24 to 20
+    paddingTop: 32,
+    paddingBottom: 24,
   },
   featuresTitle: {
-    fontSize: 15, // ✅ Reduced from 16 to 15
+    fontSize: 16,
     fontWeight: '600',
     color: COLORS.white,
-    marginBottom: 12, // ✅ Reduced from 16 to 12
+    marginBottom: 16,
   },
   feature: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10, // ✅ Reduced from 12 to 10
+    marginBottom: 12,
     gap: 12,
   },
   featureText: {
-    fontSize: 13, // ✅ Reduced from 14 to 13
+    fontSize: 14,
     color: COLORS.slate300,
     flex: 1,
   },
@@ -332,7 +318,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     backgroundColor: COLORS.slate800,
     borderRadius: 12,
-    paddingVertical: 14, // ✅ Reduced from 16 to 14
+    paddingVertical: 16,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.slate700,

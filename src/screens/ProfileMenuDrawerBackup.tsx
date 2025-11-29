@@ -33,16 +33,6 @@ const ProfileMenuDrawer = () => {
       },
     },
     {
-      id: 'messages',
-      title: 'Messages',
-      subtitle: 'Chat with your friends',
-      icon: 'chatbubbles-outline',
-      color: COLORS.purple400,
-      onPress: () => {
-        navigation.navigate('MessagingScreen' as never);
-      },
-    },
-    {
       id: 'search',
       title: 'Search Users',
       subtitle: 'Find friends and creators',

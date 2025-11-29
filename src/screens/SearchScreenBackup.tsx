@@ -15,9 +15,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
 import { COLORS, GRADIENTS } from '../theme/colors';
-import { APP_ID, useAuth } from '../context/AuthContext';
+import { APP_ID } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
-import { dmService } from '../services/dmService';
 
 interface Profile {
   userId: string;
@@ -27,7 +26,6 @@ interface Profile {
 
 const SearchScreen = () => {
   const navigation = useNavigation();
-  const { userId: currentUserId } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<Profile[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -47,16 +45,9 @@ const SearchScreen = () => {
       const snapshot = await getDocs(profilesRef);
 
       const profiles = snapshot.docs
-        .map(doc => {
-          const data = doc.data();
-          return {
-            userId: data.userId || doc.id, // Use userId from data, or fallback to doc ID
-            channel: data.channel,
-            profilePictureUrl: data.profilePictureUrl || null,
-          };
-        })
+        .map(doc => doc.data() as Profile)
         .filter(profile =>
-          profile.channel?.toLowerCase().includes(term.toLowerCase()),
+          profile.channel.toLowerCase().includes(term.toLowerCase()),
         )
         .slice(0, 20);
 
@@ -73,72 +64,31 @@ const SearchScreen = () => {
     (navigation as any).navigate('Profile', { userId });
   };
 
-  const handleStartChat = async (otherUser: Profile) => {
-    if (!currentUserId || !otherUser.userId) {
-      console.error('Missing userId:', { currentUserId, otherUserId: otherUser.userId });
-      return;
-    }
-    
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
-    try {
-      // Get or create chat
-      const chatId = await dmService.getOrCreateChat(currentUserId, otherUser.userId);
-      
-      // Navigate to chat
-      (navigation as any).navigate('ChatScreen', {
-        chatId,
-        otherUserId: otherUser.userId,
-        otherUserName: otherUser.channel,
-        otherUserAvatar: otherUser.profilePictureUrl || '',
-      });
-    } catch (error) {
-      console.error('Error starting chat:', error);
-    }
-  };
-
   const renderResult = ({ item }: { item: Profile }) => {
     const initials = item.channel.replace('@', '').substring(0, 2).toUpperCase();
 
     return (
-      <View style={styles.resultCard}>
-        <TouchableOpacity
-          style={styles.userInfo}
-          onPress={() => handleViewProfile(item.userId)}
-          activeOpacity={0.7}
-        >
-          {item.profilePictureUrl ? (
-            <Image
-              source={{ uri: item.profilePictureUrl }}
-              style={styles.avatar}
-            />
-          ) : (
-            <LinearGradient
-              colors={getGradientForChannel(item.channel)}
-              style={styles.avatar}
-            >
-              <Text style={styles.initials}>{initials}</Text>
-            </LinearGradient>
-          )}
-          <Text style={styles.channel}>{item.channel}</Text>
-        </TouchableOpacity>
-
-        {/* Message Button */}
-        <TouchableOpacity
-          style={styles.messageButton}
-          onPress={() => handleStartChat(item)}
-          activeOpacity={0.7}
-        >
+      <TouchableOpacity
+        style={styles.resultCard}
+        onPress={() => handleViewProfile(item.userId)}
+        activeOpacity={0.7}
+      >
+        {item.profilePictureUrl ? (
+          <Image
+            source={{ uri: item.profilePictureUrl }}
+            style={styles.avatar}
+          />
+        ) : (
           <LinearGradient
-            colors={[COLORS.purple400, COLORS.pink500]}
-            style={styles.messageButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+            colors={getGradientForChannel(item.channel)}
+            style={styles.avatar}
           >
-            <Icon name="chatbubble" size={18} color={COLORS.white} />
+            <Text style={styles.initials}>{initials}</Text>
           </LinearGradient>
-        </TouchableOpacity>
-      </View>
+        )}
+        <Text style={styles.channel}>{item.channel}</Text>
+        <Icon name="chevron-forward-outline" size={20} color={COLORS.slate400} />
+      </TouchableOpacity>
     );
   };
 
@@ -265,11 +215,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.slate700,
   },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
   avatar: {
     width: 48,
     height: 48,
@@ -290,16 +235,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: COLORS.white,
-  },
-  messageButton: {
-    marginLeft: 12,
-  },
-  messageButtonGradient: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   emptyState: {
     alignItems: 'center',

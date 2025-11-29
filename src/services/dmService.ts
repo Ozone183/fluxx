@@ -52,13 +52,19 @@ class ChatService {
     
     if (!snapshot.exists()) {
       // Create new chat
-      await set(chatRef, {
+      const chatData = {
         participants: [userId1, userId2],
         createdAt: Date.now(),
         lastMessage: '',
         lastMessageTime: Date.now(),
         lastMessageSenderId: '',
-      });
+      };
+      
+      console.log('Creating chat with data:', chatData);
+      await set(chatRef, chatData);
+      
+      // Wait a moment for Firebase to process
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
     
     return chatId;
@@ -227,7 +233,7 @@ class ChatService {
             otherUserId,
             otherUserName: otherUserInfo.name || 'Unknown User',
             otherUserAvatar: otherUserInfo.avatar || '',
-            isOnline: otherUserInfo.isOnline || false,
+            isOnline: false, // Real online status will be added later
             unreadCount,
           });
         }
@@ -248,12 +254,24 @@ class ChatService {
     avatar: string;
     isOnline: boolean;
   }> {
-    // TODO: Replace with actual user data fetch from your users collection
-    const userRef = ref(database, `users/${userId}`);
-    const snapshot = await get(userRef);
-    
-    if (snapshot.exists()) {
-      return snapshot.val();
+    try {
+      const { firestore } = await import('../config/firebase');
+      const { doc, getDoc } = await import('firebase/firestore');
+      const { APP_ID } = await import('../context/AuthContext');
+      
+      const profileDocRef = doc(firestore, 'artifacts', APP_ID, 'public', 'data', 'profiles', userId);
+      const profileDoc = await getDoc(profileDocRef);
+      
+      if (profileDoc.exists()) {
+        const data = profileDoc.data();
+        return {
+          name: data.channel || 'User',
+          avatar: data.profilePictureUrl || '',
+          isOnline: false,
+        };
+      }
+    } catch (error) {
+      console.error('Error fetching user info:', error);
     }
     
     return {
